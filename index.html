@@ -1,0 +1,82 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+	<title>Tree Proof Generator</title>
+	<link rel="stylesheet" href="style.css" type="text/css">
+</head>
+<body>
+
+<div id="titlebar">
+	<a id="helplink" href="info.html">Help/Background</a>
+	<h2 id="title"><a id="titlelink" href=".">Tree Proof Generator</a></h2>
+	<a id="loglink" href="changelog.txt"><?=fgets(fopen("changelog.txt", "r"), 128)?></a>
+</div>
+
+<form action="." method="get" onsubmit="return false">
+<table id="formtable">
+	<tr>
+	<td></td>
+	<td id="symboltd"></td>
+	</tr>
+	<tr>
+	<td id="submittd"><input type="submit" value="Prove" class="orangeButton"></td>
+	<td><input type="text" size="60" name="flaField" id="flaField"></td>
+	</tr>
+	<tr>
+	<td>&nbsp;</td><td id="renderedFla" class="formula"></td></tr>
+</table>
+</form>
+
+<div id="statusBox">
+	<div id="statusHeader"> </div>
+	<div id="status"> </div>
+	<button id="statusStop" class="orangeButton">stop</button>
+</div>
+
+<div id="model"> </div>
+<div id="rootAnchor"> </div>
+
+<div id="paintBar">
+	<button id="paintStop" class="orangeButton">stop</button>
+	<button id="paintFaster" class="orangeButton">faster</button>
+</div>
+
+<?php
+$scripts = array("array", "translator", "prover", "sentree", "painter", "index");
+if ($_GET['debug'] || $_GET['comments']) {
+	$flag = $_GET['debug'] ? "debug" : "comments";
+	foreach ($scripts as $script) {
+		print "<script type='text/javascript' src='$script.$flag.js'></script>\n";
+	}
+}
+else {
+	$allscripts = implode("-", $scripts);
+	print "<script type='text/javascript' src='$allscripts.js'></script>\n";
+}
+?>
+
+<div id="intro">
+	<p>Enter a formula of propositional or predicate logic (without identity). 
+	Use LaTeX commands or the buttons on top of the text field to insert logical symbols.</p>
+	<p>Examples (click to see the proof):</p>
+	<script type="text/javascript">
+	var examples = [
+		"(p\\lor (q\\land r))\\to ((p\\lor q)\\land (p\\lor r))",
+		"((A\\to B)\\to A)\\to A",
+		"\\exists y\\forall x(Fy\\to Fx)",
+		"\\exists y\\exists z\\forall x((Fx\\to Gy)\\land (Gz\\to Fx))\\to\\forall x\\exists y(Fx\\leftrightarrow Gy)",
+		"N(0) \\land \\forall i (N(i) \\to N(s(i))) \\to N(s(s(s(0))))",
+		"\\forally\\existsx Fxy \\to \\existsx\\forally Fxy"
+	];
+	document.write("<ul>\n");
+	for (var i=0; i<examples.length; i++) {
+		document.write("<li><a class='formula' href='./?f=" + examples[i] + "' onclick='with (document.forms[0]) { flaField.value=\"" + examples[i].replace(/\\/g, "\\\\") + "\"; onsubmit(); }; return false'>" + laTeX2html(examples[i]) + "</a></li>\n");
+	}
+	document.write("</ul>\n");
+	</script>
+	<p>More detailed <a href="info.html">instructions and explanations are available here</a>.
+</div>
+
+</body>
+</html>

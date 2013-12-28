@@ -1,0 +1,57 @@
+v2.08 (2013-12-28)
+
+Fixed another bug in the translation of free-variable tableaux into sentence tableaux.
+
+v2.07 (2012-02-11)
+
+Fixed another bug in the translation of free-variable tableaux into sentence tableaux.
+
+v2.06 (2007-11-12)
+
+Fixed another bug in the translation of free-variable tableaux into sentence tableaux.
+
+v2.05 (2007-03-10)
+
+Made the proof search significantly faster in some cases; fixed a problem with
+overlapping nodes in the displayed tableau.
+
+v2.04 (2007-03-03)
+
+Fixed a bug in the translation of free-variable tableaux into sentence tableaux.
+
+v2.03 (2005-02-02)
+
+Removed the Herbrand restriction on the application of Gamma nodes, as it didn't handle
+terms with function symbols correctly.
+
+v2.02 (2004-08-30)
+
+Fixed two bugs in the translation of free-variable tableaux into sentence tableaux.
+
+v2.01 (2004-08-22)
+
+Improved the LaTeX parser and fixed some problems with displaying countermodels for formulas 
+that contain function expressions.
+
+v2.0 (2004-08-21)
+
+Various Bugfixes. The script is now served in a single gzipped file for faster page load. 
+Location changed to umsu.de/logik/trees/. The old version can be found at umsu.de/logik/oldtrees/.
+
+v2.0c (2004-08-19)
+
+Reorganized the code; Countermodels are now displayed for invalid formulas; various other small 
+improvements. 
+
+v2.0b (2004-07-28)
+
+Backtracking now both on number of nodes and on number of free variables. That speeds up many 
+proofs.
+
+v2.0a' (2004-07-20)
+
+Added some workarounds to make it run on IE.
+
+v2.0a (2004-07-18)
+
+First public version of the almost completely rewritten prover.
