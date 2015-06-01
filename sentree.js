@@ -294,17 +294,21 @@ function SenTree(fvTree) {
    }
 
    function removeUnusedNodes() {
-      // If the tree os closed, the used ancestors of all complementary pairs are already 
-      // marked .used, except DN formulas that didn't exist on the original tree. We mark 
-      // these .used and also the other node of a used ALPHA or BETA expansion:
+      // If the tree is closed, the used ancestors of all complementary pairs are already 
+      // marked .used, except DN elim formulas that didn't exist on the original tree. 
+      // We mark these .used and also the other node of a used ALPHA or BETA expansion:
       if (!tree.isClosed) return;
       for (var i=0; i<tree.nodes.length; i++) {
-         if (!tree.nodes[i].used) continue;
          var node = tree.nodes[i];
-         if (node.formula[0] == tc.NEGATION && node.formula[1][0] == tc.NEGATION && node.children[0]) node.children[0].used = true;
+         if (!node.used) {
+             if (node.developedFrom && node.developedFrom.used &&
+                 node.developedFrom.formula[0] == tc.NEGATION && node.developedFrom.formula[1][0] == tc.NEGATION) {
+                 node.used = true;
+             }
+             continue;
+         }
          if (!node.developedFrom) continue;
          var expansion = tree.getExpansion(node);
-         debug("node: "+node+", from "+node.developedFrom+" ("+node.developedFrom.type+"), from.used: "+node.developedFrom.used+", node.used: "+node.used+", expansion: "+expansion);
          for (var j=0; j<expansion.length; j++) expansion[j].used = true;
       }
       for (var i=0; i<tree.nodes.length; i++) {
@@ -317,7 +321,6 @@ function SenTree(fvTree) {
       var translations = {};
       for (var n=0; n<tree.nodes.length; n++) {
          var terms = getComplexTerms(tree.nodes[n].formula);
-         debug(tree.nodes[n].formula + " has terms " + terms);
          termLoop:
          for (var c=0; c<terms.length; c++) {
             if (okConstants.contains(terms[c][0])) continue termLoop;
@@ -400,7 +403,7 @@ SenTree.prototype.toString = function() {
    function getTree(node) {
       var recursionDepth = arguments[1] || 0;
       if (++recursionDepth > 40) return "<b>...<br>[max recursion]</b>";
-      var res = node + (node.closedEnd ? "<br>x<br>" : "<br>");
+      var res = (node.used ? '.' : '') + node + (node.closedEnd ? "<br>x<br>" : "<br>");
       if (node.children[1]) res += "<table><tr><td align='center' valign='top' style='font-family:monospace; border-top:1px solid #999; padding:3px; border-right:1px solid #999'>" + getTree(node.children[0], recursionDepth) + "</td>\n<td align='center' valign='top' style='padding:3px; border-top:1px solid #999; font-family:monospace'>" + getTree(node.children[1], recursionDepth) + "</td>\n</tr></table>";
       else if (node.children[0]) res += getTree(node.children[0], recursionDepth);
       return res;

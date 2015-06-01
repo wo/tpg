@@ -135,11 +135,14 @@ Array.prototype.substitute = function(origTerm, newTerm, shallow) {
 		this[2].substitute(origTerm, newTerm, shallow);
 		return this;
 	}
-	// fla is atomic or term:
+	if (this[0] % 3 == 1) { // fla is atomic
+		this[1].substitute(origTerm, newTerm, shallow);
+ 	}
+ 	// fla is term list (predicate arguments or function application)
 	for (var i=0; i<this.length; i++) {
 		if (this[i].isArray) {
 			if (this[i].equals(origTerm)) this[i] = newTerm;
-			else if (this[i][0] % 3 != 2 || !shallow) this[i].substitute(origTerm, newTerm, shallow);
+			else if (!shallow) this[i].substitute(origTerm, newTerm, shallow);
 		}
 		else if (this[i] == origTerm) this[i] = newTerm;
 	}

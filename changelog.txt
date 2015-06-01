@@ -1,3 +1,7 @@
+v2.09 (2015-03-04)
+
+Fixed two more bugs in the translation of free-variable tableaux into sentence tableaux.
+
 v2.08 (2013-12-28)
 
 Fixed another bug in the translation of free-variable tableaux into sentence tableaux.

@@ -55,8 +55,8 @@ function Translator() {
 	// the original symbol, if there is one.  If not, the following symbols (plus indices)
 	// are used:
 	this.nonlogSymbols = [];
-	this.nonlogSymbols[tc.VARIABLE]  = ["x","y","z","w","u","t","s"];
-	this.nonlogSymbols[tc.CONSTANT]  = ["a","b","c","d","e"];
+	this.nonlogSymbols[tc.VARIABLE]  = ["x","y","z","w","v","u","t","s"];
+	this.nonlogSymbols[tc.CONSTANT]  = ["a","b","c","d","e","f","g","h","k"];
 	this.nonlogSymbols[tc.PREDICATE] = ["P","Q","R","S","A","B","C","D","E"];
 	
 	this.error = "";  // holds the error message when a LaTeX string could not be parsed

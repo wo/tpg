@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+
+
+
+<html>
+
+<head>
+
+<title>Tree Proof Generator: Examples</title>
+
+
+
+<style type="text/css">
+
+body { padding-left:60px; padding-top:20px; font-family:Verdana,Arial,sans-serif; font-size:11pt; }
+
+#title { background-color:#EAB700; border:1px outset #EAB700; padding:2px; text-align:center; color:#000033; font-weight:bold; font-size:22px; }
+
+td.menu { background-color:#EAB700; border:1px outset #EAB700; padding:2px; text-align:center; }
+
+td.menuhi { background-color:#F6DE00; border:1px outset #EAB700; padding:2px; text-align:center; }
+
+td.menu:hover { background-color:#F6DE00; }
+
+a.menu { text-decoration:none; color:#000000; font-size:14px; font-weight:bold; }
+
+.content { width:500px; position:absolute; left:110px; top:130px; border-left:1px solid #EAB700; border-right:1px solid #EAB700; padding:10px; }
+
+.code { font-family:Arial,Helvetica,sans-serif; font-size:16px; color:#660000; text-decoration:none; }
+
+</style>
+
+
+
+</head>
+
+
+
+<body>
+
+
+
+<table cellspacing="0" cellpadding="0" width="600">
+
+<tr><td id="title" colspan="5">Tree Proof Generator</td></tr>
+
+<tr>
+
+<td class="menu">&nbsp;<a class="menu" href="index.html">New Proof</a> </td>
+
+<td class="menuhi">&nbsp;<a class="menu" href="examples.php">Examples</a> </td>
+
+<td class="menu">&nbsp;<a class="menu" href="help.html"> &nbsp; Help &nbsp; </a> </td>
+
+<td class="menu">&nbsp;<a class="menu" href="feedback.html">Feedback</a> </td>
+
+</tr>
+
+</table>
+
+
+
+<div id="content1a" class="content">
+
+
+
+<p>Click on a formula to see its tree proof:</p>
+
+
+
+<p><a href="." class="code" onclick="location.href='index.html?f='+escape('A\\wedge\\negA\\toB');return false">A<img src="wedge.gif" alt="and" align="top" border="0"><img src="neg.gif" alt="not" align="top" border="0">A<img src="to.gif" alt="then" align="top" border="0">B</a></p>
+
+
+
+<p><a href="." class="code" onclick="location.href='index.html?f='+escape('\\neg(A\\wedgeB)\\leftrightarrow\\negA\\vee\\negB');return false"><img src="neg.gif" border="0" alt="not " align="top">(A <img src="wedge.gif" border="0" alt="and" align="top"> B) <img src="leftrightarrow.gif" border="0" alt="iff" align="top"> <img src="neg.gif" border="0" alt="not " align="top">A <img src="vee.gif" border="0" alt="or" align="top"> <img src="neg.gif" border="0" alt="not " align="top">B</a></p>
+
+
+
+<p><a href="." class="code" onclick="location.href='index.html?f='+escape('(A\\to(B\\toC))\\to((A\\toB)\\to(A\\toC))');return false">(A<img src="to.gif" alt="then" align="top" border="0">(B<img src="to.gif" alt="then" align="top" border="0">C))<img src="to.gif" alt="then" align="top" border="0">((A<img src="to.gif" alt="then" align="top" border="0">B)<img src="to.gif" alt="then" align="top" border="0">(A<img src="to.gif" alt="then" align="top" border="0">C))</a></p>
+
+
+
+<p><a href="." class="code" onclick="location.href='index.html?f='+escape('((A\\toB)\\toA)\\toA');return false">((A<img src="to.gif" alt="then" align="top" border="0">B)<img src="to.gif" alt="then" align="top" border="0">A)<img src="to.gif" alt="then" align="top" border="0">A</a></p>
+
+
+
+<p><a href="." class="code" onclick="location.href='index.html?f='+escape('(\\forallxFx\\to\\neg\\forallx\\negGx)\\to\\neg\\forallx\\neg(Fx\\toGx)');return false">(<img src="forall.gif" alt="for all" align="top" border="0">xFx<img src="to.gif" alt="then" align="top" border="0"><img src="neg.gif" alt="not" align="top" border="0"><img src="forall.gif" alt="for all" align="top" border="0">x<img src="neg.gif" alt="not" align="top" border="0">Gx)<img src="to.gif" alt="then" align="top" border="0"><img src="neg.gif" alt="not" align="top" border="0"><img src="forall.gif" alt="for all" align="top" border="0">x<img src="neg.gif" alt="not" align="top" border="0">(Fx<img src="to.gif" alt="then" align="top" border="0">Gx)</a></p>
+
+
+
+<p><a href="." class="code" onclick="location.href='index.html?f='+escape('');return false"></a> </p>
+
+
+
+
+
+<p>These are not valid:</p>
+
+
+
+<p><a href="." class="code" onclick="location.href='index.html?f='+escape('\\forallx\\forally\\forallz(Fxy\\wedgeFyz\\toFxz)\\wedge\\forallx\\forally(Fxy\\toFyx)\\to\\forallxFxx');return false"><img src="forall.gif" alt="for all" align="top" border="0">x<img src="forall.gif" alt="for all" align="top" border="0">y<img src="forall.gif" alt="for all" align="top" border="0">z(Fxy<img src="wedge.gif" alt="and" align="top" border="0">Fyz<img src="to.gif" alt="then" align="top" border="0">Fxz)<img src="wedge.gif" alt="and" align="top" border="0"><img src="forall.gif" alt="for all" align="top" border="0">x<img src="forall.gif" alt="for all" align="top" border="0">y(Fxy<img src="to.gif" alt="then" align="top" border="0">Fyx)<img src="to.gif" alt="then" align="top" border="0"><img src="forall.gif" alt="for all" align="top" border="0">xFxx</a>
+
+
+
+<p><a href="." class="code" onclick="location.href='index.html?f='+escape('\\forallx\\forally\\forallz(Fxy\\wedgeFxz\\toFyz)\\wedge\\forallx\\forally(Fxy\\toFyx)\\wedge\\existsx\\existsyFxy\\to\\forallxFxx');return false"><img src="forall.gif" alt="for all" align="top" border="0">x<img src="forall.gif" alt="for all" align="top" border="0">y<img src="forall.gif" alt="for all" align="top" border="0">z(Fxy<img src="wedge.gif" alt="and" align="top" border="0">Fxz<img src="to.gif" alt="then" align="top" border="0">Fyz)<img src="wedge.gif" alt="and" align="top" border="0"><img src="forall.gif" alt="for all" align="top" border="0">x<img src="forall.gif" alt="for all" align="top" border="0">y(Fxy<img src="to.gif" alt="then" align="top" border="0">Fyx)<img src="wedge.gif" alt="and" align="top" border="0"><img src="exists.gif" alt="exists" align="top" border="0">x<img src="exists.gif" alt="exists" align="top" border="0">yFxy<img src="to.gif" alt="then" align="top" border="0"><img src="forall.gif" alt="for all" align="top" border="0">xFxx</a>
+
+
+
+
+
+</div>
+
+
+
+</body>
+
+</html>
+

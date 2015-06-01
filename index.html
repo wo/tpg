@@ -44,7 +44,7 @@
 
 <?php
 $scripts = array("array", "translator", "prover", "sentree", "painter", "index");
-if ($_GET['debug'] || $_GET['comments']) {
+if (isset($_GET['debug']) || isset($_GET['comments'])) {
 	$flag = $_GET['debug'] ? "debug" : "comments";
 	foreach ($scripts as $script) {
 		print "<script type='text/javascript' src='$script.$flag.js'></script>\n";

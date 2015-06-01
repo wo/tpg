@@ -1,0 +1,236 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+
+<html>
+<head>
+<title>Tree Proof Generator</title>
+
+<style type="text/css">
+body { padding-left:60px; padding-top:20px; font-family:Verdana,Arial,sans-serif; font-size:11pt; }
+#logDiv { position:absolute; left:110px; top:125px; border:1px solid #EAB700; width:515px; text-align:center; visibility:hidden; }
+.logDivContent { position:absolute; left:0px; top:0px;  width:515px; text-align:center; }
+#stopDiv { position:absolute; left:110px; top:180px; width:515px; text-align:center; visibility:hidden; }
+#showTreeDiv { position:absolute; left:110px; top:185px; width:515px; text-align:center; visibility:hidden; }
+#title { background-color:#EAB700; border:1px outset #EAB700; padding:2px; text-align:center; color:#000033; font-weight:bold; font-size:22px; }
+td.menu { background-color:#EAB700; border:1px outset #EAB700; padding:2px; text-align:center; }
+td.menuhi { background-color:#F6DE00; border:1px outset #EAB700; padding:2px; text-align:center; }
+td.menu:hover { background-color:#F6DE00; }
+a.menu { text-decoration:none; color:#000000; font-size:14px; font-weight:bold; }
+a { color:#996600; }
+#startstopDiv1, #startstopDiv2 { position:absolute; visibility:hidden; z-index:100; width:100px; height:50px; text-align:center; }
+.yelButton { background-color:#F6DE00; border-color:#F6DE00; }
+.code { font-family:Arial,Helvetica,sans-serif; font-size:16px; font-weight:normal; color:#660000; }
+.knoten { position:absolute; left:-100px; top:0; white-space:pre; color:#666666; font-family:Arial,Helvetica,sans-serif; font-size:16px; }
+.linie { position:absolute; left:0; top:0; background-color:#660000; width:1px; height:1px; clip:rect(0px 1px 1px 0px); }
+</style>
+
+<script language="JavaScript" type="text/javascript" src="formulas.js"></script>
+<script language="JavaScript" type="text/javascript" src="parser.js"></script>
+<script language="JavaScript" type="text/javascript" src="tree.js"></script>
+<script language="JavaScript" type="text/javascript" src="treeprover.js"></script>
+<script language="JavaScript" type="text/javascript" src="treeprinter.js"></script>
+<script language="JavaScript" type="text/javascript">
+
+/** All scripts (c) Wolfgang Schwarz 2002, wolfgang@umsu.de. **/
+
+function show(el) {
+	if (document.layers) document.layers[el].visibility = "visible";
+	else document.getElementById(el).style.visibility = "visible";
+}
+
+function hide(el) {
+	if (document.layers) document.layers[el].visibility = "hidden";
+	else document.getElementById(el).style.visibility = "hidden";
+}
+
+function pos(el,x,y) {
+	if (document.layers) {
+		document.layers[el].left = x;
+		document.layers[el].top = y;
+	}
+	else {
+		document.getElementById(el).style.left = x+"px";
+		document.getElementById(el).style.top = y+"px";
+	}
+}
+
+function treeLog(html) {
+	if (document.layers) {
+		document.logDiv.document.write("<span class='logDivContent'>"+html+"</span>");
+		document.logDiv.document.close();
+	}
+	else if (document.getElementById) {
+		document.getElementById("logDiv").innerHTML = html;
+	}
+}
+
+function fertig() {
+	hide("stopDiv");
+	switch (root.result) {
+		case "timeout" :
+			treeLog("Halted while searching for a proof of<br><span class='code'>" + parser.getString(formula) + "</span><br>("+root.tree.num+" nodes, "+root.tree.undeveloped.length+" unticked, "+root.tree.numOpen+" open branches, "+root.tree.terms.length+" constants)");
+			show("showTreeDiv");
+			break;
+		case "open" :
+			treeLog("<span class='code'>" + parser.getString(formula) + "</span><br>is not valid ("+root.tree.num+" nodes, "+root.tree.numOpen+" open branches):");
+			setTimeout("entwickle()",0);
+			break;
+		case "closed" :
+			treeLog("<span class='code'>" + parser.getString(formula) + "</span><br>is valid ("+root.tree.num+" nodes):");
+			setTimeout("entwickle()",0);
+			break;
+	}
+}
+
+function updateVisibleCounterparts(node, depth) {
+	if (depth <= 0) return;
+	var fla = parser.getString(node.getFormula());
+	if (node.closed) fla += "<br><b>x</b>";
+	if (!node.visibleCounterpart) node.visibleCounterpart = node.parent.visibleCounterpart.appendChild(fla);
+	for (var i=0; i<node.children.length; i++) updateVisibleCounterparts(node.children[i], depth-1);
+}
+
+nodeCounter = 0;
+function entwickle() {
+	startstopDivRepos();
+	root.nodeNumber = ++nodeCounter;
+	var fla = root.nodeNumber + ". &nbsp; <span class='code'>" + parser.getString(root.getFormula()) + "</span> &nbsp; &nbsp; ";
+	root.visibleCounterpart = new Knoten(fla);
+	reflowTree(root.visibleCounterpart);
+	setTimeout("nextStep()",500);
+}
+
+hiLightedNodes = [];
+function nextStep(oneStepOnly) {
+	for (var i=hiLightedNodes.length; i>0; i--) {
+		hiLightedNodes.pop().setBgColor("#FFFFFF");
+	}
+	if (self.stopDraw) {
+		hide("startstopDiv1");
+		show("startstopDiv2");
+		return;
+	}
+	if (!oneStepOnly) {
+		hide("startstopDiv2");
+		show("startstopDiv1");
+	}
+	var node = getFirstUnPrinted(root);
+	if (!node) {
+		hide("startstopDiv1");
+		hide("startstopDiv2");
+		return false;
+	}
+	var from = node.developedFrom;
+	var nodes = [node];
+	switch (from.type) {
+		case tc.CONJUNCTION : case tc.NDISJUNCTION : case tc.NIMPLICATION :
+			nodes[1] = node.children[0];
+			break;
+		case tc.NCONJUNCTION : case tc.DISJUNCTION : case tc.IMPLICATION :
+			nodes[1] = node.parent.children[1];
+			break;
+		case tc.BIIMPLICATION : case tc.NBIIMPLICATION :
+			nodes[1] = node.children[0];
+			nodes[2] = node.parent.children[1];
+			nodes[3] = node.parent.children[1].children[0];
+		default : 
+			;
+	}
+	for (var i=0; i<nodes.length; i++) {
+		nodes[i].nodeNumber = ++nodeCounter;
+		var fla = nodes[i].nodeNumber + ". &nbsp; <span class='code'>" + parser.getString(nodes[i].getFormula()) + "</span> &nbsp; (" + from.nodeNumber +")";
+		nodes[i].visibleCounterpart = nodes[i].parent.visibleCounterpart.appendChild(fla);
+		if (nodes[i].closed) nodes[i].visibleCounterpart.appendChild("<b>x</b>");
+		hiLightedNodes[i] = nodes[i].visibleCounterpart;
+		hiLightedNodes[i].setBgColor("#F6DE00");
+	}
+	hiLightedNodes.push(from.visibleCounterpart);
+	from.visibleCounterpart.setBgColor("#EAB700");
+alert(0);
+	reflowTree(root.visibleCounterpart);
+alert(10);
+	if (!oneStepOnly) setTimeout("nextStep()",500);
+}
+
+// returns first node (below argument) not yet printed:
+function getFirstUnPrinted(node) {
+	if (!node.visibleCounterpart) return node;
+	for (var i=0; i<node.children.length; i++) {
+		var res =getFirstUnPrinted(node.children[i]);
+		if (res) return res;
+	}
+	return false;
+}
+
+function startstopDivRepos() {
+	if (document.all) {
+		document.body.onscroll = function repos() {
+			var left = document.body.scrollLeft + document.body.clientWidth;
+			var top = document.body.scrollTop + document.body.clientHeight;
+			pos("startstopDiv1",left-130,top-70);
+			pos("startstopDiv2",left-130,top-70);
+		}
+		repos();
+	}
+	else if (document.getElementById) {
+		document.getElementById("startstopDiv1").style.position="fixed";
+		document.getElementById("startstopDiv2").style.position="fixed";
+		pos("startstopDiv1",innerWidth-130,innerHeight-70);
+		pos("startstopDiv2",innerWidth-130,innerHeight-70);
+	}
+	else {
+		var left = innerWidth + pageXOffset;
+		var top = innerHeight + pageYOffset;
+		pos("startstopDiv1",left-130,top-70);
+		pos("startstopDiv2",left-130,top-70);
+		setTimeout("startstopDivRepos()",200);
+	}
+}
+
+onload = function() {
+	if (location.search.match(/\?f=/)) {
+		var fla = unescape(location.search.substr(3));
+		self.formula = parser.parseTeX(fla);
+		if (!formula) self.location.href = "index.html?f=" + escape(fla);
+		show("logDiv");
+		show("stopDiv");
+		makeTree(formula.negate(), fertig);
+	}
+	else {
+		self.location.href = "index.html";
+	}
+}
+
+</script>
+
+</head>
+
+<body>
+
+<table cellspacing="0" cellpadding="0" width="600">
+<tr><td id="title" colspan="5">Tree Proof Generator</td></tr>
+<tr>
+<td class="menuhi">&nbsp;<a class="menu" href="index.html">New Proof</a> </td>
+<td class="menu">&nbsp;<a class="menu" href="examples.php">Examples</a> </td>
+<td class="menu">&nbsp;<a class="menu" href="help.html"> &nbsp; Help &nbsp; </a> </td>
+<td class="menu">&nbsp;<a class="menu" href="feedback.html">Feedback</a> </td>
+</tr>
+</table>
+
+<div id="logDiv"></div>
+<div id="showTreeDiv">
+<form action="." method="get"><input type="button" class="yelButton" value="Show incomplete tree" onclick="hide('showTreeDiv');entwickle()"></form>
+</div>
+<div id="stopDiv">
+<form action="." method="get"><input type="button" class="yelButton" value="Stop" onclick="self.stopProof=true"></form>
+</div>
+<div id="startstopDiv1">
+<br>
+<form action="." method="get"><input type="button" class="yelButton" value="Stop" onclick="self.stopDraw=true"></form>
+</div>
+<div id="startstopDiv2">
+<form action="." method="get"><input type="button" class="yelButton" value="Continue" onclick="self.stopDraw=false;setTimeout('nextStep()',1)"><br>
+<input type="button" class="yelButton" value="Step" onclick="self.stopDraw=false;setTimeout('nextStep(1)',1)"></form>
+</div>
+
+</body>
+</html>

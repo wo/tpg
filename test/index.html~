@@ -1,0 +1,306 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+
+
+
+<html>
+
+<head>
+
+<title>Tree Proof Generator</title>
+
+<meta name="Description" content="This site creates tree proofs (semantic tableaux) for any formula of propositional or predicate logic">
+
+<meta name="Keywords" content="tree, proof, prove, tree proof, semantic, tableau, tableaux, tableaus, semantic tableau, deduction, logic, predicate, propositional, formal, Gentzen, Hintikka, sequence, javascript">
+
+
+
+<style type="text/css">
+
+body { padding-left:60px; padding-top:20px; font-family:Verdana,Arial,sans-serif; font-size:11pt; }
+
+.latex { color:#990000; }
+
+#title { background-color:#EAB700; border:1px outset #EAB700; padding:2px; text-align:center; color:#000033; font-weight:bold; font-size:22px; }
+
+td.menu { background-color:#EAB700; border:1px outset #EAB700; padding:2px; text-align:center; }
+
+td.menuhi { background-color:#F6DE00; border:1px outset #EAB700; padding:2px; text-align:center; }
+
+td.menu:hover { background-color:#F6DE00; }
+
+a.menu { text-decoration:none; color:#000000; font-size:14px; font-weight:bold; }
+
+a { color:#996600; }
+
+.content { width:500px; position:absolute; left:110px; top:130px; border-left:1px solid #EAB700; border-right:1px solid #EAB700; padding:10px; }
+
+#symboltd { height:40px; vertical-align:bottom; }
+
+#renderedtd { height:40px; vertical-align:top; font-family:Arial,Helvetica,sans-serif; font-size:16px; font-weight:normal; color:#660000; }
+
+#flaInput { font-family:Arial,Helvetica,sans-serif; font-size:16px; width:350px; }
+
+.code { font-family:Arial,Helvetica,sans-serif; font-size:16px; font-weight:normal; color:#660000; }
+
+</style>
+
+
+
+<script language="JavaScript" type="text/javascript" src="formulas.js"></script>
+
+<script language="JavaScript" type="text/javascript" src="parser.js"></script>
+
+<script language="JavaScript" type="text/javascript">
+
+
+
+/** All scripts (c) Wolfgang Schwarz 2002, wolfgang@umsu.de. **/
+
+
+
+function starte(fla) {
+
+	self.formula = parser.parseTeX(fla);
+
+	if (!formula) {
+
+		alert("Invalid formula.\n"+parser.error);
+
+		parser.reset();
+
+		return;
+
+	}
+
+	self.location.href = "proof.html?f=" + escape(fla);
+
+}
+
+
+
+</script>
+
+
+
+</head>
+
+
+
+<body>
+
+
+
+<table cellspacing="0" cellpadding="0" width="600">
+
+<tr><td id="title" colspan="5">Tree Proof Generator</td></tr>
+
+<tr>
+
+<td class="menuhi">&nbsp;<a class="menu" href="index.html">New Proof</a> </td>
+
+<td class="menu">&nbsp;<a class="menu" href="examples.php">Examples</a> </td>
+
+<td class="menu">&nbsp;<a class="menu" href="help.html"> &nbsp; Help &nbsp; </a> </td>
+
+<td class="menu">&nbsp;<a class="menu" href="feedback.html">Feedback</a> </td>
+
+</tr>
+
+</table>
+
+
+
+<div id="content1a" class="content">
+
+
+
+<form action="index.html" method="get" onsubmit="starte(this.f.value);return false">
+
+<table cellpadding="3" cellspacing="0" bgcolor="#eeeeee">
+
+<tr>
+
+<td>&nbsp;</td>
+
+<td id="symboltd">
+
+<img src="butu.gif" width="21" height="21" alt="insert universal quantifier" title="insert universal quantifier" onmouseup="add2fla('\\forall')">
+
+<img src="bute.gif" width="21" height="21" alt="insert existential quantifier" title="insert existential quantifier" onmouseup="add2fla('\\exists')">
+
+<img src="bneg.gif" width="21" height="21" alt="insert negation symbol" title="insert negation symbol" onmouseup="add2fla('\\lnot')">
+
+<img src="band.gif" width="21" height="21" alt="insert AND" title="insert AND" onmouseup="add2fla('\\wedge')">
+
+<img src="bor.gif" width="21" height="21" alt="insert OR" title="insert OR" onmouseup="add2fla('\\vee')">
+
+<img src="bimpl.gif" width="21" height="21" alt="insert implication symbol" title="insert implication symbol" onmouseup="add2fla('\\to')">
+
+<img src="bbiimpl.gif" width="21" height="21" alt="insert biimplication symbol" title="insert biimplication symbol" onmouseup="add2fla('\\leftrightarrow')">
+
+</td>
+
+<td>&nbsp;</td>
+
+</tr><tr>
+
+<td>Formula: </td>
+
+<td><input type="text" name="f" id="flaInput"></td>
+
+<td><input type="submit" value="Prove!"></td>
+
+</tr><tr>
+
+<td>&nbsp;</td>
+
+<td id="renderedtd"><img src="transp.gif" width="1" height="1" alt="" name="flaLocation"></td>
+
+<td>&nbsp;</td>
+
+</tr>
+
+</table>
+
+</form>
+
+
+
+<p>Enter a well-formed formula of a standard propositional or predicate language (<i>without function symbols and without identity</i>). 
+
+Use LaTeX commands or the buttons on top of the text field to insert logical symbols. 
+
+The properly rendered formula will appear below the text field.</p>
+
+
+
+<p>Some examples of well-formed formulas:
+
+<blockquote>
+
+<span class="code">p <img src="vee.gif" alt="or" align="top"> <img src="neg.gif" alt="not" align="top">p</span><br>
+
+<span class="code">A <img src="wedge.gif" alt="and" align="top"> B <img src="to.gif" alt="then" align="top"> C </span><br>
+
+<span class="code">(p <img src="to.gif" alt="then" align="top"> (Ga <img src="leftrightarrow.gif" alt="iff" align="top"> Ga))</span><br>
+
+<span class="code"><img src="exists.gif" alt="exists " align="top">x<img src="forall.gif" alt="for all " align="top">y Fxy <img src="to.gif" alt="then" align="top"> <img src="neg.gif" alt="not " align="top"><img src="neg.gif" alt="not " align="top"><img src="exists.gif" alt="exists " align="top">u<img src="exists.gif" alt=" exists " align="top">v Fvu</span><br>
+
+</blockquote>
+
+For more detailed instructions have a look at the <a href="help.html">help section</a>.
+
+</p>
+
+
+
+</div>
+
+
+
+<script language="JavaScript" type="text/javascript">
+
+
+
+// Code fuer's Formular:
+
+
+
+flaFeld = document.layers? document.content1a.document.forms[0].f : document.forms[0].f;
+
+
+
+onload = function() {
+
+	if (document.layers) {
+
+		document.renderedFla = new Layer(200, document.content1a);
+
+		document.renderedFla.position = "absolute";
+
+		document.renderedFla.left = document.content1a.document.flaLocation.x;
+
+		document.renderedFla.top = document.content1a.document.flaLocation.y;
+
+		document.renderedFla.visibility = "inherit";
+
+		document.captureEvents(Event.KEYPRESS);
+
+		document.onkeypress = function() { setTimeout(renderFla,10); }
+
+	}
+
+	else document.onkeypress = renderFla;
+
+	if (location.search.match(/\?f=/)) {
+
+		var fla = unescape(location.search.substr(3));
+
+		add2fla(fla);
+
+		starte(fla);
+
+	}
+
+}
+
+
+
+function add2fla(str) {
+
+	flaFeld.value += str;
+
+	flaFeld.focus();
+
+	renderFla();
+
+}
+
+
+
+function renderFla() {
+
+	var str = flaFeld.value;
+
+	str = str.replace(/\\forall[\{ ]?\}?/g, '<img src="forall.gif" alt="for all" align="top">');
+
+	str = str.replace(/\\exists[\{ ]?\}?/g, '<img src="exists.gif" alt="there is an" align="top">');
+
+	str = str.replace(/(\\neg|\\lnot)[\{ ]?\}?/g, '<img src="neg.gif" alt="not" align="top">');
+
+	str = str.replace(/(\\vee|\\lor)[\{ ]?\}?/g, '<img src="vee.gif" alt="or" align="top">');
+
+	str = str.replace(/(\\wedge|\\land)[\{ ]?\}?/g, '<img src="wedge.gif" alt="and" align="top">');
+
+	str = str.replace(/(\\to|\\rightarrow)[\{ ]?\}?/g, '<img src="to.gif" alt="then" align="top">');
+
+	str = str.replace(/\\leftrightarrow[\{ ]?\}?/g, '<img src="leftrightarrow.gif" alt="iff" align="top">');
+
+	str = str.replace(/(\\.*)/, '<span class="latex">$1</span>');
+
+	if (document.layers) {
+
+		document.renderedFla.document.write("<span class='code'>"+str+"</span>");
+
+		document.renderedFla.document.close();
+
+	}
+
+	else {
+
+		document.getElementById("renderedtd").innerHTML = str;
+
+	}
+
+}
+
+
+
+</script>
+
+
+
+</body>
+
+</html>
+

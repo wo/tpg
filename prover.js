@@ -277,7 +277,7 @@ Tree.prototype.toString = function() {
 				if (!children.contains(branches[i].nodes[j])) children.push(branches[i].nodes[j]);
 			}
 		}
-		var res = node + (node.__markClosed ? "<br>x<br>" : "<br>");
+		var res = (node.used ? '.' : '') + node + (node.__markClosed ? "<br>x<br>" : "<br>");
 		if (children[1]) res += "<table><tr><td align='center' valign='top' style='font-family:monospace; border-top:1px solid #999; padding:3px; border-right:1px solid #999'>" + getTree(children[0], recursionDepth) + "</td>\n<td align='center' valign='top' style='padding:3px; border-top:1px solid #999; font-family:monospace'>" + getTree(children[1], recursionDepth) + "</td>\n</tr></table>";
 		else if (children[0]) res += getTree(children[0], recursionDepth);
 		return res;
@@ -348,7 +348,7 @@ Branch.prototype.expand = function(fastMode) {
 			var newTerm = this.constants.length ? this.constants[this.constants.length-1] + 3 : 2;
 			this.constants.push(newTerm);
 			// It suffices to skolemize on variables contained in this formula. This makes some proofs much faster. 
-			// However, translation into sentence tableau then beacomes almost impossible. Consider Ax(Fx & Ey~Fy).
+			// However, translation into sentence tableau then becomes almost impossible. Consider Ax(Fx & Ey~Fy).
 			var freeVars = fastMode ? node.formula.getFreeVariables() : this.freeVariables.copy();
 			if (freeVars.length !== 0) {
 				freeVars.unshift(newTerm);
