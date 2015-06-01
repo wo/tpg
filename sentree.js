@@ -317,6 +317,7 @@ function SenTree(fvTree) {
       var translations = {};
       for (var n=0; n<tree.nodes.length; n++) {
          var terms = getComplexTerms(tree.nodes[n].formula);
+         debug(tree.nodes[n].formula + " has terms " + terms);
          termLoop:
          for (var c=0; c<terms.length; c++) {
             if (okConstants.contains(terms[c][0])) continue termLoop;
