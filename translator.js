@@ -22,7 +22,7 @@
 //    latex2fla = function(str)                  translates LaTeX -> internal
 //    fla2html = function(formula)               translates internal -> HTML
 //    sym2html = function(internal)              translates internal -> HTML for single symbols        
-//    term2html = function(internal)            translates internal -> HTML for a term        
+//    term2html = function(internal)             translates internal -> HTML for a term        
 //    html2sym = function(readable, type)        translates HTML -> internal for single symbols
 //
 
@@ -74,7 +74,7 @@ function Translator() {
 	
 	this.latex2fla = function(str) {
 		// parse a first-order sentence in LaTeX encoding, returns an internal representation of the sentence.
-		var boundVars = arguments[1] || [];
+ 		var boundVars = arguments[1] ? arguments[1].slice() : [];
 		debug("parsing '"+str+"' (boundVars "+boundVars+")");
 		
 		str = str.replace(/[{}]/g, "");           // remove curly LaTeX brackets
