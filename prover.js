@@ -52,10 +52,9 @@
 //
 // and methods
 //
-//    expand(fastMode)   expand the next formula on the branch
-//    copy()             copies the branch (for BETA expansions)
-//    merge()            deletes other branches if they are subsumed
-//                       by this branch (see function definition)
+//    expand()      expand the next formula on the branch
+//    copy()        copies the branch (for BETA expansions)
+//    merge()       deletes other branches if they are subsumed by this branch
 //
 // Finally, nodes are instances of
 //
@@ -105,9 +104,6 @@ tc.register("GAMMA");
 
 prover = {
     debug : true,
-    fastMode : false,
-    // fastMode uses advanced techniques like merging that can't be
-    // translated back into sentence tableaux, always turned off atm.
     nodeLimitFactor : 4,
     // depthLimit * nodeLimitFactor is the upper bound for number of
     // nodes on a branch; value empirically chosen
@@ -372,7 +368,7 @@ function Branch(tree, nodes, unexpanded, literals, freeVariables, constants) {
     this.id = self.__branchId ? self.__branchId++ : (self.__branchId = 1);
 }
 
-Branch.prototype.expand = function(fastMode) {
+Branch.prototype.expand = function() {
     var node = this.unexpanded.shift();
     if (!node) {
         debug("*** branch remains open!"); 
@@ -388,7 +384,7 @@ Branch.prototype.expand = function(fastMode) {
             this.tree.openBranches.unshift(this.copy());
             this.tree.openBranches[0].addNode(node.getSubNode(1));
             this.addNode(node.getSubNode(2));
-            if (fastMode) this.tree.openBranches[0].merge();
+            // if (fastMode) this.tree.openBranches[0].merge();
             break;
         }
         case tc.GAMMA : {
@@ -425,9 +421,10 @@ Branch.prototype.expand = function(fastMode) {
             debug(this.constants);
             var newTerm = this.constants.length ? this.constants[this.constants.length-1] + 3 : 2;
             this.constants.push(newTerm);
+            var freeVars = this.freeVariables.copy();
             // It suffices to skolemize on variables contained in this formula. This makes some proofs much faster. 
             // However, translation into sentence tableau then becomes almost impossible. Consider Ax(Fx & Ey~Fy).
-            var freeVars = fastMode ? node.formula.getFreeVariables() : this.freeVariables.copy();
+            // var freeVars = node.formula.getFreeVariables();
             if (freeVars.length !== 0) {
                 freeVars.unshift(newTerm);
                 newTerm = freeVars;
@@ -509,7 +506,8 @@ Branch.prototype.expand = function(fastMode) {
             return 1; // job successfully completed and tableau branch closed
         }
     }
-    return fastMode ? this.merge() : 0;
+    return 0;
+    // fastmode: return this.merge();
 }
 
 Branch.prototype.copy = function() {
