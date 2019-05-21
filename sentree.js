@@ -1,19 +1,30 @@
 //
-// A SenTree is a tableau in the familiar sentence format (without free variables). 
-// The SenTree constructor takes a Tree object (a free-variable tableau) as argument. 
+// A SenTree is a tableau in the familiar sentence format (without
+// free variables). The SenTree constructor takes a Tree object (a
+// free-variable tableau) as argument.
 //
-// Unlike Tree objects, SenTrees have their nodes really stored in tree form: 
+// Unlike Tree objects, SenTrees have their nodes really stored in
+// tree form:
+//
 //    root
-// is the root node, 
+//
+// is the root node,
+//
 //    node.children
+//
 // is an array of a nodes children,
+//
 //    node.parent
-// the node's parent. Other than that, the nodes are the same Node objects as on Tree
-// Branches.
+//
+// the node's parent. Other than that, the nodes are the same Node
+// objects as on Tree Branches.
 //
 // The only interesting method of SenTree, besides its constructor, is
+//
 //    getCounterModel
-// which creates a ModelFinder and reads off a counterModel from an open tableau.
+//
+// which creates a ModelFinder and reads off a counterModel from an
+// open tableau.
 //
 
 function SenTree(fvTree) {
@@ -57,11 +68,11 @@ function SenTree(fvTree) {
       var branches = fvTree.closedBranches.concat(fvTree.openBranches);
       for (var b=0; b<branches.length; b++) {
          for (var i=0; i<branches[b].freeVariables.length; i++) {
-            if (!freeVariables.contains(branches[b].freeVariables[i])) freeVariables.push(branches[b].freeVariables[i]);
+            if (!freeVariables.includes(branches[b].freeVariables[i])) freeVariables.push(branches[b].freeVariables[i]);
          }
          freeVariables.sort(function(a,b){ return a-b });
          for (var i=0; i<branches[b].constants.length; i++) {
-            if (!constants.contains(branches[b].constants[i])) constants.push(branches[b].constants[i]);
+            if (!constants.includes(branches[b].constants[i])) constants.push(branches[b].constants[i]);
          }
          constants.sort(function(a,b){ return a-b });
          var par;
@@ -78,7 +89,7 @@ function SenTree(fvTree) {
             var from = node.developedFrom;
             debug("init "+node+" (from "+from+", par "+par+")");
             switch (from.formula[0]) {
-               case tc.UNIVERSAL : case tc.EXISTENTIAL : {
+               case tc.ALL : case tc.SOME : {
                   // find instance term:
                   var inst = 3; // dummy term in case this is a vacuous quantifier
                   var normMatrix = from.formula[2].normalize();
@@ -103,7 +114,7 @@ function SenTree(fvTree) {
                   par = node;
                   break;
                }
-               case tc.CONJUNCTION : {
+               case tc.AND : {
                   if (from.__removeMe) {
                      if (par == from) par = from.parent;
                      node.developedFrom = from.developedFrom;
@@ -126,11 +137,13 @@ function SenTree(fvTree) {
                      node.formula = (par.developedFrom == node.developedFrom) ? f2 : f1;
                   }
                   tree.appendChild(par, node);
-                  if (par.developedFrom == node.developedFrom && node.formula == f1) tree.reverse(par, node);
+                  if (par.developedFrom == node.developedFrom && node.formula == f1) {
+                     tree.reverse(par, node);
+                  }
                   else par = node;
                   break;
                }
-               case tc.DISJUNCTION : {
+               case tc.OR : {
                   var f1 = from.formula[1].copyDeep();
                   var f2 = from.formula[2].copyDeep();
                   if (!node.formula.equals(f1.normalize())) node.formula = f2;
@@ -143,7 +156,7 @@ function SenTree(fvTree) {
                   par = node;
                   break;
                }
-               case tc.IMPLICATION : {
+               case tc.THEN : {
                   var f1 = from.formula[1].copyDeep().negate();
                   var f2 = from.formula[2].copyDeep();
                   if (!node.formula.equals(f1.normalize())) node.formula = f2;
@@ -156,9 +169,9 @@ function SenTree(fvTree) {
                   par = node;
                   break;
                }
-               case tc.BIIMPLICATION : {
-                  var f1 = [tc.CONJUNCTION, from.formula[1], from.formula[2]].copyDeep();
-                  var f2 = [tc.CONJUNCTION, from.formula[1].negate(), from.formula[2].negate()].copyDeep();
+               case tc.IFF : {
+                  var f1 = [tc.AND, from.formula[1], from.formula[2]].copyDeep();
+                  var f2 = [tc.AND, from.formula[1].negate(), from.formula[2].negate()].copyDeep();
                   if (!node.formula.equals(f1.normalize())) node.formula = f2;
                   else if (!node.formula.equals(f2.normalize())) node.formula = f1;
                   else { // matches both
@@ -170,9 +183,9 @@ function SenTree(fvTree) {
                   par = node;
                   break;
                }
-               case tc.NEGATION : {
+               case tc.NOT : {
                   switch (from.formula[1][0]) {
-                     case tc.UNIVERSAL : case tc.EXISTENTIAL : {
+                     case tc.ALL : case tc.SOME : {
                         // find instance term:
                         var inst = 3; // dummy term in case this is a vacuous quantifier
                         var normMatrix = from.formula[1][2].negate().normalize();
@@ -197,7 +210,7 @@ function SenTree(fvTree) {
                         par = node;
                         break;
                      }
-                     case tc.CONJUNCTION : {
+                     case tc.AND : {
                         var f1 = from.formula[1][1].copyDeep().negate();
                         var f2 = from.formula[1][2].copyDeep().negate();
                         if (!node.formula.equals(f1.normalize())) node.formula = f2;
@@ -210,7 +223,7 @@ function SenTree(fvTree) {
                         par = node;
                         break;
                      }
-                     case tc.DISJUNCTION : {
+                     case tc.OR : {
                         var f1 = from.formula[1][1].copyDeep().negate();
                         var f2 = from.formula[1][2].copyDeep().negate();
                         if (!node.formula.equals(f1.normalize())) node.formula = f2;
@@ -223,7 +236,7 @@ function SenTree(fvTree) {
                         else par = node;
                         break;
                      }
-                     case tc.IMPLICATION : {
+                     case tc.THEN : {
                         var f1 = from.formula[1][1].copyDeep();
                         var f2 = from.formula[1][2].copyDeep().negate();
                          if (!node.formula.equals(f1.normalize())) {
@@ -240,9 +253,9 @@ function SenTree(fvTree) {
                         else par = node;
                         break;
                      }
-                     case tc.BIIMPLICATION : {
-                        var f1 = [tc.CONJUNCTION, from.formula[1][1], from.formula[1][2].negate()].copyDeep();
-                        var f2 = [tc.CONJUNCTION, from.formula[1][1].negate(), from.formula[1][2]].copyDeep();
+                     case tc.IFF : {
+                        var f1 = [tc.AND, from.formula[1][1], from.formula[1][2].negate()].copyDeep();
+                        var f2 = [tc.AND, from.formula[1][1].negate(), from.formula[1][2]].copyDeep();
                         if (!node.formula.equals(f1.normalize())) node.formula = f2;
                         else if (!node.formula.equals(f2.normalize())) node.formula = f1;
                         else { // matches both
@@ -254,7 +267,7 @@ function SenTree(fvTree) {
                         par = node;
                         break;
                      }
-                     case tc.NEGATION : {
+                     case tc.NOT : {
                         // from is doubly negated. Expand the DN node, then try again:
                         if (!from.dneTo) {
                            var newNode = new Node(from.formula[1][1].copyDeep(), from);
@@ -302,7 +315,7 @@ function SenTree(fvTree) {
          var node = tree.nodes[i];
          if (!node.used) {
              if (node.developedFrom && node.developedFrom.used &&
-                 node.developedFrom.formula[0] == tc.NEGATION && node.developedFrom.formula[1][0] == tc.NEGATION) {
+                 node.developedFrom.formula[0] == tc.NOT && node.developedFrom.formula[1][0] == tc.NOT) {
                  node.used = true;
              }
              continue;
@@ -323,7 +336,7 @@ function SenTree(fvTree) {
          var terms = getComplexTerms(tree.nodes[n].formula);
          termLoop:
          for (var c=0; c<terms.length; c++) {
-            if (okConstants.contains(terms[c][0])) continue termLoop;
+            if (okConstants.includes(terms[c][0])) continue termLoop;
             var termstr = terms[c].toString();
             debug(termstr + " is skolem term (orig terms are " + okConstants + constants +")");
             if (!translations[termstr]) {
@@ -347,7 +360,7 @@ function SenTree(fvTree) {
                flas.unshift(fla[2]);
                continue;
             }
-            if (fla[0] == tc.NEGATION) flas.unshift(fla[1]);
+            if (fla[0] == tc.NOT) flas.unshift(fla[1]);
             else {
                for (var i=0; i<fla[1].length; i++) {
                   if (!fla[1][i].isArray) continue;
@@ -440,23 +453,23 @@ SenTree.prototype.getExpansion = function(node) {
    if (!node.developedFrom) return [node];
    var from = node.developedFrom;
    var fromOp = from.formula[0];
-   if (fromOp == tc.NEGATION) {
+   if (fromOp == tc.NOT) {
       // negated conjunction is treated like disjunction, etc.
-      fromOp = (from.formula[1][0] == tc.CONJUNCTION) ? tc.DISJUNCTION
-         : (from.formula[1][0] == tc.DISJUNCTION || from.formula[1][0] == tc.IMPLICATION) ? tc.CONJUNCTION :
+      fromOp = (from.formula[1][0] == tc.AND) ? tc.OR
+         : (from.formula[1][0] == tc.OR || from.formula[1][0] == tc.THEN) ? tc.AND :
          from.formula[1][0];
    }
    switch (fromOp) {
-      case tc.CONJUNCTION : {
+      case tc.AND : {
          if (node.children[0] && node.children[0].developedFrom == from) return [node, node.children[0]];
          if (node.parent.developedFrom == from) return [node.parent, node];
          return [node];
       }
-      case tc.DISJUNCTION : 
-      case tc.IMPLICATION : {
+      case tc.OR : 
+      case tc.THEN : {
          return node.parent.children;
       }
-      case tc.BIIMPLICATION : {
+      case tc.IFF : {
          var res = (node.children[0] && node.children[0].developedFrom == from) ? [node, node.children[0]]
             : (node.parent.developedFrom == from) ? [node.parent, node]
             : [node];
@@ -490,12 +503,12 @@ SenTree.prototype.getCounterModel = function() {
    var node = endNode;
    do {
       var fla = node.formula;
-      while (fla[0] == tc.NEGATION) fla = fla[1]; // note that there may be unexpanded DN atoms on the branch
+      while (fla[0] == tc.NOT) fla = fla[1]; // note that there may be unexpanded DN atoms on the branch
       if (fla[0] < 0) continue; // only consider literals
       var terms = fla[1].copy();
       for (var t=0; t<terms.length; t++) {
          var term = translator.term2html(terms[t]);
-         if (model.domain.contains(term)) continue;
+         if (model.domain.includes(term)) continue;
          debug("adding "+term);
          model.domain.push(term);
          if (terms[t].isArray) {
@@ -521,7 +534,7 @@ SenTree.prototype.getCounterModel = function() {
    do {
       var fla = node.formula;
       var tv = true;
-      while (fla[0] == tc.NEGATION) {
+      while (fla[0] == tc.NOT) {
          fla = fla[1];
          tv = !tv;
       }

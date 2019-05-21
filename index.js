@@ -2,15 +2,15 @@
 // This file deals with the user interface of index.html.
 
 function laTeX2html(str) {
-   // replaces LaTeX commands for logical symbols by what is set in translator.logSymbols (currently <img>s of the symbols).
+   // replaces LaTeX commands for logical symbols by what is set in translator.logSymbols
    str = str.replace(/\s*/g, '');
-   str = str.replace(/\\forall[\{ ]?\}?/g, translator.logSymbols[tc.UNIVERSAL]);
-   str = str.replace(/\\exists[\{ ]?\}?/g, translator.logSymbols[tc.EXISTENTIAL]);
-   str = str.replace(/(\\neg|\\lnot)[\{ ]?\}?/g, translator.logSymbols[tc.NEGATION]);
-   str = str.replace(/(\\vee|\\lor)[\{ ]?\}?/g, translator.logSymbols[tc.DISJUNCTION]);
-   str = str.replace(/(\\wedge|\\land)[\{ ]?\}?/g, translator.logSymbols[tc.CONJUNCTION]);
-   str = str.replace(/(\\to|\\rightarrow)[\{ ]?\}?/g, translator.logSymbols[tc.IMPLICATION]);
-   str = str.replace(/\\leftrightarrow[\{ ]?\}?/g, translator.logSymbols[tc.BIIMPLICATION]);
+   str = str.replace(/\\forall[\{ ]?\}?/g, translator.logSymbols[tc.ALL]);
+   str = str.replace(/\\exists[\{ ]?\}?/g, translator.logSymbols[tc.SOME]);
+   str = str.replace(/(\\neg|\\lnot)[\{ ]?\}?/g, translator.logSymbols[tc.NOT]);
+   str = str.replace(/(\\vee|\\lor)[\{ ]?\}?/g, translator.logSymbols[tc.OR]);
+   str = str.replace(/(\\wedge|\\land)[\{ ]?\}?/g, translator.logSymbols[tc.AND]);
+   str = str.replace(/(\\to|\\rightarrow)[\{ ]?\}?/g, translator.logSymbols[tc.THEN]);
+   str = str.replace(/\\leftrightarrow[\{ ]?\}?/g, translator.logSymbols[tc.IFF]);
    str = str.replace(/([^'])(\\[^<]*)/, '$1<span class="latex">$2</span>'); // unfinished latex commands
    str = str.replace(/^(\\[^<]*)/, '<span class="latex">$1</span>'); // unfinished latex commands
    return str;
@@ -26,9 +26,11 @@ function renderFormula() {
    setTimeout(renderFormula, 1000);
 }
 
-// in case the browser has automatically filled in some value into the field (e.g. on Reload):
+// in case the browser has automatically filled in some value into the
+// field (e.g. on Reload):
 setTimeout(renderFormula, 1000);
 
+// define method to insert character at caret position upon button click: 
 document.forms[0].flaField.insertAtCaret = function(str) {
    if (document.selection) {
       // Internet Explorer
@@ -42,7 +44,8 @@ document.forms[0].flaField.insertAtCaret = function(str) {
       var startPos = this.selectionStart;
       var endPos = this.selectionEnd;
       var scrollTop = this.scrollTop;
-      this.value = this.value.substring(0, startPos)+str+this.value.substring(endPos,this.value.length);
+      var val = this.value; 
+      this.value = val.substring(0, startPos)+str+val.substring(endPos,val.length);
       this.focus();
       this.selectionStart = startPos + str.length;
       this.selectionEnd = startPos + str.length;
@@ -59,7 +62,7 @@ document.forms[0].flaField.insertAtCaret = function(str) {
 onload = function(e) {
    
    // insert the symbol buttons on top of the text field:
-   var symButtons = [tc.NEGATION, tc.CONJUNCTION, tc.DISJUNCTION, tc.IMPLICATION, tc.BIIMPLICATION, tc.UNIVERSAL, tc.EXISTENTIAL];
+   var symButtons = [tc.NOT, tc.AND, tc.OR, tc.THEN, tc.IFF, tc.ALL, tc.SOME];
    for (var i=0; i<symButtons.length; i++) {
       var div = document.createElement("div");
       div.className = "symbutton";
