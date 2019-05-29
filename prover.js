@@ -15,8 +15,8 @@
 // best under given conditions. So a common strategy, also used here,
 // is to choose the first option, but store the other in memory so
 // that one can return to it in case the original choice doesn't lead
-// to a closed branch. Of course it's impossible to decide whether a
-// choice will eventually lead to a closed branch, so backtracking is
+// to a closed tree. Of course it's impossible to decide whether a
+// choice will eventually lead to a closed tree, so backtracking is
 // initiated when the tableau has reached a certain degree of
 // complexity (determined by the number of free variables and nodes on
 // the current branch).
@@ -107,10 +107,11 @@ prover = {
     nodeLimitFactor : 4,
     // depthLimit * nodeLimitFactor is the upper bound for number of
     // nodes on a branch; value empirically chosen
+    
     start : function(formula) {
         debug("initializing prover with " + translator.fla2html(formula));
         this.formula = formula;
-        this.depthLimit = 1;
+        this.depthLimit = 1; // depth = number of free variables on Tree
         this.limitReached = false;
         this.steps = 0;
         this.alternatives = [];
@@ -119,15 +120,23 @@ prover = {
         this.counterModel = null;
         this.nextStep();
     },
+
     stop : function() {
         this.stopTimeout = true;
         this.status("Proof halted");
     },
+
     status : function(str) {
     },
+
     finished : function(state) { // state 1 = proved, 0 = proof failed
     },
+    
     nextStep : function() {
+        // expands the next node on the present tree; then initializes
+        // backtracking if limit is reached and occasionally searches
+        // for a countermodel; calls itself again unless proof is
+        // complete.
         this.steps++;
         debug(this.steps + ". " + this.tree.openBranches);
         
@@ -138,6 +147,25 @@ prover = {
                     this.alternatives.length + " alternatives, search depth " +
                     this.depthLimit);
         
+        // expand tree:
+        var result = this.tree.openBranches[0].expand();
+        debug(this.tree);
+        if (result == 1) { // branch closed
+            if (this.tree.openBranches.length == 0) {
+                // no open branches: proof completed
+                return this.finished(1);
+            }
+        }
+        else if (result == 0) { // branch still open
+            if (this.tree.openBranches[0].nodes.length > this.depthLimit * this.nodeLimitFactor) {
+                this.limitReached = true;
+                this.backtrack();
+            }
+        }
+        else { // result == -1 means branch cannot be closed:
+            return this.finished(0);
+        }
+
         if (this.steps % 20 == 19) {
             // search for a countermodel:
             debug("searching for countermodel");
@@ -146,13 +174,6 @@ prover = {
                 this.counterModel = counterModel;
                 return this.finished(0);
             }
-            
-            // if (this.steps == 1019) {
-            //    // Turn on fast mode
-            //    this.tree = new Tree(this.formula);
-            //    this.fastMode = true; 
-            //}
-            // disabled because there's no visible display of fastmode results yet
             
             // Often, there are thousands of trees to check with depth
             // n, and none of them closes, whereas many close for n+1.
@@ -169,41 +190,30 @@ prover = {
                 this.depthLimit--;
             }
         }
-
-        // expand tree:
-        var result = this.tree.openBranches[0].expand();
-        debug(this.tree);
-        switch (result) {
-        case 1 : { // branch closed
-            if (this.tree.openBranches.length == 0) {
-                return this.finished(1); // no open branches: proof completed
-            }
-            break;
-        }
-        case 0 : { // branch still open
-            if (this.tree.openBranches[0].nodes.length > this.depthLimit * this.nodeLimitFactor) {
-                prover.limitReached = true;
-                this.backtrack();
-            }
-            break;
-        }
-        case -1 : { // branch remained open:
-            return this.finished(0);
-        }
-        }
         
-        if (this.stopTimeout) this.stopTimeout = false;
-        else setTimeout("prover.nextStep()", this.debug ? numBranches*100 : numBranches*5);
+        if (this.stopTimeout) {
+            // proof manually interrupted
+            this.stopTimeout = false;
+        }
+        else {
+            // continue with next step after short break to display
+            // status message and not get killed by browsers
+            setTimeout("prover.nextStep()", this.debug ? numBranches*100 : numBranches*5);
+        }
+
     },
     
     backtrack : function() {
+        // called in different ways...
         if (this.alternatives.length == 0) {
+            // no alternative trees to explore
             if (!this.limitReached) {
                 // we haven't reached the depthLimit previously, so
                 // it's no use increasing it: proof has failed
                 debug("backtracking impossible");
                 return false;
             }
+            // start over with increased depth limit
             this.depthLimit++;
             debug("----- increasing depthLimit to " + this.depthLimit + " -----");
             this.tree = new Tree(this.formula);
@@ -218,10 +228,10 @@ prover = {
 
 
 function Tree(rootFormula) {
-    if (!rootFormula) return; // because of clone()
+    if (!rootFormula) return; // for copy() function
     if (!rootFormula.normalized) {
         rootFormula.normalized = rootFormula.normalize();
-        debug("normalizing: " + translator.fla2html(rootFormula));
+        debug("normalizing: " + translator.fla2html(rootFormula.normalized));
     }
     this.rootFormula = rootFormula;
     this.firstNewVariable = 3; // so that we don't use variables as
@@ -276,6 +286,56 @@ Tree.prototype.closeBranch = function(branch, complementary1, complementary2) {
     }
     this.openBranches.remove(branch);
     this.closedBranches.push(branch);
+}
+
+Tree.prototype.copy = function() {
+    // return a deep copy down to the level of nodes
+    var ntree = new Tree();
+    ntree.rootFormula = this.rootFormula;
+    ntree.firstNewVariable = this.firstNewVariable;
+    var nodemap = {} // old node id => copied Node
+    function copyNode(orig) {
+        if (nodemap[orig.id]) return nodemap[orig.id];
+        var n = new Node();
+        n.formula = orig.formula;
+        n.developedFrom = orig.developedFrom ? nodemap[orig.developedFrom.id] : null;
+        n.type = orig.type;
+        n.unifyWith = orig.unifyWith;
+        n.complementary = orig.complementary;
+        n.used = orig.used; // xxx what is this for?
+        n.__markClosed = orig.__markClosed; // xxx dito 
+        n.id = orig.id;
+        nodemap[orig.id] = n;
+        return n;
+    }
+    function copyBranch(orig) {
+        var nodes = [];
+        var unexpanded = [];
+        var literals = [];
+        for (var i=0; i<orig.nodes.length; i++) {
+            nodes.push(copyNode(orig.nodes[i]));
+        } 
+        for (var i=0; i<orig.unexpanded.length; i++) {
+            unexpanded.push(nodemap[orig.unexpanded[i].id]);
+        } 
+        for (var i=0; i<orig.literals.length; i++) {
+            literals.push(nodemap[orig.literals[i].id]);
+        } 
+        var b = new Branch(ntree, nodes, unexpanded, literals, orig.freeVariables, orig.constants);
+        b.id = orig.id;
+        return b;
+    }
+    ntree.rootNode = copyNode(this.rootNode);
+    ntree.openBranches = [];
+    for (var i=0; i<this.openBranches.length; i++) {
+        ntree.openBranches.push(copyBranch(this.openBranches[i]));
+    }
+    ntree.closedBranches = [];
+    for (var i=0; i<this.closedBranches.length; i++) {
+        ntree.closedBranches.push(copyBranch(this.closedBranches[i]));
+    }
+    ntree.numNodes = this.numNodes;
+    return ntree;
 }
 
 Tree.prototype.copy = function() {
@@ -365,8 +425,9 @@ function Branch(tree, nodes, unexpanded, literals, freeVariables, constants) {
     this.literals = literals || [];
     this.freeVariables = freeVariables || [];
     this.constants = constants || [];
-    this.id = self.__branchId ? self.__branchId++ : (self.__branchId = 1);
+    this.id = Branch.counter++;
 }
+Branch.counter = 0;
 
 Branch.prototype.expand = function() {
     var node = this.unexpanded.shift();
@@ -513,12 +574,13 @@ Branch.prototype.expand = function() {
 Branch.prototype.copy = function() {
     // mustn't use clone(), as that creates a clone even of this.tree (and of all the formulas, breaking merge()).
     var nb = new Branch(this.tree, this.nodes.copy(), this.unexpanded.copy(), this.literals.copy(), this.freeVariables.copy(), this.constants.copy());
-    // uncommented lines for the disabled Herbrand restriction:
+    // disabled Herbrand restriction:
     // for (var i=0; i<nb.unexpanded.length; i++) {
     //  if (nb.unexpanded[i].numExpansions) nb.unexpanded[i].numExpansions[nb.id] = nb.unexpanded[i].numExpansions[this.id];
     // }
     return nb;
 }
+
 
 Branch.prototype.addNode = function(node) {
     // xxx check if node is already on branch?
@@ -580,9 +642,9 @@ Branch.prototype.toString = function() {
 
 
 function Node(formula, developedFrom) {
+    if (!formula) return;
     this.formula = formula;
     this.developedFrom = developedFrom || null;
-    if (!formula) return;
     switch (formula[0]) {
         case tc.AND : this.type = tc.ALPHA; break;
         case tc.OR : this.type = tc.BETA; break;
@@ -590,7 +652,9 @@ function Node(formula, developedFrom) {
         case tc.SOME : this.type = tc.DELTA; break;
         default: this.type = tc.LITERAL; break;
     }
+    this.id = Node.counter++;
 }
+Node.counter = 0;
 
 Node.prototype.getSubNode = function(subIndex) {
     return new Node(this.formula[subIndex], this);

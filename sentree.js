@@ -28,283 +28,229 @@
 //
 
 function SenTree(fvTree) {
-   this.nodes = [];
-   this.rootNode = null;
-   this.isClosed = (fvTree.openBranches.length == 0);
-   var tree = this;
-   var freeVariables = [];
-   var constants = [];
+    this.nodes = [];
+    this.rootNode = null;
+    this.isClosed = (fvTree.openBranches.length == 0);
+    var tree = this;
+    var branches = fvTree.closedBranches.concat(fvTree.openBranches);
+    var freeVariables = [];
+    var constants = [];
+    
+    collectVariablesAndConstants();
+
+    debug("initializing sentence tableau");
+    initNodes();
+    debug(this);
    
-   debug("initializing sentence tableau");
-   initNodes();
-   debug(this);
+    debug("replaceFreeVariablesByNewConsts");
+    for (var i=0; i<freeVariables.length; i++) {
+        var newConst = (constants.length != 0) ? constants[constants.length-1] + 3 : 2;
+        constants.push(newConst);
+        this.substitute(freeVariables[i], newConst);
+    }
+    debug(this);
    
-   debug("replaceFreeVariablesByNewConsts");
-   for (var i=0; i<freeVariables.length; i++) {
-      var newConst = (constants.length != 0) ? constants[constants.length-1] + 3 : 2;
-      constants.push(newConst);
-      this.substitute(freeVariables[i], newConst);
-   }
-   debug(this);
-   
-   debug("replaceSkolemTerms()");
-   replaceSkolemTerms();
-   debug(this);
-   
-   debug("removeUnusedNodes()");
-   removeUnusedNodes();
-   debug(this);
-   
-   function initNodes() {
-      // translates the free-variable tableau into sentence form, also translates all formulas back from
-      // negation normal form
-      tree.rootNode = tree.nodes[0] = fvTree.rootNode;
-      tree.rootNode.base = SenNode;
-      tree.rootNode.base();
-      tree.rootNode.formula = fvTree.rootFormula; // denormalized
-      for (var i=0; i<fvTree.closedBranches.length; i++) {
-         fvTree.closedBranches[i].nodes[fvTree.closedBranches[i].nodes.length-1].closedEnd = true;
-      }
-      var branches = fvTree.closedBranches.concat(fvTree.openBranches);
-      for (var b=0; b<branches.length; b++) {
-         for (var i=0; i<branches[b].freeVariables.length; i++) {
-            if (!freeVariables.includes(branches[b].freeVariables[i])) freeVariables.push(branches[b].freeVariables[i]);
-         }
-         freeVariables.sort(function(a,b){ return a-b });
-         for (var i=0; i<branches[b].constants.length; i++) {
-            if (!constants.includes(branches[b].constants[i])) constants.push(branches[b].constants[i]);
-         }
-         constants.sort(function(a,b){ return a-b });
-         var par;
-         for (var n=0; n<branches[b].nodes.length; n++) {
-            var node = branches[b].nodes[n];
-            if (node.isSenNode) {
-               par = node.swappedWith || node;
-               continue;
+    debug("replaceSkolemTerms()");
+    replaceSkolemTerms();
+    debug(this);
+    
+    debug("removeUnusedNodes()");
+    removeUnusedNodes();
+    debug(this);
+
+    function collectVariablesAndConstants() {
+        // collect free variables and constants from fvtree and put
+        // them into variables and constants arrays
+        for (var b=0; b<branches.length; b++) {
+            // collect free variables and constants:
+            for (var i=0; i<branches[b].freeVariables.length; i++) {
+                if (!freeVariables.includes(branches[b].freeVariables[i])) {
+                    freeVariables.push(branches[b].freeVariables[i]);
+                }
             }
-            // so it's a node not yet collected, par is its (already collected) parent
+            freeVariables.sort(function(a,b){ return a-b });
+            for (var i=0; i<branches[b].constants.length; i++) {
+                if (!constants.includes(branches[b].constants[i])) {
+                    constants.push(branches[b].constants[i]);
+               }
+            }
+            constants.sort(function(a,b){ return a-b });
+        }
+    }
+    
+    function initNodes() {
+        // translates the free-variable tableau into sentence tableau and
+        // translate all formulas back from negation normal form.
+        //
+        // If A is a formula and A' its NNF then expanding A' always results in
+        // nodes that also correctly expand A, when denormalized. Remember that
+        // normalization drives in all negations and converts (bi)conditionals
+        // into ~,v,&. For example, |~(BvC)| = |~B|&|~C|. Expanding the NNF
+        // leads to |~B| and |~C|. Expanding the original formula ~(BvC) would
+        // instead lead to ~B and ~C. So we can construct the senTree by going
+        // through each node X on the fvTree, identity the node Y corresponding
+        // to X's origin (the node from which X is expanded), expand Y by the
+        // senTree rules and mark the result as corresponding to X whenever the
+        // result's NNF is X.
+        //
+        // Exceptions: (1) NNFs remove double negations; so DNE steps have to be
+        // reinserted. (2) Biconditionals are replaced by disjunctions of
+        // conjunctions in NNF, but the classical senTree rules expand them in
+        // one go, so we have to remove the conjunctive formulas.
+        
+        tree.rootNode = tree.nodes[0] = fvTree.rootNode;
+        // make rootNode into Sennode:
+        tree.rootNode.base = SenNode;
+        tree.rootNode.base();
+        tree.rootNode.formula = fvTree.rootFormula; // denormalized
+        
+        // mark end nodes as closed:
+        for (var i=0; i<fvTree.closedBranches.length; i++) {
+            fvTree.closedBranches[i].nodes[fvTree.closedBranches[i].nodes.length-1].closedEnd = true;
+        }
+        
+        // go through all nodes on all branches, denormalize formulas
+        // and restore standard order of subformula expansion:
+        for (var b=0; b<branches.length; b++) {
+            var par; // here we store the parent node of the present node
+            for (var n=0; n<branches[b].nodes.length; n++) {
+                var node = branches[b].nodes[n];
+                if (node.isSenNode) {
+                    // node already on sentree
+                    par = node.swappedWith || node;
+                    continue;
+                }
+                // <node> not yet collected, <par> is its (already collected)
+                // parent
             
-            // we denormalize the node formula, and restore the standard order of subformula expansion;
-            debug(tree);
-            var from = node.developedFrom;
-            debug("init "+node+" (from "+from+", par "+par+")");
-            switch (from.formula[0]) {
-               case tc.ALL : case tc.SOME : {
-                  // find instance term:
-                  var inst = 3; // dummy term in case this is a vacuous quantifier
-                  var normMatrix = from.formula[2].normalize();
-                  var instVariable = from.formula[1];
-                  var a1, a2, arrs1 = [node.formula], arrs2 = [normMatrix];
-                  sLoop:
-                  while (a1 = arrs1.shift(), a2 = arrs2.shift()) {
-                     for (var i=0; i<a2.length; i++) {
-                        // ignore subformulas in which the target variable is re-bound:
-                        if (a2[i].isArray && !(a2[i].length == 3 && a2[i][1] == instVariable)) {
-                           arrs1.unshift(a1[i]);
-                           arrs2.unshift(a2[i]);
-                           continue;
-                        }
-                        if (a2[i] != instVariable) continue;
-                        inst = a1[i];
-                        break sLoop;
-                     }
-                  }
-                  node.formula = from.formula[2].copyDeep().substitute(from.formula[1], inst);
-                  tree.appendChild(par, node);
-                  par = node;
-                  break;
-               }
-               case tc.AND : {
-                  if (from.__removeMe) {
-                     if (par == from) par = from.parent;
-                     node.developedFrom = from.developedFrom;
-                     if (!from.isRemoved) tree.remove(from);
-                  }
-                  var f1 = from.formula[1].copyDeep();
-                  var f2 = from.formula[2].copyDeep();
-
-                  // I used to do:
-                  // node.formula = (node.formula.equals(f1.normalize())) ? f1 : f2;
-                  // but this breaks if f2.normalize() == f1.normalize() and f2 != f1,
-                  // e.g. in \neg((A\land \negA)\land \neg(\negA\lor\neg\negA)).
-                  // I can't store the next expansion formula in from because from can
-                  // have many expansions on many branches. So instead I check for
-                  // a sibling or parent node with the same from:
-
-                  if (!node.formula.equals(f1.normalize())) node.formula = f2;
-                  else if (!node.formula.equals(f2.normalize())) node.formula = f1;
-                  else { // matches both
-                     node.formula = (par.developedFrom == node.developedFrom) ? f2 : f1;
-                  }
-                  tree.appendChild(par, node);
-                  if (par.developedFrom == node.developedFrom && node.formula == f1) {
-                     tree.reverse(par, node);
-                  }
-                  else par = node;
-                  break;
-               }
-               case tc.OR : {
-                  var f1 = from.formula[1].copyDeep();
-                  var f2 = from.formula[2].copyDeep();
-                  if (!node.formula.equals(f1.normalize())) node.formula = f2;
-                  else if (!node.formula.equals(f2.normalize())) node.formula = f1;
-                  else { // matches both
-                     node.formula = (par.children && par.children.length) ? f2 : f1;
-                  }
-                  tree.appendChild(par, node);
-                  if (par.children.length == 2 && node.formula == f1) par.children.reverse();
-                  par = node;
-                  break;
-               }
-               case tc.THEN : {
-                  var f1 = from.formula[1].copyDeep().negate();
-                  var f2 = from.formula[2].copyDeep();
-                  if (!node.formula.equals(f1.normalize())) node.formula = f2;
-                  else if (!node.formula.equals(f2.normalize())) node.formula = f1;
-                  else { // matches both
-                     node.formula = (par.children && par.children.length) ? f2 : f1;
-                  }
-                  tree.appendChild(par, node);
-                  if (par.children.length == 2 && node.formula == f1) par.children.reverse();
-                  par = node;
-                  break;
-               }
-               case tc.IFF : {
-                  var f1 = [tc.AND, from.formula[1], from.formula[2]].copyDeep();
-                  var f2 = [tc.AND, from.formula[1].negate(), from.formula[2].negate()].copyDeep();
-                  if (!node.formula.equals(f1.normalize())) node.formula = f2;
-                  else if (!node.formula.equals(f2.normalize())) node.formula = f1;
-                  else { // matches both
-                     node.formula = (par.children && par.children.length) ? f2 : f1;
-                  }
-                  node.__removeMe = true;
-                  tree.appendChild(par, node);
-                  if (par.children.length == 2 && node.formula == f1) par.children.reverse();
-                  par = node;
-                  break;
-               }
-               case tc.NOT : {
-                  switch (from.formula[1][0]) {
-                     case tc.ALL : case tc.SOME : {
-                        // find instance term:
-                        var inst = 3; // dummy term in case this is a vacuous quantifier
-                        var normMatrix = from.formula[1][2].negate().normalize();
-                        var instVariable = from.formula[1][1];
-                        var a1, a2, arrs1 = [node.formula], arrs2 = [normMatrix];
-                        sLoop:
-                        while (a1 = arrs1.shift(), a2 = arrs2.shift()) {
-                           for (var i=0; i<a2.length; i++) {
-                              // ignore subformulas in which the target variable is re-bound:
-                              if (a2[i].isArray && !(a2[i].length == 3 && a2[i][1] == instVariable)) {
-                                 arrs1.unshift(a1[i]);
-                                 arrs2.unshift(a2[i]);
-                                 continue;
-                              }
-                              if (a2[i] != instVariable) continue;
-                              inst = a1[i];
-                              break sLoop;
-                           }
-                        }
-                        node.formula = from.formula[1][2].negate().copyDeep().substitute(from.formula[1][1], inst);
-                        tree.appendChild(par, node);
-                        par = node;
-                        break;
-                     }
-                     case tc.AND : {
-                        var f1 = from.formula[1][1].copyDeep().negate();
-                        var f2 = from.formula[1][2].copyDeep().negate();
-                        if (!node.formula.equals(f1.normalize())) node.formula = f2;
-                        else if (!node.formula.equals(f2.normalize())) node.formula = f1;
-                        else { // matches both
-                           node.formula = (par.children && par.children.length) ? f2 : f1;
-                        }
-                        tree.appendChild(par, node);
-                        if (par.children.length == 2 && node.formula == f1) par.children.reverse();
-                        par = node;
-                        break;
-                     }
-                     case tc.OR : {
-                        var f1 = from.formula[1][1].copyDeep().negate();
-                        var f2 = from.formula[1][2].copyDeep().negate();
-                        if (!node.formula.equals(f1.normalize())) node.formula = f2;
-                        else if (!node.formula.equals(f2.normalize())) node.formula = f1;
-                        else { // matches both
-                           node.formula = (par.developedFrom == node.developedFrom) ? f2 : f1;
-                        }
-                        tree.appendChild(par, node);
-                        if (par.developedFrom == from && node.formula == f1) tree.reverse(par, node);
-                        else par = node;
-                        break;
-                     }
-                     case tc.THEN : {
-                        var f1 = from.formula[1][1].copyDeep();
-                        var f2 = from.formula[1][2].copyDeep().negate();
-                         if (!node.formula.equals(f1.normalize())) {
-                             node.formula = f2;
-                         }
-                         else if (!node.formula.equals(f2.normalize())) {
-                             node.formula = f1;
-                         }
-                        else { // matches both
-                           node.formula = (par.developedFrom == node.developedFrom) ? f2 : f1;
-                        }
-                        tree.appendChild(par, node);
-                        if (par.developedFrom == from && node.formula == f1) tree.reverse(par, node);
-                        else par = node;
-                        break;
-                     }
-                     case tc.IFF : {
-                        var f1 = [tc.AND, from.formula[1][1], from.formula[1][2].negate()].copyDeep();
-                        var f2 = [tc.AND, from.formula[1][1].negate(), from.formula[1][2]].copyDeep();
-                        if (!node.formula.equals(f1.normalize())) node.formula = f2;
-                        else if (!node.formula.equals(f2.normalize())) node.formula = f1;
-                        else { // matches both
-                           node.formula = (par.children && par.children.length) ? f2 : f1;
-                        }
+                debug(tree);
+                var from = node.developedFrom;
+                debug("init "+node+" (from "+from+", par "+par+")");
+                
+                if (from.formula.is_alpha()) {
+                    if (from.__removeMe) {
+                        // if <from> is the result of a biconditional
+                        // application, we remove it.
+                        if (par == from) par = from.parent;
+                        node.developedFrom = from.developedFrom;
+                        tree.remove(from);
+                    }
+                   
+                    var f1 = from.formula.alpha1();
+                    var f2 = from.formula.alpha2();
+                    debug("alpha1 "+translator.fla2html(f1)+" alpha2 "+translator.fla2html(f2));
+                    // We know that <node> comes from the alpha formula <from>;
+                    // <f1> and <f2> are the two formulas that could legally be
+                    // derived from <from>. We need to find out which of these
+                    // corresponds to <node>. I used to do node.formula =
+                    // (node.formula.equals(f1.normalize())) ? f1 : f2; but this
+                    // breaks if f2.normalize() == f1.normalize() and f2 != f1,
+                    // e.g. in \neg((A\land \negA)\land
+                    // \neg(\negA\lor\neg\negA)). So we check for a sibling or
+                    // parent node with the same <from>:
+                    
+                    if (!node.formula.equals(f1.normalize())) {
+                        node.formula = f2;
+                    }
+                    else if (!node.formula.equals(f2.normalize())) {
+                        node.formula = f1;
+                    }
+                    else { // matches both
+                        node.formula = (par.developedFrom == node.developedFrom) ? f2 : f1;
+                    }
+                    tree.appendChild(par, node);
+                    
+                    if (par.developedFrom == node.developedFrom && node.formula == f1) {
+                        tree.reverse(par, node);
+                    }
+                    else par = node;
+                }
+                else if (from.formula.is_beta()) {
+                    var f1 = from.formula.beta1();
+                    var f2 = from.formula.beta2();
+                    if (!node.formula.equals(f1.normalize())) {
+                        node.formula = f2;
+                    }
+                    else if (!node.formula.equals(f2.normalize())) {
+                        node.formula = f1;
+                    }
+                    else { // matches both
+                        node.formula = (par.children && par.children.length) ? f2 : f1;
+                    }
+                    if (from.formula[0] == tc.IFF ||
+                        (from.formula[0] == tc.NOT && from.formula[1][0] == tc.IFF)) {
                         node.__removeMe = true;
-                        tree.appendChild(par, node);
-                        if (par.children.length == 2 && node.formula == f1) par.children.reverse();
-                        par = node;
-                        break;
-                     }
-                     case tc.NOT : {
-                        // from is doubly negated. Expand the DN node, then try again:
-                        if (!from.dneTo) {
-                           var newNode = new Node(from.formula[1][1].copyDeep(), from);
-                           newNode.base = SenNode;
-                           newNode.base();
-                           newNode.developedFrom = from;
-                           from.dneTo = newNode;
-                           var dneToPar = (from.children[0] && from.children[0].developedFrom == from.developedFrom) ? from.children[0] : from;
-                           newNode.parent = dneToPar;
-                           newNode.children = dneToPar.children;
-                           for (var i=0; i<newNode.children.length; i++) newNode.children[i].parent = newNode;
-                           dneToPar.children = [newNode];
-                           newNode.used = from.used;
-                           tree.nodes.push(newNode);
-                           if (par == dneToPar) par = newNode; // adjust parent of current node
+                    }
+                    tree.appendChild(par, node);
+                    
+                    if (par.children.length == 2 && node.formula == f1) par.children.reverse();
+                    par = node;
+                }
+                else if (from.formula.is_gamma() || from.formula.is_delta()) {
+                    // <node> is the result of expanding a quantified formula.
+                    // We need to find the instance term used in <node> so that
+                    // we can determine the denormalized node formula by
+                    // replacing all occurrences of the bound variable in
+                    // <from>.matrix() by that term.
+                    var inst = 3; // dummy term in case this is a vacuous quantifier
+                    var normMatrix = from.formula.matrix().normalize();
+                    var boundVar = from.formula.boundVar();
+                    var a1, a2, arrs1 = [node.formula], arrs2 = [normMatrix];
+                    sLoop:
+                    while (a1 = arrs1.shift(), a2 = arrs2.shift()) {
+                        // initially, a1 = node.formula and a2 = normMatrix;
+                        // these have the same syntax, represented as nested
+                        // arrays; we go through all atomic elements in these
+                        // arrays until we find boundVar as an element in a2.
+                        for (var i=0; i<a2.length; i++) {
+                            if (a2[i].isArray && !(a2[i].length == 3 && a2[i][1] == boundVar)) {
+                                // the negated condition above is to skip
+                                // subformulas in which the target variable is
+                                // re-bound
+                                arrs1.unshift(a1[i]);
+                                arrs2.unshift(a2[i]);
+                                continue;
+                            }
+                            if (a2[i] != boundVar) continue;
+                            inst = a1[i];
+                            break sLoop;
                         }
-                        // double negation eliminated, now process node again:
-                        node.developedFrom = from.dneTo;
-                        par = (par == from) ? from.dneTo : par;
-                        n -= 1;
-                        break;
-                     }
-                     default : { // negated literal
-                        tree.appendChild(par, node);
-                        par = node;
-                     }
-                  }
-                  break;
-               }
-               default : { // literal
-                  tree.appendChild(par, node);
-                  par = node;
-               }
+                    }
+                    node.formula = from.formula.matrix().substitute(boundVar, inst);
+                    tree.appendChild(par, node);
+                    par = node;
+                }
+                else if (from.formula.is_doublenegation()) {
+                    // expand the DN node, then try again:
+                    if (!from.dneTo) {
+                        var newNode = new Node(from.formula[1][1].copyDeep(), from);
+                        newNode.base = SenNode;
+                        newNode.base();
+                        newNode.developedFrom = from;
+                        from.dneTo = newNode;
+                        var dneToPar = (from.children[0] && from.children[0].developedFrom == from.developedFrom) ? from.children[0] : from;
+                        newNode.parent = dneToPar;
+                        newNode.children = dneToPar.children;
+                        for (var i=0; i<newNode.children.length; i++) {
+                            newNode.children[i].parent = newNode;
+                        }
+                        dneToPar.children = [newNode];
+                        newNode.used = from.used;
+                        tree.nodes.push(newNode);
+                        if (par == dneToPar) par = newNode; // adjust parent of current node
+                    }
+                    // double negation eliminated, now process node again:
+                    node.developedFrom = from.dneTo;
+                    par = (par == from) ? from.dneTo : par;
+                    n -= 1;
+                }
+                else { // literal
+                    tree.appendChild(par, node);
+                    par = node;
+                }
             }
-         }
-      }   
-   }
+        }
+    }   
 
    function removeUnusedNodes() {
       // If the tree is closed, the used ancestors of all complementary pairs are already 
@@ -391,23 +337,24 @@ SenTree.prototype.appendChild = function(oldNode, newNode) {
 }
 
 SenTree.prototype.remove = function(node) {
-   debug("removing " + node + " (parent: " + node.parent + ", children: " + node.children + ")");
-   if (node.parent.children.length == 1) {
-      node.parent.children = node.children;
-      if (node.children[0]) node.children[0].parent = node.parent;
-      if (node.children[1]) node.children[1].parent = node.parent;
-   }
-   else {
-      if (node.children.length > 1) return alert("can't remove a node with two children that itself has a sibling");
-      var i = (node == node.parent.children[0]) ? 0 : 1;
-      if (node.children[0]) {
-         node.parent.children[i] = node.children[0];
-         node.children[0].parent = node.parent;
-      }
-      else node.parent.children.remove(node);
-   }
-   this.nodes.remove(node);
-   node.isRemoved = true;
+    if (node.isRemoved) return;
+    debug("removing " + node + " (parent: " + node.parent + ", children: " + node.children + ")");
+    if (node.parent.children.length == 1) {
+        node.parent.children = node.children;
+        if (node.children[0]) node.children[0].parent = node.parent;
+        if (node.children[1]) node.children[1].parent = node.parent;
+    }
+    else {
+        if (node.children.length > 1) return alert("can't remove a node with two children that itself has a sibling");
+        var i = (node == node.parent.children[0]) ? 0 : 1;
+        if (node.children[0]) {
+            node.parent.children[i] = node.children[0];
+            node.children[0].parent = node.parent;
+        }
+        else node.parent.children.remove(node);
+    }
+    this.nodes.remove(node);
+    node.isRemoved = true;
 }
 
 SenTree.prototype.toString = function() {

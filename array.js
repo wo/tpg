@@ -123,6 +123,89 @@ Array.prototype.negate = function() {
     return [tc.NOT, this];
 }
 
+// xxx maybe more efficient: prototype.type() => tc.GAMMA etc.; for we
+// often go through all of is_alpha, is_gamma, etc.
+
+Array.prototype.is_alpha = function() {
+    return ((this[0] == tc.AND) ||
+            (this[0] == tc.NOT && (this[1][0] == tc.OR || this[1][0] == tc.THEN)));
+}
+
+Array.prototype.alpha1 = function() {
+    // return first formula for alpha expansion
+    if (this[0] == tc.AND) return this[1].copyDeep();
+    // this[0] == tc.NOT
+    if (this[1][0] == tc.OR) return this[1][1].copyDeep().negate();
+    if (this[1][0] == tc.THEN) return this[1][1].copyDeep();
+}
+
+Array.prototype.alpha2 = function() {
+    // return second formula for alpha expansion
+    if (this[0] == tc.AND) return this[2].copyDeep();
+    // this[0] == tc.NOT
+    if (this[1][0] == tc.OR) return this[1][2].copyDeep().negate();
+    if (this[1][0] == tc.THEN) return this[1][2].copyDeep().negate();
+}
+
+Array.prototype.is_beta = function() {
+    return ((this[0] == tc.OR) ||
+            (this[0] == tc.THEN) ||
+            (this[0] == tc.IFF) ||
+            (this[0] == tc.NOT && (this[1][0] == tc.AND || this[1][0] == tc.IFF)));
+}
+
+Array.prototype.beta1 = function() {
+    // return first formula for beta expansion
+    if (this[0] == tc.OR) return this[1].copyDeep();
+    if (this[0] == tc.THEN) return this[1].copyDeep().negate();
+    // We treat A <-> B as expanding to (A&B) | (~A&~B), and ~(A<->B)
+    // to (A&~B) | (~A&B); these intermediate notes will be removed
+    // before displaying trees.
+    if (this[0] == tc.IFF) return [tc.AND, this[1].copyDeep(), this[2].copyDeep()];
+    // this[0] == tc.NOT
+    if (this[1][0] == tc.AND) return this[1][1].copyDeep().negate();
+    // We treat A <-> B as expanding to (A&B) | (~A&~B), and ~(A<->B)
+    // to (A&~B) | (~A&B); these intermediate notes will be removed
+    // before displaying trees.
+    if (this[1][0] == tc.IFF) return [tc.AND, this[1][1].copyDeep(), this[1][2].copyDeep().negate()];
+}
+
+Array.prototype.beta2 = function() {
+    // return second formula for beta expansion
+    if (this[0] == tc.OR || this[0] == tc.THEN) return this[2].copyDeep();
+    if (this[0] == tc.IFF) return [tc.AND, this[1].copyDeep().negate(), this[2].copyDeep().negate()];
+    // this[0] == tc.NOT
+    if (this[1][0] == tc.AND) return this[1][2].copyDeep().negate();
+    if (this[1][0] == tc.IFF) return [tc.AND, this[1][1].copyDeep().negate(), this[1][2].copyDeep()];
+}
+
+Array.prototype.is_gamma = function() {
+    return ((this[0] == tc.ALL) ||
+            (this[0] == tc.NOT && this[1][0] == tc.SOME));
+}
+
+Array.prototype.is_delta = function() {
+    return ((this[0] == tc.SOME) ||
+            (this[0] == tc.NOT && this[1][0] == tc.ALL));
+}
+
+Array.prototype.matrix = function() {
+    // return matrix formula [Fx for (Ax)Fx]
+    if (this[0] != tc.NOT) return this[2].copyDeep();
+    // ~(Ex)A
+    else return this[1][2].copyDeep().negate();
+}
+
+Array.prototype.boundVar = function() {
+    // return variable bound by gamma of delta formula
+    if (this[0] == tc.ALL || this[0] == tc.SOME) return this[1];
+    else return this[1][1];
+}
+
+Array.prototype.is_doublenegation = function() {
+    return (this[0] == tc.NOT && this[1][0] == tc.NOT); 
+}
+ 
 Array.prototype.substitute = function(origTerm, newTerm, shallow) {
     // replaces all (free) occurrences of <origTerm> by <newTerm>.
     // If <shallow>, don't replace terms in function arguments
@@ -244,6 +327,7 @@ Array.prototype.normalize = function() {
     // subformulas. (Complexity here means number of disjunctions.)
     switch (this[0]) {
     case tc.AND : {
+        // |A&B| = |A|&|B| or |B|&|A|
         var sub1 = this[1].normalize();
         var sub2 = this[2].normalize();
         var res = (sub1.__complexity <= sub2.__complexity) ?
@@ -252,6 +336,7 @@ Array.prototype.normalize = function() {
         return res;
     }
     case tc.OR : {
+        // |AvB| = |A|v|B| or |B|v|A|
         var sub1 = this[1].normalize();
         var sub2 = this[2].normalize();
         var res = (sub1.__complexity <= sub2.__complexity) ?
@@ -260,6 +345,7 @@ Array.prototype.normalize = function() {
         return res;
     }
     case tc.THEN : {
+        // |A->B| = |~A|v|B| or |B|v|~A|
         var sub1 = this[1].negate().normalize();
         var sub2 = this[2].normalize();
         var res = (sub1.__complexity <= sub2.__complexity) ?
@@ -268,6 +354,7 @@ Array.prototype.normalize = function() {
         return res;
     }
     case tc.IFF : {
+        // |A<->B| = |A&B|v|~A&~B| or |~A&~B|v|A&B|
         var sub1 = [tc.AND, this[1], this[2]].normalize();
         var sub2 = [tc.AND, this[1].negate(), this[2].negate()].normalize();
         var res = (sub1.__complexity <= sub2.__complexity) ?
@@ -276,6 +363,7 @@ Array.prototype.normalize = function() {
         return res;
     }
     case tc.ALL : case tc.SOME : {
+        // |(Ax)A| = Ax|A|
         var sub1 = this[2].normalize();
         var res = [this[0], this[1], sub1];
         res.__complexity = sub1.__complexity;
@@ -284,6 +372,7 @@ Array.prototype.normalize = function() {
     case tc.NOT : {
         switch (this[1][0]) {
         case tc.AND : {
+            // |~(A&B)| = |~A|v|~B| or |~B|v|~A|
             var sub1 = this[1][1].negate().normalize();
             var sub2 = this[1][2].negate().normalize();
             var res = (sub1.__complexity <= sub2.__complexity) ?
@@ -292,6 +381,7 @@ Array.prototype.normalize = function() {
             return res;
         }
         case tc.OR : {
+            // |~(AvB)| = |~A|&|~B| or |~B|&|~A|
             var sub1 = this[1][1].negate().normalize();
             var sub2 = this[1][2].negate().normalize();
             var res = (sub1.__complexity <= sub2.__complexity) ?
@@ -300,6 +390,7 @@ Array.prototype.normalize = function() {
             return res;
         }
         case tc.THEN : {
+            // |~(A->B)| = |A|&|~B| or |~B|&|A|
             var sub1 = this[1][1].normalize();
             var sub2 = this[1][2].negate().normalize();
             var res = (sub1.__complexity <= sub2.__complexity) ?
@@ -308,6 +399,7 @@ Array.prototype.normalize = function() {
             return res;
         }
         case tc.IFF : {
+            // |~(A<->B)| = |A&~B|v|~A&B| or |~A&B|v|A&~B|
             var sub1 = [tc.AND, this[1][1], this[1][2].negate()].normalize();
             var sub2 = [tc.AND, this[1][1].negate(), this[1][2]].normalize();
             var res = (sub1.__complexity <= sub2.__complexity) ?
@@ -316,15 +408,17 @@ Array.prototype.normalize = function() {
             return res;
         }
         case tc.ALL : case tc.SOME : {
+            // |~(Ax)A| = Ex|~A|
             var sub = this[1][2].negate().normalize();
             var res = [(this[1][0] == tc.ALL) ? tc.SOME : tc.ALL, this[1][1], sub];
             res.__complexity = sub.__complexity;
             return res;
         }
         case tc.NOT : {
+            // |~~A| = |A|
             return this[1][1].normalize();
         }
-            // negated atom is treated with atoms in default case below
+        // negated atom is treated with atoms in default case below
         }
     }
     default : {
