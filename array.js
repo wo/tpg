@@ -210,7 +210,7 @@ Array.prototype.substitute = function(origTerm, newTerm, shallow) {
     // replaces all (free) occurrences of <origTerm> by <newTerm>.
     // If <shallow>, don't replace terms in function arguments
     if (this[0] < 0) { // fla is not atomic
-        if (this.length == 2) { // negated
+        if (this.length == 2) { // negated or modal
             this[1].substitute(origTerm, newTerm, shallow);
             return this;
         }
@@ -369,6 +369,13 @@ Array.prototype.normalize = function() {
         res.__complexity = sub1.__complexity;
         return res;
     }
+    case tc.BOX : case tc.DIAMOND : {
+        // |[]A| = []|A|
+        var sub1 = this[1].normalize();
+        var res = [this[0], sub1];
+        res.__complexity = sub1.__complexity;
+        return res;
+    }
     case tc.NOT : {
         switch (this[1][0]) {
         case tc.AND : {
@@ -414,6 +421,13 @@ Array.prototype.normalize = function() {
             res.__complexity = sub.__complexity;
             return res;
         }
+        case tc.BOX : case tc.DIAMOND : {
+            // |~[]A| = []|~A|
+            var sub = this[1][1].negate().normalize();
+            var res = [(this[1][0] == tc.BOX) ? tc.DIAMOND : tc.BOX, sub];
+            res.__complexity = sub.__complexity;
+            return res;
+        }
         case tc.NOT : {
             // |~~A| = |A|
             return this[1][1].normalize();
@@ -445,7 +459,7 @@ Array.prototype.getFreeVariables = function() {
                 flas.push(fla[2]);
             }
         }
-        else if (fla[0] == tc.NOT) { // negated
+        if (fla[0] < 0 && fla.length == 2) { // negated or modal
             flas.push(fla[1]);
         }
         else { // atomic
@@ -481,7 +495,9 @@ Array.prototype.getBoundVariables = function() {
             flas.push(fla[2]);
             continue;
         }
-        if (fla[0] == tc.NOT) flas.push(fla[1]);
+        if (fla[0] < 0 && fla.length == 2) { // negated or modal
+            flas.push(fla[1]);
+        }
     }
     return result;
 }
@@ -503,7 +519,7 @@ Array.prototype.getConstants = function(withArity) {
             flas.push(fla[2]);
             continue;
         }
-        if (fla[0] == tc.NOT) { // negated
+        if (fla[0] < 0 && fla.length == 2) { // negated or modal
             flas.push(fla[1]);
             continue;
         }
@@ -544,7 +560,7 @@ Array.prototype.getPredicates = function(withArity) {
             flas.push(fla[2]);
             continue;
         }
-        if (fla[0] == tc.NOT) {
+        if (fla[0] < 0 && fla.length == 2) { // negated or modal
             flas.push(fla[1]);
             continue;
         }

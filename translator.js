@@ -44,18 +44,22 @@ tc.register("THEN");
 tc.register("IFF");
 tc.register("ALL");
 tc.register("SOME");
+tc.register("BOX");
+tc.register("DIAMOND");
 
 function Translator() {
     
     // The logical symbols used in HTML output:
     this.logSymbols = [];
-    this.logSymbols[tc.NOT]  = "¬";
-    this.logSymbols[tc.AND]  = "∧";
-    this.logSymbols[tc.OR]   = "∨";
+    this.logSymbols[tc.NOT] = "¬";
+    this.logSymbols[tc.AND] = "∧";
+    this.logSymbols[tc.OR] = "∨";
     this.logSymbols[tc.THEN] = "→";
-    this.logSymbols[tc.IFF]  = "↔";
-    this.logSymbols[tc.ALL]  = "∀";
+    this.logSymbols[tc.IFF] = "↔";
+    this.logSymbols[tc.ALL] = "∀";
     this.logSymbols[tc.SOME] = "∃";
+    this.logSymbols[tc.BOX] = "□";
+    this.logSymbols[tc.DIAMOND] = "◇";
     
     // When translating internal -> HTML, the internal symbols are translated back into 
     // the original symbol, if there is one.  If not, the following symbols (plus indices)
@@ -93,6 +97,8 @@ function Translator() {
         str = str.replace(/%lor/g, "%vee");       // ...
         str = str.replace(/%land/g, "%wedge");  
         str = str.replace(/%lnot/g, "%neg");    
+        str = str.replace(/%Box/g, "%Box");    
+        str = str.replace(/%Diamond/g, "%Diamond");    
         
         // The next line says that any symbol except parenthesis,
         // comma and the % sign, followed by any number of digits, is
@@ -157,16 +163,17 @@ function Translator() {
                 result.push(this.latex2fla(subFormulas[1], boundVars));
                 return this.error ? null : result;
             }
-            // if we're here the formula is a quantified or negated formula with complex scope
         }
         
-        if (str.indexOf("%neg") == 0) {
-            // this is a negated formula.
-            debug("   string is negated; ");
-            var result = [tc.NOT, this.latex2fla(str.substr(4), boundVars)];
+        var reTest = str.match(/^(%neg|%Box|%Diamond)/)
+        if (reTest) {
+            debug("   string is negated or modal; ");
+            var op = reTest[1] == '%neg' ? tc.NOT :
+                reTest[1] == '%Box' ? tc.BOX : tc.DIAMOND;
+            var result = [op, this.latex2fla(str.substr(reTest[1].length), boundVars)];
             return this.error ? null : result;
         }
-        
+
         // if we're here the formula should be quantified or atomic
         reTest = /(%forall|%exists)([^\d\(\),%]\d*)/.exec(str);
         if (reTest && reTest.index == 0) {
@@ -235,8 +242,8 @@ function Translator() {
                 str += ")";
                 return str;
             }
-            if (formula[0] == tc.NOT) {
-                return this.logSymbols[tc.NOT] + this.fla2html(formula[1]);
+            else if (formula[0] < 0 && formula.length == 2) { // negated or modal
+                return this.logSymbols[formula[0]] + this.fla2html(formula[1]);
             }
             var str = this.sym2html(formula[0]);
             for (var i=0; i<formula[1].length; i++) str += this.term2html(formula[1][i]);

@@ -7,6 +7,8 @@ function laTeX2html(str) {
    str = str.replace(/\\forall[\{ ]?\}?/g, translator.logSymbols[tc.ALL]);
    str = str.replace(/\\exists[\{ ]?\}?/g, translator.logSymbols[tc.SOME]);
    str = str.replace(/(\\neg|\\lnot)[\{ ]?\}?/g, translator.logSymbols[tc.NOT]);
+   str = str.replace(/\\Box[\{ ]?\}?/g, translator.logSymbols[tc.BOX]);
+   str = str.replace(/\\Diamond[\{ ]?\}?/g, translator.logSymbols[tc.DIAMOND]);
    str = str.replace(/(\\vee|\\lor)[\{ ]?\}?/g, translator.logSymbols[tc.OR]);
    str = str.replace(/(\\wedge|\\land)[\{ ]?\}?/g, translator.logSymbols[tc.AND]);
    str = str.replace(/(\\to|\\rightarrow)[\{ ]?\}?/g, translator.logSymbols[tc.THEN]);
