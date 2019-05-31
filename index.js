@@ -99,7 +99,10 @@ onload = function(e) {
          document.getElementById("statusStop").firstChild.nodeValue = 'stop';
          document.getElementById("paintStop").firstChild.nodeValue = 'stop';
          // Now a free-variable tableau is created. When the proof is finished, prover.finished() is called.
-         prover.start(formula.negate());
+          if (formula.is_modal()) {
+              formula = formula.translateToModal();
+          }
+          prover.start(formula.negate());
       }
       catch (e) {
          alert("Error: " + e);

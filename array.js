@@ -324,7 +324,7 @@ Array.prototype.unify = function(formula) {
 Array.prototype.normalize = function() {
     // returns an equivalent formula in negation normal form, in which
     // left subformulas are generally less complex than right
-    // subformulas. (Complexity here means number of disjunctions.)
+    // subformulas (complexity here means number of disjunctions).
     switch (this[0]) {
     case tc.AND : {
         // |A&B| = |A|&|B| or |B|&|A|
@@ -442,6 +442,91 @@ Array.prototype.normalize = function() {
     }
 }
 
+Array.prototype.is_modal = function() {
+    // returns true if formula contains a box or a diamond
+    if (this[0] == tc.BOX || this[0] == tc.DIAMOND) return true;
+    if (this[0] < 0) {
+        for (var i=1; i<this.length; i++) {
+            if (this[i].is_modal()) return true;
+        }
+    }
+    return false;
+}
+
+
+Array.prototype.translateToModal = function(worldVariable) {
+    // returns translation of modal formula to first-order formula with explicit
+    // world variables
+    var res = this;
+    var accessibilityPredicate = 7; // xxx hack
+    if (!worldVariable) {
+        worldVariable = this.nextConstant();
+        res = this.copyDeep();
+    }
+    if (res[0] > 0) { // atomic; add world variable to argument list
+        res[1].push(worldVariable);
+        return res;
+    }
+    if (res[0] == tc.NOT) {
+        return [res[0], res[1].translateToModal(worldVariable)];
+    }
+    if (res.length == 3) { // AND, OR, THEN, IFF, quantified
+        if (!res[1].isArray) { // quantified -- assumes constant domains
+            return [res[0], res[1], res[2].translateToModal(worldVariable)];
+        }
+        else {
+            return [res[0],
+                    res[1].translateToModal(worldVariable),
+                    res[2].translateToModal(worldVariable)];
+        }
+    }
+    if (res[0] == tc.BOX) {
+        var newWorldVariable = res[1].nextVariable();
+        return [tc.ALL, newWorldVariable,
+                [tc.THEN,
+                 [accessibilityPredicate, [worldVariable, newWorldVariable]],
+                 res[1].translateToModal(newWorldVariable)
+                ]
+               ];
+    }
+    if (res[0] == tc.DIAMOND) {
+        var newWorldVariable = res[1].nextVariable();
+        return [tc.SOME, newWorldVariable,
+                [tc.AND,
+                 [accessibilityPredicate, [worldVariable, newWorldVariable]],
+                 res[1].translateToModal(newWorldVariable)
+                ]
+               ];
+    }
+}
+
+Array.prototype.nextConstant = function() {
+    // return individual constant not occurring in formula
+    var constants = this.getConstants();
+    constants.sort(function(a,b){ return a-b });
+    return (constants.length > 0) ? constants[constants.length-1] + 3 : 2;
+}
+
+Array.prototype.nextVariable = function() {
+    // return variable not occurring in formula
+    function greatestVariable(fla) {
+        var leader = 0;
+        for (var i=0; i<fla.length; i++) {
+            if (fla[i].isArray) {
+                var subleader = greatestVariable(fla[i]);
+                if (subleader > leader) {
+                    leader = subleader;
+                }
+            }
+            else if (fla[i] % 3 == 0 && fla[i] > leader) {
+                leader = fla[i];
+            }
+        }
+        return leader;
+    }
+    return greatestVariable(this)+3;
+}
+    
 Array.prototype.getFreeVariables = function() {
     // returns all free variables in the formula (no duplicates)
     var result = [];
