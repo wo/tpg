@@ -57,7 +57,6 @@ document.forms[0].flaField.insertAtCaret = function(str) {
       this.value += str;
       this.focus();
    }
-   renderFormula();
 }
 
 
@@ -79,7 +78,7 @@ onload = function(e) {
     
     function symButtonClick(e) {
         var field = document.forms[0].flaField;
-        var command = this.firstChild.getAttribute("alt");
+        var command = this.innerHTML;
         field.insertAtCaret(command);
     }
     
