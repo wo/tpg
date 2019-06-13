@@ -1,7 +1,6 @@
 //
-// The 'translator' object is used to translate between formulas in
-// LaTeX form, in HTML form and in the form used for internal
-// computations.
+// The 'translator' object is used to translate between formulas in plain text
+// form and in the form used for internal computations.
 //
 // Internally, formulas are arrays (for performance reasons):
 //
@@ -10,27 +9,22 @@
 //    |ExA|     => [tc.SOME, |x|, |A|]
 //    |Rab|     => [|R|, [|a|, |b|]]
 //
-// where predicates, variables and constants (including function
-// symbols) are represented by integers, function terms by arrays
-// whose first element is the function symbol, the other the
-// arguments:
+// where predicates, variables and constants (including function symbols) are
+// represented by integers, function terms by arrays whose first element is the
+// function symbol, the other the arguments:
 //
 //    predicates: 1, 4, 7, ...   (n % 3 == 1)  
 //    constants:  2, 5, 8, ...   (n % 3 == 2)
 //    variables:  3, 6, 9, ...   (n % 3 == 0)
 //    functions terms:  [2,5], [5,3,8], [8,6,[8,2]], ...
 //
-// HTML formulas currently have a fixed form. Only the basic
-// constituents can easily be changed by changing the logSymbols and
-// nonlogSymbols properties below.
-//
 // The public translator methods are:
 //
-//    latex2fla = function(str)            translates LaTeX -> internal
-//    fla2html = function(formula)         translates internal -> HTML
-//    sym2html = function(internal)        translates internal -> HTML for single symbols        
-//    term2html = function(internal)       translates internal -> HTML for a term        
-//    html2sym = function(readable, type)  translates HTML -> internal for single symbols
+//    text2fla = function(str)            translates text formula -> internal
+//    fla2text = function(arr)            translates internal -> text
+//    sym2text = function(n)              translates internal -> text for single symbols        
+//    term2text = function(arr)           translates internal -> text for a term        
+//    text2sym = function(str, type)      translates individual text symbol -> internal
 //
 
 // First, some constants:
@@ -61,15 +55,15 @@ function Translator() {
     this.logSymbols[tc.BOX] = "□";
     this.logSymbols[tc.DIAMOND] = "◇";
     
-    // When translating internal -> HTML, the internal symbols are translated back into 
-    // the original symbol, if there is one.  If not, the following symbols (plus indices)
-    // are used:
+    // When translating internal -> text, the internal symbols are translated
+    // back into the original symbol, if there is one. If not, the following
+    // symbols (plus indices) are used:
     this.nonlogSymbols = [];
     this.nonlogSymbols[tc.VARIABLE]  = ["x","y","z","w","v","u","t","s"];
     this.nonlogSymbols[tc.CONSTANT]  = ["a","b","c","d","e","f","g","h","k"];
     this.nonlogSymbols[tc.PREDICATE] = ["P","Q","R","S","A","B","C","D","E"];
     
-    this.error = "";  // holds the error message when a LaTeX string could not be parsed
+    this.error = "";  // holds the error message when a formula string could not be parsed
 
     var html2symMap;
     var sym2htmlMap;
@@ -83,31 +77,18 @@ function Translator() {
         arities = [];
     }
     
-    this.latex2fla = function(str) {
-        // parse a first-order sentence in LaTeX encoding, returns an
-        // internal representation of the sentence.
+    this.text2fla = function(str) {
+        // parse an input sentence and return internal representation.
         var boundVars = arguments[1] ? arguments[1].slice() : [];
         debug("parsing '"+str+"' (boundVars "+boundVars+")");
         
-        str = str.replace(/[{}]/g, "");           // remove curly LaTeX brackets
-        str = str.replace(/\\\s/g, "")            // remove final LaTeX backslashes
-        str = str.replace(/\s/g, "");             // remove whitespace
-        str = str.replace(/\\/g, "%");            // replace backslash by % (backslashes cause trouble)
-        str = str.replace(/%to/g, "%rightarrow"); // normalize alternative LaTeX notations
-        str = str.replace(/%lor/g, "%vee");       // ...
-        str = str.replace(/%land/g, "%wedge");  
-        str = str.replace(/%lnot/g, "%neg");    
-        str = str.replace(/%Box/g, "%Box");    
-        str = str.replace(/%Diamond/g, "%Diamond");    
+        // The next line says that any symbol except digits, brackets, %, or the
+        // comma, followed by any number of digits, is allowed as
+        // nonlogical expression.
+  //      var re_nonlogical = /[^\d\(\)%,]\d*/g;
+  //      re_nonlogical.lastIndex = 0;
         
-        // The next line says that any symbol except parenthesis,
-        // comma and the % sign, followed by any number of digits, is
-        // allowed as nonlogical symbol. (\ is also forbidden, because
-        // \ gets translated into %.)
-        var nonlogical = /[^\d\(\),%]\d*/g;
-        nonlogical.lastIndex = 0;
-        
-        var reTest = /%wedge|%vee|%rightarrow|%leftrightarrow/.test(str);
+        var reTest = /∧|∨|→|↔/.test(str);
         if (reTest) {
             // str contains a connective. Main operator might
             // nevertheless be a quantifier or negation. We replace
@@ -134,20 +115,18 @@ function Translator() {
             }
             debug("   nstr = '"+nstr+"'; ");
             
-            // done. Now let's see if there is still a connective in the modified string:
-            reTest = nstr.match(/%leftrightarrow/) ||
-                nstr.match(/%rightarrow/) ||
-                nstr.match(/%vee/) ||
-                nstr.match(/%wedge/);
+            // done. Now let's see if there is still a connective in the
+            // modified string (in decreasing order or precedence):
+            var reTest = nstr.match(/↔/) || nstr.match(/→/)  || nstr.match(/∨/) || nstr.match(/∧/);
             if (reTest) { 
                 // yes. The matched connective is the main operator
                 debug("   string is complex; ");
                 var result = []; // the formula in internal format
                 switch (reTest[0]) {
-                    case "%leftrightarrow" : result[0] = tc.IFF; break;
-                    case "%rightarrow" : result[0] = tc.THEN; break;
-                    case "%vee" : result[0] = tc.OR; break;
-                    case "%wedge" : result[0] = tc.AND; break;
+                    case "↔" : result[0] = tc.IFF; break;
+                    case "→" : result[0] = tc.THEN; break;
+                    case "∨" : result[0] = tc.OR; break;
+                    case "∧" : result[0] = tc.AND; break;
                 }
                 debug("   main connective: "+reTest[0]+"; ");
                 nstr = nstr.replace(reTest[0], "%split");
@@ -159,8 +138,8 @@ function Translator() {
                     return exit("argument missing for operator "+reTest[0]+" in "+str);
                 }
                 debug("   subformulas: "+subFormulas[0]+", "+subFormulas[1]+"; ");
-                result.push(this.latex2fla(subFormulas[0], boundVars));
-                result.push(this.latex2fla(subFormulas[1], boundVars));
+                result.push(this.text2fla(subFormulas[0], boundVars));
+                result.push(this.text2fla(subFormulas[1], boundVars));
                 return this.error ? null : result;
             }
         }

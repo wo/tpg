@@ -4,6 +4,13 @@
 	<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
 	<title>Tree Proof Generator</title>
 	<link rel="stylesheet" href="style.css" type="text/css">
+     <script>
+     // xxx
+     debug = function(str) { if (!self.debugWin) debugPopup(); debugWin.document.write("<pre>"+str+"</pre>"); }
+     debugPopup = function() { debugWin = self.open("about:blank","debugWin"); if (!self.debugWin) alert("unblock popups!"); }
+     debug("hello, this is the debugging window");
+     function log(str) { debug(str); }
+     </script>
 </head>
 <body>
 
@@ -43,7 +50,7 @@
 </div>
 
 <?php
-$scripts = array("array", "translator", "prover", "sentree", "painter", "index");
+$scripts = array("formula", "prover", "sentree", "painter", "index");
 if (isset($_GET['debug']) || isset($_GET['comments'])) {
 	$flag = $_GET['debug'] ? "debug" : "comments";
 	foreach ($scripts as $script) {
@@ -71,7 +78,7 @@ else {
 	];
 	document.write("<ul>\n");
 	for (var i=0; i<examples.length; i++) {
-		document.write("<li><a class='formula' href='./?f=" + examples[i] + "' onclick='with (document.forms[0]) { flaField.value=\"" + examples[i].replace(/\\/g, "\\\\") + "\"; onsubmit(); }; return false'>" + laTeX2html(examples[i]) + "</a></li>\n");
+		document.write("<li><a class='formula' href='./?f=" + examples[i] + "' onclick='with (document.forms[0]) { flaField.value=\"" + examples[i].replace(/\\/g, "\\\\") + "\"; onsubmit(); }; return false'>" + latex2str(examples[i]) + "</a></li>\n");
 	}
 	document.write("</ul>\n");
 	</script>

@@ -11,9 +11,9 @@
 //
 // Internally, formulas are arrays (for performance reasons):
 //
-//    |~A|      => [tc.NOT, |A|]
+//    |~A|      => ['¬', |A|]
 //    |A&B|     => [tc.AND, |A|, |B|]
-//    |ExA|     => [tc.SOME, |x|, |A|]
+//    |ExA|     => ['∃', |x|, |A|]
 //    |Rab|     => [|R|, [|a|, |b|]]
 //
 // where predicates, variables and constants (including function
@@ -40,7 +40,7 @@
 //
 // We also define a namespace object for global constants about whose
 // value we don't care. (Except perhaps that they are all negative
-// numbers.) E.g. tc.NOT is used as a global constant that stands
+// numbers.) E.g. '¬' is used as a global constant that stands
 // for the internal negation symbol. (Simply using a string like
 // "negation" or "~" instead slows down the script a lot.)
 //
@@ -120,90 +120,90 @@ Array.prototype.copyDeep = function() {
 // The remaining Array methods are used to manipulate formulas. 
 
 Array.prototype.negate = function() {
-    return [tc.NOT, this];
+    return ['¬', this];
 }
 
 // xxx maybe more efficient: prototype.type() => tc.GAMMA etc.; for we
 // often go through all of is_alpha, is_gamma, etc.
 
 Array.prototype.is_alpha = function() {
-    return ((this[0] == tc.AND) ||
-            (this[0] == tc.NOT && (this[1][0] == tc.OR || this[1][0] == tc.THEN)));
+    return ((this[0] == '∧') ||
+            (this[0] == '¬' && (this[1][0] == '∨' || this[1][0] == '→')));
 }
 
 Array.prototype.alpha1 = function() {
     // return first formula for alpha expansion
-    if (this[0] == tc.AND) return this[1].copyDeep();
-    // this[0] == tc.NOT
-    if (this[1][0] == tc.OR) return this[1][1].copyDeep().negate();
-    if (this[1][0] == tc.THEN) return this[1][1].copyDeep();
+    if (this[0] == '∧') return this[1].copyDeep();
+    // this[0] == '¬'
+    if (this[1][0] == '∨') return this[1][1].copyDeep().negate();
+    if (this[1][0] == '→') return this[1][1].copyDeep();
 }
 
 Array.prototype.alpha2 = function() {
     // return second formula for alpha expansion
-    if (this[0] == tc.AND) return this[2].copyDeep();
-    // this[0] == tc.NOT
-    if (this[1][0] == tc.OR) return this[1][2].copyDeep().negate();
-    if (this[1][0] == tc.THEN) return this[1][2].copyDeep().negate();
+    if (this[0] == '∧') return this[2].copyDeep();
+    // this[0] == '¬'
+    if (this[1][0] == '∨') return this[1][2].copyDeep().negate();
+    if (this[1][0] == '→') return this[1][2].copyDeep().negate();
 }
 
 Array.prototype.is_beta = function() {
-    return ((this[0] == tc.OR) ||
-            (this[0] == tc.THEN) ||
-            (this[0] == tc.IFF) ||
-            (this[0] == tc.NOT && (this[1][0] == tc.AND || this[1][0] == tc.IFF)));
+    return ((this[0] == '∨') ||
+            (this[0] == '→') ||
+            (this[0] == '↔') ||
+            (this[0] == '¬' && (this[1][0] == '∧' || this[1][0] == '↔')));
 }
 
 Array.prototype.beta1 = function() {
     // return first formula for beta expansion
-    if (this[0] == tc.OR) return this[1].copyDeep();
-    if (this[0] == tc.THEN) return this[1].copyDeep().negate();
+    if (this[0] == '∨') return this[1].copyDeep();
+    if (this[0] == '→') return this[1].copyDeep().negate();
     // We treat A <-> B as expanding to (A&B) | (~A&~B), and ~(A<->B)
     // to (A&~B) | (~A&B); these intermediate notes will be removed
     // before displaying trees.
-    if (this[0] == tc.IFF) return [tc.AND, this[1].copyDeep(), this[2].copyDeep()];
-    // this[0] == tc.NOT
-    if (this[1][0] == tc.AND) return this[1][1].copyDeep().negate();
+    if (this[0] == '↔') return ['∧', this[1].copyDeep(), this[2].copyDeep()];
+    // this[0] == '¬'
+    if (this[1][0] == '∧') return this[1][1].copyDeep().negate();
     // We treat A <-> B as expanding to (A&B) | (~A&~B), and ~(A<->B)
     // to (A&~B) | (~A&B); these intermediate notes will be removed
     // before displaying trees.
-    if (this[1][0] == tc.IFF) return [tc.AND, this[1][1].copyDeep(), this[1][2].copyDeep().negate()];
+    if (this[1][0] == '↔') return ['∧', this[1][1].copyDeep(), this[1][2].copyDeep().negate()];
 }
 
 Array.prototype.beta2 = function() {
     // return second formula for beta expansion
-    if (this[0] == tc.OR || this[0] == tc.THEN) return this[2].copyDeep();
-    if (this[0] == tc.IFF) return [tc.AND, this[1].copyDeep().negate(), this[2].copyDeep().negate()];
-    // this[0] == tc.NOT
-    if (this[1][0] == tc.AND) return this[1][2].copyDeep().negate();
-    if (this[1][0] == tc.IFF) return [tc.AND, this[1][1].copyDeep().negate(), this[1][2].copyDeep()];
+    if (this[0] == '∨' || this[0] == '→') return this[2].copyDeep();
+    if (this[0] == '↔') return ['∧', this[1].copyDeep().negate(), this[2].copyDeep().negate()];
+    // this[0] == '¬'
+    if (this[1][0] == '∧') return this[1][2].copyDeep().negate();
+    if (this[1][0] == '↔') return ['∧', this[1][1].copyDeep().negate(), this[1][2].copyDeep()];
 }
 
 Array.prototype.is_gamma = function() {
-    return ((this[0] == tc.ALL) ||
-            (this[0] == tc.NOT && this[1][0] == tc.SOME));
+    return ((this[0] == '∀') ||
+            (this[0] == '¬' && this[1][0] == '∃'));
 }
 
 Array.prototype.is_delta = function() {
-    return ((this[0] == tc.SOME) ||
-            (this[0] == tc.NOT && this[1][0] == tc.ALL));
+    return ((this[0] == '∃') ||
+            (this[0] == '¬' && this[1][0] == '∀'));
 }
 
 Array.prototype.matrix = function() {
     // return matrix formula [Fx for (Ax)Fx]
-    if (this[0] != tc.NOT) return this[2].copyDeep();
+    if (this[0] != '¬') return this[2].copyDeep();
     // ~(Ex)A
     else return this[1][2].copyDeep().negate();
 }
 
 Array.prototype.boundVar = function() {
     // return variable bound by gamma of delta formula
-    if (this[0] == tc.ALL || this[0] == tc.SOME) return this[1];
+    if (this[0] == '∀' || this[0] == '∃') return this[1];
     else return this[1][1];
 }
 
 Array.prototype.is_doublenegation = function() {
-    return (this[0] == tc.NOT && this[1][0] == tc.NOT); 
+    return (this[0] == '¬' && this[1][0] == '¬'); 
 }
  
 Array.prototype.substitute = function(origTerm, newTerm, shallow) {
@@ -246,8 +246,8 @@ Array.prototype.unify = function(formula) {
     // Warning: Don't confuse an empty unifier [] with false!
     //
     // The following algorithm is losely based on the one described in S.
-    // H�lldobler, Logik und Logikprogrammierung, Synchron Verlag,
-    // Heidelberg 2001, �4.5, which is there proven to be complete and
+    // Hölldobler, Logik und Logikprogrammierung, Synchron Verlag,
+    // Heidelberg 2001, §4.5, which is there proven to be complete and
     // sound.
     //
     // Note that this only works for literals.  For quantified
@@ -255,7 +255,7 @@ Array.prototype.unify = function(formula) {
     // variables, which would complicate things a little.
     if (this.length != 2) return false;
     if (this[0] != formula[0]) return false;
-    if (this[0] == tc.NOT) return this[1].unify(formula[1]);
+    if (this[0] == '¬') return this[1].unify(formula[1]);
     if (this[1].length != formula[1].length) return false;
     // So we have two atomic formulas of the same arity.
     // Now we walk through all the pairs of terms. Remember:
@@ -326,43 +326,43 @@ Array.prototype.normalize = function() {
     // left subformulas are generally less complex than right
     // subformulas (complexity here means number of disjunctions).
     switch (this[0]) {
-    case tc.AND : {
+    case '∧' : {
         // |A&B| = |A|&|B| or |B|&|A|
         var sub1 = this[1].normalize();
         var sub2 = this[2].normalize();
         var res = (sub1.__complexity <= sub2.__complexity) ?
-            [tc.AND, sub1, sub2] : [tc.AND, sub2, sub1];
+            ['∧', sub1, sub2] : ['∧', sub2, sub1];
         res.__complexity = sub1.__complexity * sub2.__complexity;
         return res;
     }
-    case tc.OR : {
+    case '∨' : {
         // |AvB| = |A|v|B| or |B|v|A|
         var sub1 = this[1].normalize();
         var sub2 = this[2].normalize();
         var res = (sub1.__complexity <= sub2.__complexity) ?
-            [tc.OR, sub1, sub2] : [tc.OR, sub2, sub1];
+            ['∨', sub1, sub2] : ['∨', sub2, sub1];
         res.__complexity = sub1.__complexity + sub2.__complexity;
         return res;
     }
-    case tc.THEN : {
+    case '→' : {
         // |A->B| = |~A|v|B| or |B|v|~A|
         var sub1 = this[1].negate().normalize();
         var sub2 = this[2].normalize();
         var res = (sub1.__complexity <= sub2.__complexity) ?
-            [tc.OR, sub1, sub2] : [tc.OR, sub2, sub1];
+            ['∨', sub1, sub2] : ['∨', sub2, sub1];
         res.__complexity = sub1.__complexity + sub2.__complexity;
         return res;
     }
-    case tc.IFF : {
+    case '↔' : {
         // |A<->B| = |A&B|v|~A&~B| or |~A&~B|v|A&B|
-        var sub1 = [tc.AND, this[1], this[2]].normalize();
-        var sub2 = [tc.AND, this[1].negate(), this[2].negate()].normalize();
+        var sub1 = ['∧', this[1], this[2]].normalize();
+        var sub2 = ['∧', this[1].negate(), this[2].negate()].normalize();
         var res = (sub1.__complexity <= sub2.__complexity) ?
-            [tc.OR, sub1, sub2] : [tc.OR, sub2, sub1];
+            ['∨', sub1, sub2] : ['∨', sub2, sub1];
         res.__complexity = sub1.__complexity + sub2.__complexity;
         return res;
     }
-    case tc.ALL : case tc.SOME : {
+    case '∀' : case '∃' : {
         // |(Ax)A| = Ax|A|
         var sub1 = this[2].normalize();
         var res = [this[0], this[1], sub1];
@@ -376,48 +376,48 @@ Array.prototype.normalize = function() {
         res.__complexity = sub1.__complexity;
         return res;
     }
-    case tc.NOT : {
+    case '¬' : {
         switch (this[1][0]) {
-        case tc.AND : {
+        case '∧' : {
             // |~(A&B)| = |~A|v|~B| or |~B|v|~A|
             var sub1 = this[1][1].negate().normalize();
             var sub2 = this[1][2].negate().normalize();
             var res = (sub1.__complexity <= sub2.__complexity) ?
-                [tc.OR, sub1, sub2] : [tc.OR, sub2, sub1];
+                ['∨', sub1, sub2] : ['∨', sub2, sub1];
             res.__complexity = sub1.__complexity + sub2.__complexity;
             return res;
         }
-        case tc.OR : {
+        case '∨' : {
             // |~(AvB)| = |~A|&|~B| or |~B|&|~A|
             var sub1 = this[1][1].negate().normalize();
             var sub2 = this[1][2].negate().normalize();
             var res = (sub1.__complexity <= sub2.__complexity) ?
-                [tc.AND, sub1, sub2] : [tc.AND, sub2, sub1];
+                ['∧', sub1, sub2] : ['∧', sub2, sub1];
             res.__complexity = sub1.__complexity * sub2.__complexity;
             return res;
         }
-        case tc.THEN : {
+        case '→' : {
             // |~(A->B)| = |A|&|~B| or |~B|&|A|
             var sub1 = this[1][1].normalize();
             var sub2 = this[1][2].negate().normalize();
             var res = (sub1.__complexity <= sub2.__complexity) ?
-                [tc.AND, sub1, sub2] : [tc.AND, sub2, sub1];
+                ['∧', sub1, sub2] : ['∧', sub2, sub1];
             res.__complexity = sub1.__complexity * sub2.__complexity;
             return res;
         }
-        case tc.IFF : {
+        case '↔' : {
             // |~(A<->B)| = |A&~B|v|~A&B| or |~A&B|v|A&~B|
-            var sub1 = [tc.AND, this[1][1], this[1][2].negate()].normalize();
-            var sub2 = [tc.AND, this[1][1].negate(), this[1][2]].normalize();
+            var sub1 = ['∧', this[1][1], this[1][2].negate()].normalize();
+            var sub2 = ['∧', this[1][1].negate(), this[1][2]].normalize();
             var res = (sub1.__complexity <= sub2.__complexity) ?
-                [tc.OR, sub1, sub2] : [tc.OR, sub2, sub1];
+                ['∨', sub1, sub2] : ['∨', sub2, sub1];
             res.__complexity = sub1.__complexity + sub2.__complexity;
             return res;
         }
-        case tc.ALL : case tc.SOME : {
+        case '∀' : case '∃' : {
             // |~(Ax)A| = Ex|~A|
             var sub = this[1][2].negate().normalize();
-            var res = [(this[1][0] == tc.ALL) ? tc.SOME : tc.ALL, this[1][1], sub];
+            var res = [(this[1][0] == '∀') ? '∃' : '∀', this[1][1], sub];
             res.__complexity = sub.__complexity;
             return res;
         }
@@ -428,7 +428,7 @@ Array.prototype.normalize = function() {
             res.__complexity = sub.__complexity;
             return res;
         }
-        case tc.NOT : {
+        case '¬' : {
             // |~~A| = |A|
             return this[1][1].normalize();
         }
@@ -467,7 +467,7 @@ Array.prototype.translateToModal = function(worldVariable) {
         res[1].push(worldVariable);
         return res;
     }
-    if (res[0] == tc.NOT) {
+    if (res[0] == '¬') {
         return [res[0], res[1].translateToModal(worldVariable)];
     }
     if (res.length == 3) { // AND, OR, THEN, IFF, quantified
@@ -482,8 +482,8 @@ Array.prototype.translateToModal = function(worldVariable) {
     }
     if (res[0] == tc.BOX) {
         var newWorldVariable = res[1].nextVariable();
-        return [tc.ALL, newWorldVariable,
-                [tc.THEN,
+        return ['∀', newWorldVariable,
+                ['→',
                  [accessibilityPredicate, [worldVariable, newWorldVariable]],
                  res[1].translateToModal(newWorldVariable)
                 ]
@@ -491,8 +491,8 @@ Array.prototype.translateToModal = function(worldVariable) {
     }
     if (res[0] == tc.DIAMOND) {
         var newWorldVariable = res[1].nextVariable();
-        return [tc.SOME, newWorldVariable,
-                [tc.AND,
+        return ['∃', newWorldVariable,
+                ['∧',
                  [accessibilityPredicate, [worldVariable, newWorldVariable]],
                  res[1].translateToModal(newWorldVariable)
                 ]
@@ -659,15 +659,15 @@ Array.prototype.getPredicates = function(withArity) {
     return withArity ? resultWithArity : result;
 }
 
-Array.prototype.equals = function(formula) {
-    // returns true iff two formulas are syntactically identical
-    if (this.length != formula.length) return false;
+Array.prototype.equals = function(arr2) {
+    // returns true iff two (possibly nested) arrays are equal
+    if (this.length != arr2.length) return false;
     for (var i=0; i<this.length; i++) {
         if (this[i].isArray) {
-            if (!formula[i].isArray) return false;
-            if (!this[i].equals(formula[i])) return false;
+            if (!arr2[i].isArray) return false;
+            if (!this[i].equals(arr2[i])) return false;
         }
-        else if (this[i] != formula[i]) return false;
+        else if (this[i] != arr2[i]) return false;
     }
     return true;
 }

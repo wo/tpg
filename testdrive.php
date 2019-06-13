@@ -1,7 +1,6 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-
-<html>
+<meta charset="utf-8">
 <head>
+
 <title>Tree Proof Generator Test</title>
 
 <style type="text/css">
@@ -14,16 +13,25 @@
 </style>
 
 <?php
-$scripts = array("array", "translator", "prover", "sentree", "painter");
+$scripts = array("formula", "prover", "sentree", "painter");
 if ($_GET['debug'] || $_GET['comments']) {
 	$flag = $_GET['debug'] ? "debug" : "comments";
 	foreach ($scripts as $script) {
-		print "<script language='JavaScript' type='text/javascript' src='$script.$flag.js'></script>\n";
+		print "<script type='text/javascript' src='$script.$flag.js'></script>\n";
 	}
+    print "<script>\n";
+    print 'debug = function(str) { if (!self.debugWin) debugPopup(); debugWin.document.write("<pre>"+str+"</pre>"); }'."\n";
+    print 'debugPopup = function() { debugWin = self.open("about:blank","debugWin"); if (!self.debugWin) alert("unblock popups!"); }'."\n";
+    print 'debug("hello, this is the debugging window");'."\n";
+    print 'function log(str) { debug(str); }'."\n";
+    print '</script>';
 }
 else {
 	$allscripts = implode("-", $scripts);
-	print "<script language='JavaScript' type='text/javascript' src='$allscripts.js'></script>\n";
+	print "<script type='text/javascript' src='$allscripts.js'></script>\n";
+    print "<script>\n";
+    print "function log(str) {};\n";
+    print '</script>';
 }
 ?>
 <?php 
@@ -32,61 +40,15 @@ if ($_GET['script']) {
 	foreach ($scripts as $scr) print "<script type='text/javascript' src='" . script($scr) . "'></script>\n";
 }
 ?>
-<script language="JavaScript" type="text/javascript">
+<script>
 
-prover.status = function(str) {
+function prover_status(str) {
 	document.getElementById("status").firstChild.nodeValue = str;
-}
-
-prover.finished = function(state) {
-	endDate = new Date();
-	var sentenceTree = new SenTree(this.tree);
-	if (!state) {
-		if (!this.counterModel) this.counterModel = sentenceTree.getCounterModel();
-		if (!this.counterModel) alert("no countermodel for invalid formula");
-	}
-	painter = new TreePainter(sentenceTree, document.getElementById("rootAnchor"));
-	var res = (endDate - startDate) + ": " + (state ? "valid" : "invalid");
-	if (resultId !== null) document.getElementById("res"+resultId).firstChild.nodeValue = res;
-	else alert(res);
 }
 
 function paintTree() {
 	if (prover.counterModel) document.getElementById("rootAnchor").innerHTML = prover.counterModel.toString();
 	else painter.paintTree();
-}
-
-prove = function(fla, resultId, depthLimit) {
-	translator.init();
-	var formula = translator.latex2fla(fla);
-	if (!formula) {
-		alert("Invalid formula.\n"+translator.error);
-		return;
-	}
-	self.resultId = resultId;
-	self.startDate = new Date();
-	prover.start(formula.negate(), depthLimit);
-}
-
-function htmlFla(str) {
-	str = str.replace(/\\forall[\{ ]?\}?/g, '<img src="forall.gif" alt="%forall" align="top">');
-	str = str.replace(/\\exists[\{ ]?\}?/g, '<img src="exists.gif" alt="%exists" align="top">');
-	str = str.replace(/(\\neg|\\lnot)[\{ ]?\}?/g, '<img src="neg.gif" alt="%lnot" align="top">');
-	str = str.replace(/(\\vee|\\lor)[\{ ]?\}?/g, '<img src="vee.gif" alt="%lor" align="top">');
-	str = str.replace(/(\\wedge|\\land)[\{ ]?\}?/g, '<img src="wedge.gif" alt="%land" align="top">');
-	str = str.replace(/(\\to|\\rightarrow)[\{ ]?\}?/g, '<img src="to.gif" alt="%to" align="top">');
-	str = str.replace(/\\leftrightarrow[\{ ]?\}?/g, '<img src="leftrightarrow.gif" alt="%leftrightarrow" align="top">');
-	str = str.replace(/(\\.*)/, '<span class="latex">$1</span>');
-	str = str.replace(/%/g, '\\');
-	return str;
-}
-
-onload = function(e) {
-	document.forms[0].f.onkeyup = function(e) {
-		var str = htmlFla(document.forms[0].f.value);
-		document.getElementById("flaDiv").innerHTML = str;
-		document.getElementById("flaDiv").style.display = str ? "block" : "none"; 
-	}
 }
 
 </script>
@@ -281,6 +243,25 @@ conpos2	\forallx(Px\leftrightarrow\forally(Iy\toCxy))\to\forally(Iy\to\forallx(P
 </div>
 
 <script type="text/javascript">
+
+function latex2str(str) {
+    str = str.replace(/\s*/g, '');
+    str = str.replace(/\\forall[\{ ]?\}?/g, '∀');
+    str = str.replace(/\\exists[\{ ]?\}?/g, '∃');
+    str = str.replace(/(\\neg|\\lnot)[\{ ]?\}?/g, '¬');
+    str = str.replace(/\\Box[\{ ]?\}?/g, '□');
+    str = str.replace(/\\Diamond[\{ ]?\}?/g, '◇');
+    str = str.replace(/(\\vee|\\lor)[\{ ]?\}?/g, '∨');
+    str = str.replace(/(\\wedge|\\land)[\{ ]?\}?/g, '∧');
+    str = str.replace(/(\\to|\\rightarrow)[\{ ]?\}?/g, ' → ');
+    str = str.replace(/\\leftrightarrow[\{ ]?\}?/g, ' ↔ ');
+    //str = str.replace(/([^'])(\\[^<]*)/, '$1<span class="latex">$2</span>'); // unfinished latex commands
+    //str = str.replace(/^(\\[^<]*)/, '<span class="latex">$1</span>'); // unfinished latex commands
+    str = str.replace(/([^'])(\\[^<]*)/, '$1$2'); // unfinished latex commands
+    str = str.replace(/^(\\[^<]*)/, '$1'); // unfinished latex commands
+    return str;
+}
+
 if (document.getElementById("flas")) {
 	var flas = "";
 	for (var i=0; i<document.getElementById("flas").childNodes.length; i++) {
@@ -293,6 +274,7 @@ if (document.getElementById("flas")) {
 		if (flas[i] == "") continue;
 		var fvals = flas[i].split("\t");
 		if (fvals.length != 3) continue;
+        fvals[1] = latex2str(fvals[1]);
 		if (fvals[2] == 'valid') validTests.push({ name: fvals[0], fla : fvals[1] });
 		else invalidTests.push({ name: fvals[0], fla : fvals[1] });
 	}
@@ -301,30 +283,38 @@ if (document.getElementById("flas")) {
 	document.write("<table id='testTable'>\n");
 	document.write("<tr><th colspan='3'>Valid Formulas</th><th>Result</th></tr>\n");
 	for (var i=0; i<validTests.length; i++) {
-		document.write("<tr" + (i%2 ? " style='background-color:#eee'" : "") + "><td>"+validTests[i].name+"</td><td>"+htmlFla(validTests[i].fla)+"</td><td><button onclick='prove(\""+validTests[i].fla.replace(/\\/g, "\\\\")+"\", \""+i+"0\")'>prove</button></td><td id='res"+i+"0'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>\n");
+		document.write("<tr" + (i%2 ? " style='background-color:#eee'" : "") + "><td>"+validTests[i].name+"</td><td>"+validTests[i].fla+"</td><td><button onclick='prove(\""+validTests[i].fla+"\", \""+i+"0\")'>prove</button></td><td id='res"+i+"0'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>\n");
 	}
 	document.write("<tr><th colspan='3'><br>Invalid Formulas</th><th><br>Result</th></tr>\n");
 	for (var i=0; i<invalidTests.length; i++) {
-		document.write("<tr" + (i%2 ? " style='background-color:#eee'" : "") + "><td>"+invalidTests[i].name+"</td><td>"+htmlFla(invalidTests[i].fla)+"</td><td><button onclick='prove(\""+invalidTests[i].fla.replace(/\\/g, "\\\\")+"\", \""+i+"1\")'>prove</button></td><td id='res"+i+"1'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>\n");
+		document.write("<tr" + (i%2 ? " style='background-color:#eee'" : "") + "><td>"+invalidTests[i].name+"</td><td>"+latex2str(invalidTests[i].fla)+"</td><td><button onclick='prove(\""+latex2str(invalidTests[i].fla)+"\", \""+i+"1\")'>prove</button></td><td id='res"+i+"1'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>\n");
 	}
 	document.write("</table>\n");
 }
 
-function proveAll(timeLimit) {
-	if (!prover.oldFinished) prover.oldFinished = prover.finished;
-	prover.finished = function(state) {
-		clearTimeout(stopTimer);
-		this.oldFinished(state);
-		proveNext(timeLimit);
-	}
-	arr = validTests;
-	ind = 0;
-	proveNext(timeLimit);
+function prove(fla, resultId) {
+    var parser = new Parser();
+    var formula = parser.parseFormula(fla);
+	self.resultId = resultId;
+	self.startDate = new Date();
+    self.prover = new Prover([formula.negate()]);
+    prover.status = prover_status;
+    prover.onfinished = get_onfinished(formula.negate());
+	prover.start();
 }
-function proveNext(timeLimit) {
+
+function proveAll(timeLimit) {
+	self.arr = validTests;
+	self.ind = 0;
+    self.provingAll = true;
+    self.timeLimit = timeLimit;
+	proveNext();
+}
+
+function proveNext() {
 	if (!arr[ind]) {
 		if (arr == invalidTests) {
-			prover.finished = prover.oldFinished;
+            self.provingAll = false;
 			return;
 		}
 		arr = invalidTests;
@@ -333,8 +323,26 @@ function proveNext(timeLimit) {
 	var test = arr[ind];
 	prove(test.fla, ind + (arr == validTests ? "0" : "1"));
 	ind++;
-	stopTimer = setTimeout("prover.stop(); proveNext("+timeLimit+")", timeLimit);
+	stopTimer = setTimeout("prover.stop(); proveNext()", timeLimit);
 }
+
+function get_onfinished(initFormula) {
+    return function(state) {
+        endDate = new Date();
+        // var sentenceTree = new SenTree(this.tree, [initFormula.negate()]);
+        // if (!state) {
+        //     if (!this.counterModel) this.counterModel = sentenceTree.getCounterModel();
+        //     if (!this.counterModel) alert("no countermodel for invalid formula");
+        // }
+        // painter = new TreePainter(sentenceTree, document.getElementById("rootAnchor"));
+        var res = (endDate - startDate) + ": " + (state ? "valid" : "invalid");
+        if (resultId !== null) document.getElementById("res"+resultId).firstChild.nodeValue = res;
+        else alert(res);
+        if (self.stopTimer) clearTimeout(stopTimer);
+        if (self.provingAll) setTimeout('proveNext()', 500);
+    }
+}
+
 
 </script>
 

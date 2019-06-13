@@ -9,7 +9,8 @@
 //
 
 function TreePainter(senTree, rootAnchor) {
-    // Constructor for a tree painter. rootAnchor is the HTML element into which the tree will be written.
+    // Constructor for a tree painter. rootAnchor is the HTML element into which
+    // the tree will be written.
     
     this.paintInterval = 700;      // number of ms between paint steps
     this.branchPadding = 30;       // min margin between tree branches
@@ -29,7 +30,7 @@ function TreePainter(senTree, rootAnchor) {
     var freePixels = [];
     var highlighted = [];
     var painter = this;
-    TreePainter.instance = this; // will break if there are several instances are simultanously in use (which never are)
+    TreePainter.instance = this; // will break if several instances are simultanously in use (which never are)
     
     this.paintTree = function() {
         // start painting
@@ -39,13 +40,15 @@ function TreePainter(senTree, rootAnchor) {
             return this.finished();
         }
         var paintNodes = this.tree.getExpansion(node);
-        debug("expansion: " + paintNodes);
+        log("expansion: " + paintNodes);
         for (var i=0; i<paintNodes.length; i++) {
-            if (!paintNodes[i]) alert(node +" from " + node.developedFrom + " => "+paintNodes+ ", childr: "+node.children+", par: "+node.parent+", par.children: "+node.parent.children); // xxx
             this.paint(paintNodes[i]);
         }
         this.highlight(paintNodes, node.developedFrom);
-        this.paintTimer = setTimeout("TreePainter.instance.paintTree()", this.paintInterval);
+
+        this.paintTimer = setTimeout(function(){
+            TreePainter.instance.paintTree();
+        }.bind(this), this.paintInterval);
     };
     
     this.stop = function() {
@@ -71,10 +74,10 @@ function TreePainter(senTree, rootAnchor) {
             node.container.str = "{ "+node+ " }" + (self.__strid ? self.__strid++ : (self.__strid = 1));
         }
         else node.container = node.parent.container;
-        debug("painting "+node+" in "+node.container.str);
+        log("painting "+node+" in "+node.container.str);
         // create node div and put it centered at the bottom of its container:
         node.nodeNumber = ++curNodeNumber;
-        var html = curNodeNumber + ".&nbsp;&nbsp;<span class='" + this.formulaCSS + "'>" + translator.fla2html(node.formula) + "</span>";
+        var html = curNodeNumber + ".&nbsp;&nbsp;<span class='" + this.formulaCSS + "'>" + node.formula.string + "</span>";
         html += node.developedFrom ? "&nbsp;&nbsp;(" + node.developedFrom.nodeNumber + ")" : "&nbsp;&nbsp;&nbsp;&nbsp;";
         if (node.closedEnd) html += "<br><b>x</b>";
         node.div = document.createElement('div');
@@ -86,8 +89,8 @@ function TreePainter(senTree, rootAnchor) {
         node.div.h = node.div.offsetHeight;
         document.body.removeChild(node.div);
         node.container.appendChild(node.div);
-        // since all children of the container are absolutely positioned, the container element is actually 
-        // a dot centered at the top of the branch
+        // Since all children of the container are absolutely positioned, the
+        // container element is actually a dot centered at the top of the branch.
         node.div.style.left = -node.div.w/2 + "px";
         node.div.style.top = node.container.h + "px";
         node.container.h += node.div.h + 3; // that number is the line-spacing
@@ -98,9 +101,9 @@ function TreePainter(senTree, rootAnchor) {
         while ((par = par.parentNode).subContainers) {
             if (!par.subContainers[1]) continue;
             var overlap = getOverlap(par);
-debug("comparing subcontainers for overlap: " + par.str);
+            //log("comparing subcontainers for overlap: " + par.str);
             if (overlap) {
-                debug(overlap+" overlap between "+par.subContainers[0].str+" and "+par.subContainers[1].str);
+                log(overlap+" overlap between "+par.subContainers[0].str+" and "+par.subContainers[1].str);
                 var x1 = parseInt(par.subContainers[0].style.left) - Math.ceil(overlap/2);
                 var x2 = parseInt(par.subContainers[1].style.left) + Math.ceil(overlap/2);
                 par.subContainers[0].style.left = x1 + "px";
@@ -121,7 +124,7 @@ debug("comparing subcontainers for overlap: " + par.str);
             cons = cons.concat(con.subContainers);
         }
         if (minX < this.minX) {
-            debug("minX " + minX + ": tree out of left document border by " + (this.minX - minX));
+            log("minX " + minX + ": tree out of left document border by " + (this.minX - minX));
             this.rootAnchor.firstChild.style.left = this.rootAnchor.firstChild.__x + (this.minX - minX) + "px";
         }
     }
@@ -173,7 +176,7 @@ debug("comparing subcontainers for overlap: " + par.str);
     }
     
     function getNextUnpainted(tree) {
-        var nodes = [tree.rootNode];
+        var nodes = [tree.nodes[0]];
         var node;
         while ((node = nodes.shift())) {
             do {

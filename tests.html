@@ -1,0 +1,62 @@
+<meta charset="utf-8">
+
+<button onclick="runalltests()">run all tests</button>
+
+<script>
+  
+alltests = [];
+  
+function showtests(filename) {
+  document.write('<h3>'+filename+'<h3>');
+  for (var name in tests) {
+    if (Array.prototype[name]) continue;
+    alltests[name] = tests[name];
+    document.write('<button onclick="run(\''+name+'\')">'+name+'</button><span id="r'+name+'"></span><br>');
+  }
+}
+
+var outspan = null;
+function run(testname) {
+  console.log(testname);
+  outspan = document.getElementById('r'+testname);
+  alltests[testname]();
+}
+
+function runalltests() {
+  for (var name in alltests) {
+    console.log(name);
+    if (Array.prototype[name]) continue;
+    run(name);
+  }
+}
+
+function assertEqual(x,y) {
+  if (x==y) print('.');
+  else print(' <b>fail: '+x+' != '+y+'<b> ');
+}
+
+function assert(x) {
+  if (x) print('.');
+  else print(' <b>fail</b> ');
+}
+
+function print(s) {
+  outspan.innerHTML += s;
+}
+
+function log(s) {
+  console.log(s);
+}
+
+</script>
+<script src="formula.js"></script>
+<script src="test_formula.js"></script>
+<script>
+  showtests('test_formula.js');
+</script>
+<script src="prover.js"></script>
+<script src="test_prover.js"></script>
+<script>
+  showtests('test_prover.js');
+</script>
+<script src="sentree.js"></script>
