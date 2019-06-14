@@ -888,6 +888,28 @@ ModelFinder.prototype.isModel = function(model) {
 }
 
 function Model(modelfinder) {
+    // A first-order model has a domain D and an interpretation function assigning
+    // - to each 0-ary individual functor a member of D,
+    // - to each n-ary individual functor a function from n-tuples to members of D,
+    // - to each 0-ary predicate a truth-value,
+    // - to each n-ary predicate a function from n-tuples to truth-values.
+    //
+    // We store the interpretation function in this.values. However, JS doesn't
+    // allow lists as dict keys. So values['P'] can't be a dict mapping, say,
+    // <0,1> to true.
+    //
+    // We actually replace the dict values by simple lists: instead of 'P' -> {
+    // [0,0]: true, [0,1]: false, ... }, we have 'P' -> [true, false, ... ]; the
+    // nth value in the list is the value assigned to the nth 2-tuple from the
+    // domain. Instead of computing the relevant number n, we currently use a
+    // lookup table in which tuples are converted to strings. So we have
+    // this.argLists[2] = ['00', '01', '10', '11']. To find the value assigned
+    // to 'P' for [0,1], we first look up the index of '01' in argLists[2], and
+    // then return that index from values['P'].
+    //
+    // For zero-ary predicates and functors/constants, there is only one
+    // possible argument list: the empty list. It's more efficient to store
+    // values[a] = 0, values[p] = true directly, bypassing the lists.
     this.domain = [];
     this.argLists = [];
     this.values = [];
@@ -900,26 +922,6 @@ function Model(modelfinder) {
 }
 
 Model.prototype.initInterpretation = function(numIndividuals) {
-    // JS doesn't allow lists as dict keys. Since the keys only need to be
-    // generated once for every domain, it's not too inefficient to convert them
-    // to strings.
-    //
-    // For the next iteration, we can simply permute the list of /outputs/.
-    // In fact, we wouldn't even need to store the keys. It's clear what they
-    // are anyway given arity and numIndividuals. We really only need to store
-    // the output sequence in order of the argument permutations.
-    //
-    // So let's have a genuine interpretation function getValue that takes a
-    // symbol and a tuple of individuals [0,1] as argument, computes the
-    // position of the tuple in the list of all 2-ary tuples of individuals, and
-    // returns that position from the values array.
-    //
-    // So we store values[f] = [0,0,1,0,...], values[F] = [true, false, ...],
-    // where values[f][0] is the value of f for the first tuple, etc.
-    //
-    // For zero-ary predicates and functors/constants, there is only one
-    // possible argument list: the empty list. It's more efficient to store
-    // values[a] = 0, values[p] = true, bypassing the arrays.
     this.domain = [];
     for (var i=0; i<numIndividuals; i++) {
         this.domain.push(i); // domain is integers 0,1,...
@@ -934,25 +936,25 @@ Model.prototype.initInterpretation = function(numIndividuals) {
             continue;
         }
         if (!this.argLists[arity]) {
-            this.argLists[arity] = initArguments(arity);
+            this.argLists[arity] = Model.initArguments(arity, numIndividuals);
         }
         this.values[sym] = Array.getArrayOfZeroes(this.argLists[arity].length); // note that false == 0
         // this.values[f] is the list of values corresponding to the argument
         // tuples in argLists[arity]
     }
     
-    function initArguments(arity) {
-        // set up this.argLists[arity] as list of all tuples from this.domain,
-        // with length <arty>, as strings.
-        var res = [];
-        var tuple = Array.getArrayOfZeroes(arity);
+}
+
+Model.initArguments = function(arity, numIndividuals) {
+    // return list of all tuples from {0,...,numIndividuals} with length <arty>,
+    // as strings.
+    var res = [];
+    var tuple = Array.getArrayOfZeroes(arity);
+    res.push(tuple.toString());
+    while (Model.iterateTuple(tuple, numIndividuals-1)) { // optimise?
         res.push(tuple.toString());
-        while (Model.iterateTuple(tuple, numIndividuals-1)) { // optimise?
-            res.push(tuple.toString());
-        }
-        return res;
     }
-    
+    return res;
 }
 
 Model.iterateTuple = function(tuple, maxValue) {

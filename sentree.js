@@ -461,7 +461,11 @@ SenTree.prototype.getCounterModel = function() {
     var modelFinder = new ModelFinder(this.initFormulas);
     var model = modelFinder.model;
    
-    // set up the domain and map every term onto itself:
+    // set up the domain and map every term to a number in the domain; remember
+    // that f(a) may denote an individual that is not denoted by any individual
+    // constant.
+    var numIndividuals = 0;
+    var terms2individuals = {};
     var node = endNode;
     do {
         var fla = node.formula;
@@ -469,20 +473,24 @@ SenTree.prototype.getCounterModel = function() {
         if (!fla.predicate) continue; 
         var terms = fla.terms.copy();
         for (var t=0; t<terms.length; t++) {
-            if (model.domain.includes(terms[t])) continue;
-            log("adding "+terms[t]);
-            model.domain.push(terms[t]);
+            if (terms2individuals[terms[t].toString()]) continue;
+            log("adding element for "+terms[t]);
+            model.domain.push(numIndividuals);
+            terms2individuals[terms[t].toString()] = numIndividuals;
             if (terms[t].isArray) {
                 for (var i=1; i<terms[t].length; i++) terms.push(terms[t][i]);
             }
-            else model.interpretation[terms[t]] = term;
+            else model.values[terms[t]] = numIndividuals; // set up interpretation for constants
+            numIndividuals++;
         }
     } while ((node = node.parent));
-    if (model.domain.length == 0) model.domain = [2];
-    log("domain initialized: " + model);
+    if (numIndividuals == 0) {
+        model.domain = [0];
+        numIndividuals = 1;
+    }
    
-    // interpret function and predicate symbols:
-    // For functional terms, a canonical model should assign to f^n a function F such that 
+    // Now interpret function and predicate symbols.
+    // For function terms, a canonical model should assign to f^n a function F such that 
     // for all (t1...tn) for which f(t1...tn) occurs on the branch, F(T1...Tn) = "f(t1...tn)",
     // where Ti is the intepretation of ti (i.e. the string "ti"). For all other arguments
     // not occuring on the branch as arguments of f, the value of F is arbitrary. 
@@ -502,7 +510,7 @@ SenTree.prototype.getCounterModel = function() {
         if (!fla.predicate) continue;
         log("interpreting " + node);
         if (fla.terms.length == 0) { // propositional constant
-            model.interpretation[fla.predicate] = tv;
+            model.values[fla.predicate] = tv;
             continue;
         }
         // interpret function symbols:
@@ -511,47 +519,42 @@ SenTree.prototype.getCounterModel = function() {
             var term = subTerms[t];
             if (!term.isArray) continue;
             var functor = term[0], args = term.slice(1);
-            if (!model.interpretation[functor]) {
-                // init functor interpretation:
-                var arrs = [model.interpretation[functor] = []];
-                for (var n=2; n<args.length; n++) {
-                    var narrs = [];
-                    for (var j=0; j<arrs.length; j++) {
-                        for (var d=0; d<model.domain.length; d++) {
-                            narrs.push(arrs[j][model.domain[d]] = []);
-                        }
-                    }
-                    arrs = narrs;
+            if (!model.values[functor]) {
+                // init functor interpretation; recall that model.values['f'] is
+                // the list of function values, e.g. [0,1,0,0] corresponding to
+                // the list of possible function arguments, e.g. [<0,0>, <0,1>,
+                // <1,0>, <1,1>]. This second list is stored in
+                // model.argLists[arity].
+                var arity = args.length;
+                if (!model.argLists[arity]) {
+                    model.argLists[arity] = Model.initArguments(arity, numIndividuals);
                 }
-                for (var j=0; j<arrs.length; j++) {
-                    for (var d=0; d<model.domain.length; d++) {
-                        arrs[j][model.domain[d]] = model.domain[0]; // default value is first individual
-                    }
-                }
-                log("initialized functor interpretation: " + model);
+                model.values[functor] = Array.getArrayOfZeroes(model.argLists[arity].length);
             }
-            // assign t[arg1]....[argn] = "t(arg1,...,argn)":
-            var arrs = [model.interpretation[functor]];
-            for (var i=1; i<term.length-1; i++) {
-                var sTerm = translator.term2html(term[i]);
-                arrs[i] = arrs[i-1][sTerm];
+            // now make sure the value assigned to 'f' for the value of '(ab)'
+            // is terms2individuals['f(ab)'];
+            var argValues = [];
+            for (var i=0; i<args.length; i++) {
+                argValues.push(terms2individuals[args[i].toString()]);
             }
-            var lastSTerm = translator.term2html(term[term.length-1]);
-            arrs[arrs.length-1][lastSTerm] = translator.term2html(term);
-            for (var i=1; i<term.length; i++) subTerms.push(term[i]);
+            var argsIndex = model.argLists[arity].indexOf(argValues.toString());
+            model.values[functor][argsIndex] = terms2individuals[term.toString()]; 
         }
         // interpret predicate:
-        if (!model.interpretation[fla.predicate]) {
-            model.interpretation[fla.predicate] = [];
+        if (!model.values[fla.predicate]) {
+            var arity = fla.terms.length; // always >0 because we've dealt with the other case before
+            if (!model.argLists[arity]) {
+                model.argLists[arity] = Model.initArguments(arity, numIndividuals);
+            }
+            model.values[fla.predicate] = Array.getArrayOfZeroes(model.argLists[arity].length);
         }
-        var arrs = [model.interpretation[fla.predicate]];
-        for (var i=0; i<fla.terms.length-1; i++) {
-            var term = fla.terms[i];
-            if (!arrs[i][term]) arrs[i][term] = [];
-            arrs[i+1] = arrs[i][term];
+        // make sure the value assigned to 'F' for the value of '(ab)' is tv:
+        var argValues = [];
+        for (var i=0; i<fla.terms.length; i++) {
+            argValues.push(terms2individuals[fla.terms[i].toString()]);
         }
-        var lastTerm = fla.terms[fla.terms.length-1];
-        arrs[arrs.length-1][lastTerm] = tv;
+        var argsIndex = model.argLists[arity].indexOf(argValues.toString());
+        model.values[fla.predicate][argsIndex] = tv;
         log(model);
     } while ((node = node.parent));
     log("model: " + model);

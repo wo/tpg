@@ -105,6 +105,7 @@ onload = function(e) {
         var rootFormula = formula.negate();
         if (rootFormula.isModal()) {
             rootFormula = rootFormula.translateToModal();
+            log("rootformula translated  into "+rootFormula);
         }
         rootFormula = rootFormula.normalize(); // xxx should I do this in Prover? currently in both!
         var prover = new Prover([rootFormula]);

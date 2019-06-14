@@ -244,10 +244,10 @@ Formula.prototype.normalize = function() {
 Formula.prototype.translateToModal = function(worldVariable) {
     // return translation of modal formula into first-order formula with
     // explicit world variables
+    log("translating modal formula");
     if (!worldVariable) {
-        var rsymbol = 'ℜ'
-        this.signature.arities[rsymbol] = 2;
-        worldVariable = '⟒1';
+        this.signature.arities['ℜ'] = 2;
+        worldVariable = '⟒0';
     }
     if (this.terms) { // atomic; add world variable to argument list
         var nterms = this.terms.copyDeep();
@@ -270,13 +270,13 @@ Formula.prototype.translateToModal = function(worldVariable) {
     }
     if (this.operator == '□') {
         var newWorldVariable = '⟒'+(worldVariable.substr(1)*1+1);
-        var wRv = new AtomicFormula(rsymbol, [worldVariable, newWorldVariable], this.signature)
+        var wRv = new AtomicFormula('ℜ', [worldVariable, newWorldVariable], this.signature)
         var nsub = this.sub.translateToModal(newWorldVariable);
         return new QuantifiedFormula('∀', newWorldVariable, new BinaryFormula('→', wRv, nsub), this.signature)
     }
     if (this.operator == '◇') {
         var newWorldVariable = 'w'+(worldVariable.substr(1)*1+1);
-        var wRv = new AtomicFormula(rsymbol, [worldVariable, newWorldVariable], this.signature)
+        var wRv = new AtomicFormula('ℜ', [worldVariable, newWorldVariable], this.signature)
         var nsub = this.sub.translateToModal(newWorldVariable);
         return new QuantifiedFormula('∀', newWorldVariable, new BinaryFormula('∧', wRv, nsub), this.signature)
     }
@@ -285,11 +285,11 @@ Formula.prototype.translateToModal = function(worldVariable) {
 Formula.prototype.isModal = function() {
     var fla, flas = [this];
     while ((fla = flas.shift())) {
-        if (fla.ismodal) return true;
-        if (fla.sub) {
+        if (fla.operator == '□' || fla.operator == '◇') return true;
+        if (fla.matrix) {
             flas.push(fla.matrix);
         }
-        else if (fla.matrix) {
+        else if (fla.sub) {
             flas.push(fla.sub);
         }
         else if (fla.sub1) {
