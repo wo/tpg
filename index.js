@@ -5,29 +5,38 @@ function updateInput() {
     // replaces LaTeX commands for logical symbols by what is set in translator.logSymbols
     var ostr = document.forms[0].flaField.value;
     cposition = this.selectionStart;
-    str = latex2str(ostr);  
+    str = renderSymbols(ostr);  
     var diff = ostr.length - str.length
     document.forms[0].flaField.value = str;
     this.selectionEnd = cposition - diff;
 }
 
-function latex2str(str) {
-    str = str.replace(/\s*/g, '');
+function renderSymbols(str) {
+    str = str.replace('&', '∧');
+    str = str.replace('->', '→');
+    str = str.replace('<->', '↔');
+    str = str.replace('~', '¬');
+    str = str.replace(' v ', ' ∨ '); // 'v' letter => or symbol
+    str = str.replace('[]', '□');
+    str = str.replace('<>', '◇');
+    str = str.replace(/\(A([s-z])\)/, '∀$1'); // (Ax) => ∀x
+    str = str.replace(/\(E([s-z])\)/, '∃$1'); // (Ex) => ∃x
+    str = str.replace(/(?:^|\W)\(([s-z])\)/, '∀$1'); // (x) => ∀x, but not f(x) => f∀x
+    // LaTeX:
     str = str.replace(/\\forall[\{ ]?\}?/g, '∀');
     str = str.replace(/\\exists[\{ ]?\}?/g, '∃');
     str = str.replace(/(\\neg|\\lnot)[\{ ]?\}?/g, '¬');
-    str = str.replace(/\\Box[\{ ]?\}?/g, '□');
-    str = str.replace(/\\Diamond[\{ ]?\}?/g, '◇');
     str = str.replace(/(\\vee|\\lor)[\{ ]?\}?/g, '∨');
     str = str.replace(/(\\wedge|\\land)[\{ ]?\}?/g, '∧');
     str = str.replace(/(\\to|\\rightarrow)[\{ ]?\}?/g, '→');
     str = str.replace(/\\leftrightarrow[\{ ]?\}?/g, '↔');
+    str = str.replace(/\\[Bb]ox[\{ ]?\}?/g, '□');
+    str = str.replace(/\\[Dd]iamond[\{ ]?\}?/g, '◇');
     //str = str.replace(/([^'])(\\[^<]*)/, '$1<span class="latex">$2</span>'); // unfinished latex commands
     //str = str.replace(/^(\\[^<]*)/, '<span class="latex">$1</span>'); // unfinished latex commands
-    str = str.replace(/([^'])(\\[^<]*)/, '$1$2'); // unfinished latex commands
-    str = str.replace(/^(\\[^<]*)/, '$1'); // unfinished latex commands
     return str;
 }
+
 // in case the browser has automatically filled in some value into the
 // field (e.g. on Reload):
 setTimeout(updateInput, 1000);

@@ -246,12 +246,20 @@ Formula.prototype.translateToModal = function(worldVariable) {
     // explicit world variables
     log("translating modal formula");
     if (!worldVariable) {
+        // xxx this changes original signature:
+        for (var i=0; i<this.signature.symbols.length; i++) {
+            var sym = this.signature.symbols[i];
+            if (this.signature.expressionType[sym].indexOf('predicate') > -1) {
+                this.signature.arities[sym] += 1;
+            }
+        }
         this.signature.arities['ℜ'] = 2;
         worldVariable = '⟒0';
+        this.signature.registerExpression(worldVariable, 'constant', 0);
     }
     if (this.terms) { // atomic; add world variable to argument list
         var nterms = this.terms.copyDeep();
-        nterms.push(worldVariable); // should we also add world variable to function arguments? probably yes xxx
+        nterms.push(worldVariable); // don't need to add world parameters to function terms; think of 0-ary terms
         return new AtomicFormula(this.predicate, nterms, this.signature);
     }
     if (this.quantifier) {
@@ -270,12 +278,14 @@ Formula.prototype.translateToModal = function(worldVariable) {
     }
     if (this.operator == '□') {
         var newWorldVariable = '⟒'+(worldVariable.substr(1)*1+1);
+        this.signature.registerExpression(newWorldVariable, 'variable', 0);
         var wRv = new AtomicFormula('ℜ', [worldVariable, newWorldVariable], this.signature)
         var nsub = this.sub.translateToModal(newWorldVariable);
         return new QuantifiedFormula('∀', newWorldVariable, new BinaryFormula('→', wRv, nsub), this.signature)
     }
     if (this.operator == '◇') {
         var newWorldVariable = 'w'+(worldVariable.substr(1)*1+1);
+        this.signature.registerExpression(newWorldVariable, 'variable', 0);
         var wRv = new AtomicFormula('ℜ', [worldVariable, newWorldVariable], this.signature)
         var nsub = this.sub.translateToModal(newWorldVariable);
         return new QuantifiedFormula('∀', newWorldVariable, new BinaryFormula('∧', wRv, nsub), this.signature)
@@ -616,15 +626,17 @@ NegatedFormula.prototype.substitute = function(origTerm, newTerm, shallow) {
 
 
 function Parser() {
-    // so that we can parse multiple formulas and check if they make sense
-    // together (e.g. matching arities for same predicate
+    // store signature info so that we can parse multiple formulas and check if
+    // they make sense together (e.g. matching arities for same predicate
+    this.symbols = [];
     this.expressionType = {};
     this.isVariable = {};
     this.arities = {};
 }
 
 Parser.prototype.registerExpression = function(ex, exType, arity) {
-    if (this.expressionType[ex] && this.expressionType[ex] != exType) {
+    if (!this.expressionType[ex]) this.symbols.push(ex);
+    else if (this.expressionType[ex] != exType) {
         throw "don't use '"+ex+"' as both "+this.expressionType[ex]+" and "+exType;
     }
     this.expressionType[ex] = exType;
@@ -727,7 +739,7 @@ Parser.prototype.parseFormula = function(str) {
         var predicate = reTest[0];
         var termstr = str.substr(reTest.length); // empty for propositional constants
         var terms = this.parseTerms(termstr, boundVars) || [];
-        var predicateType = terms ? terms.length+"-ary predicate" : "proposition letter";
+        var predicateType = terms ? terms.length+"-ary predicate" : "proposition letter (0-ary predicate)";
         this.registerExpression(predicate, predicateType, terms.length);
         return new AtomicFormula(predicate, terms, this);
     }

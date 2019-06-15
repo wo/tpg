@@ -78,7 +78,7 @@ else {
 	];
 	document.write("<ul>\n");
 	for (var i=0; i<examples.length; i++) {
-		document.write("<li><a class='formula' href='./?f=" + examples[i] + "' onclick='with (document.forms[0]) { flaField.value=\"" + examples[i].replace(/\\/g, "\\\\") + "\"; onsubmit(); }; return false'>" + latex2str(examples[i]) + "</a></li>\n");
+		document.write("<li><a class='formula' href='./?f=" + examples[i] + "' onclick='with (document.forms[0]) { flaField.value=\"" + examples[i].replace(/\\/g, "\\\\") + "\"; onsubmit(); }; return false'>" + renderSymbols(examples[i]) + "</a></li>\n");
 	}
 	document.write("</ul>\n");
 	</script>

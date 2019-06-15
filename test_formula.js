@@ -98,6 +98,15 @@ tests = {
         var f = parser.parseFormula('□p');
         var f2 = f.translateToModal();
         assertEqual(f2.string, '∀⟒2(ℜ⟒1⟒2→p⟒2)');
+    },
+
+    translateToModal3: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('□p→p');
+        var f2 = f.translateToModal();
+        assertEqual(f2.signature.arities['p'], 1);
+        assertEqual(f2.signature.arities['⟒0'], 0);
+        assertEqual(f2.signature.expressionType['⟒1'], 'variable');
     }
 
 }
