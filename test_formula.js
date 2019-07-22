@@ -62,7 +62,21 @@ tests = {
         assertEqual(f.string, '∀x(Fx→Fy)');
     },
 
-    parseAndSubstituteComplex: function() {
+    variables: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('∀x∃zHxf(x)z ∨ ∃v∀wGvw');
+        var innerEx = f.sub1.matrix.matrix;
+        assertEqual(innerEx.variables.toString(), '[x,z]');
+    },
+
+    substitute2: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('(¬Av∨Bv)');
+        var f2 = f.substitute('v', 'φ1');
+        assertEqual(f2.string, '(¬Aφ1∨Bφ1)');
+    },
+
+    substituteComplex: function() {
         var parser = new Parser();
         var f = parser.parseFormula('H(a,b,g(c,c))');
         var f2 = f.substitute('c', ['f','a','b','c'], true);
@@ -77,6 +91,61 @@ tests = {
         assertEqual(f, '∃x(Fx∧¬Fx)');
     },
 
+    cnf: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('((a∧b)∨(c∧d))∨e');
+        var cnf = f.cnf();
+        assertEqual(cnf.toString(), '[[a,c,e],[a,d,e],[b,c,e],[b,d,e]]');
+    },
+
+    cnf2_TODO: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('((p∧(Fa∧Fb))∨(p∧(Fc∧Fd)))∧((q∧(Fe∧Ff))∨(q∧(Fg∧Fh)))');
+        var cnf = f.cnf();
+        assertEqual(cnf.toString(), '');
+    },
+
+    cnf3: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula("(¬Px∨((¬Py∨Pf(xy))∧(Qxg(x)∧(¬Pg(x)∨¬Rcg(x)))))");
+        var cnf = f.cnf();
+        assertEqual(cnf.toString(), '[[¬Px,¬Py,Pf(xy)],[¬Px,Qxg(x)],[¬Px,¬Pg(x),¬Rcg(x)]]');
+    },
+
+    skolemize: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('∀x∃y(Fx∧∀zHxyz)');
+        f = f.normalize();
+        var sk = f.skolemize();
+        assertEqual(sk.toString(), '∀x(Fx∧∀zHxf(x)z)');
+    },
+    
+    skolemize2: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('∀x∃y∃zHxyz ∨ ∃v∀wGvw');
+        f = f.normalize();
+        var sk = f.skolemize();
+        assertEqual(sk.toString(), '(∀xHxf(x)g(x)∨∀wGaw)');
+    },
+    
+    clausalNormalForm1: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('∀x∃y(Fx∧∀zHxyz)');
+        f = f.normalize();
+        var cnf = f.clausalNormalForm();
+        assertEqual(cnf.toString(), '[[Fx],[Hxf(x)z]]');
+    },
+
+    clausalNormalForm: function() {
+        // example from http://www8.cs.umu.se/kurser/TDBB08/vt98b/Slides4/norm1_4.pdf
+        var parser = new Parser();
+        //var f = parser.parseFormula('∀x(Px→(∀y((Py→Pf(x,y))∧¬∀y(Qxy→(Py∧Rcy))))))');
+        var f = parser.parseFormula('∀x(Px→(∀y(Py→Pf(x,y)))∧¬∀y(Qxy→(Py∧Rcy)))');
+        f = f.normalize();
+        var cnf = f.clausalNormalForm();
+        assertEqual(cnf.toString(), '[[¬Px,¬Py,Pf(xy)],[¬Px,Qxg(x)],[¬Px,¬Pg(x),¬Rcg(x)]]');
+    },
+
     unify: function() {
         var parser = new Parser();
         var f1 = parser.parseFormula('Ff(a,b)');
@@ -86,27 +155,35 @@ tests = {
         assertEqual(u[1].toString(), ['f','a','b']);
     },
     
-    translateToModal1: function() {
+    translateModal1: function() {
         var parser = new Parser();
         var f = parser.parseFormula('¬p');
-        var f2 = f.translateToModal();
-        assertEqual(f2.string, '¬p⟒1');
+        var f2 = f.translateModal();
+        assertEqual(f2.string, '¬pw');
     },
 
-    translateToModal2: function() {
+    translateModal2: function() {
         var parser = new Parser();
         var f = parser.parseFormula('□p');
-        var f2 = f.translateToModal();
-        assertEqual(f2.string, '∀⟒2(ℜ⟒1⟒2→p⟒2)');
+        var f2 = f.translateModal();
+        assertEqual(f2.string, '∀v(Rwv→pv)');
     },
 
-    translateToModal3: function() {
+    translateModal3: function() {
         var parser = new Parser();
         var f = parser.parseFormula('□p→p');
-        var f2 = f.translateToModal();
-        assertEqual(f2.signature.arities['p'], 1);
-        assertEqual(f2.signature.arities['⟒0'], 0);
-        assertEqual(f2.signature.expressionType['⟒1'], 'variable');
+        var f2 = f.translateModal();
+        assertEqual(f2.parser.arities['p'], 1);
+        assertEqual(f2.parser.arities['w'], 0);
+        assertEqual(f2.parser.expressionType['w'], 'world constant');
+    },
+
+    translateToModal: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('□p→◇p');
+        var f2 = f.translateModal();
+        var f3 = f2.translateToModal();
+        assertEqual(f2.string, '□p→◇p');
     }
 
 }

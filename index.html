@@ -50,7 +50,7 @@
 </div>
 
 <?php
-$scripts = array("formula", "prover", "sentree", "painter", "index");
+$scripts = array("formula", "prover", "modelfinder", "sentree", "painter", "index");
 if (isset($_GET['debug']) || isset($_GET['comments'])) {
 	$flag = $_GET['debug'] ? "debug" : "comments";
 	foreach ($scripts as $script) {

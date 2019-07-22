@@ -13,8 +13,9 @@ function updateInput() {
 
 function renderSymbols(str) {
     str = str.replace('&', '∧');
-    str = str.replace('->', '→');
+    str = str.replace('^', '∧');
     str = str.replace('<->', '↔');
+    str = str.replace('->', '→');
     str = str.replace('~', '¬');
     str = str.replace(' v ', ' ∨ '); // 'v' letter => or symbol
     str = str.replace('[]', '□');
@@ -111,13 +112,8 @@ onload = function(e) {
         document.getElementById("paintStop").firstChild.nodeValue = 'stop';
         // Now a free-variable tableau is created. When the proof is
         // finished, prover.finished() is called.
-        var rootFormula = formula.negate();
-        if (rootFormula.isModal()) {
-            rootFormula = rootFormula.translateToModal();
-            log("rootformula translated  into "+rootFormula);
-        }
-        rootFormula = rootFormula.normalize(); // xxx should I do this in Prover? currently in both!
-        var prover = new Prover([rootFormula]);
+        var initFormulas = [formula.negate()];
+        var prover = new Prover(initFormulas);
         prover.status = function(str) {
             // The prover dumps status messages to this function. 
             document.getElementById("status").innerHTML = str;
@@ -128,7 +124,10 @@ onload = function(e) {
             document.getElementById("statusStop").style.display = "none";
             prover.status("");
             // Translate the free-variable tableau into a sentence tableau:
-            var sentenceTree = new SenTree(this.tree, [formula.negate()]);
+            var sentenceTree = new SenTree(this.tree);
+            if (parser.isModal) {
+                sentenceTree.modalize();
+            }
             if (!treeClosed) {
                 // Tree is open. Display a countermodel if one is known:
                 if (!this.counterModel) this.counterModel = sentenceTree.getCounterModel();

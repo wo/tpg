@@ -27,292 +27,470 @@
 // open tableau.
 //
 
-function SenTree(fvTree, initFormulas) {
+function SenTree(fvTree) {
     this.nodes = [];
     this.isClosed = (fvTree.openBranches.length == 0);
-    this.initFormulas = initFormulas;
-    tree = this;
-    var branches = fvTree.closedBranches.concat(fvTree.openBranches);
-    var freeVariables = [];
-    var constants = [];
+    this.initFormulas = fvTree.prover.initFormulas;
+    this.initFormulasNonModal = fvTree.prover.initFormulasNonModal;
+    this.initFormulasNormalized = fvTree.prover.initFormulasNormalized;
+    this.parser = this.initFormulas[0].parser;
+    this.fvTree = fvTree;
+    this.freeVariables = [];
+    //this.constants = []; xxx del
     
-    collectVariablesAndConstants();
-
-    log("initializing sentence tableau");
-    initNodes();
+    this.collectVariables();
+    this.markEndNodesClosed();
+    this.transferNodes();
     log(this);
-   
-    log("replaceFreeVariablesByNewConsts");
-    for (var i=0; i<freeVariables.length; i++) {
-        var newConst = (constants.length != 0) ? constants[constants.length-1] + 3 : 2;
-        constants.push(newConst);
-        this.substitute(freeVariables[i], newConst);
+    this.replaceFreeVariables();
+    log(this);
+    this.replaceSkolemTerms();
+    log(this);
+    this.removeUnusedNodes();
+    log(this);
+}
+
+SenTree.prototype.collectVariables = function() {
+    // collect free variables from the fvtree and put them into arrays
+    // if (this.parser.isModal) {
+    //     // free world variables all originate from expanding □/gamma
+    //     // formulas ∀v(wRv→..) into (wRξ7→..); so we can find the world
+    //     // variables by looking through wRξ7 type nodes.
+    //     for (var i=0; i<this.nodes.length; i++) {
+    //         var fla = this.nodes[i].formula;
+    //         if (fla.predicate == this.parser.R &&
+    //             fla.terms[1][0] == 'ξ' &&
+    //             !this.freeWorldVariables.includes(fla.terms[1])) {
+    //             this.freeWorldVariables.push(fla.terms[1]);
+    //         }
+    //     }
+    // }
+    
+    var branches = this.fvTree.closedBranches.concat(this.fvTree.openBranches);
+    for (var b=0; b<branches.length; b++) {
+        var branch = branches[b];
+        for (var i=0; i<branch.freeVariables.length; i++) {
+            if (!this.freeVariables.includes(branch.freeVariables[i])) {
+                this.freeVariables.push(branch.freeVariables[i]);
+            }
+        }
+        // for (var i=0; i<branch.constants.length; i++) {
+        //     if (!this.constants.includes(branch.constants[i])) {
+        //         this.constants.push(branch.constants[i]);
+        //     }
+        // }
     }
-    log(this);
-   
-    log("replaceSkolemTerms()");
-    replaceSkolemTerms();
-    log(this);
-    
-    log("removeUnusedNodes()");
-    removeUnusedNodes();
-    log(this);
+}
 
-    function collectVariablesAndConstants() {
-        // collect free variables and constants from fvtree and put
-        // them into variables and constants arrays
-        for (var b=0; b<branches.length; b++) {
-            // collect free variables and constants:
-            for (var i=0; i<branches[b].freeVariables.length; i++) {
-                if (!freeVariables.includes(branches[b].freeVariables[i])) {
-                    freeVariables.push(branches[b].freeVariables[i]);
-                }
-            }
-            for (var i=0; i<branches[b].constants.length; i++) {
-                if (!constants.includes(branches[b].constants[i])) {
-                    constants.push(branches[b].constants[i]);
-               }
-            }
-        }
+SenTree.prototype.markEndNodesClosed = function() {
+    for (var i=0; i<this.fvTree.closedBranches.length; i++) {
+        var branch = this.fvTree.closedBranches[i]; 
+        branch.nodes[branch.nodes.length-1].closedEnd = true;
     }
+}
+
+
+SenTree.prototype.transferNodes = function() {
+    // translates the free-variable tableau into sentence tableau and translate
+    // all formulas back from negation normal form.
+    //
+    // If A is a formula and A' its NNF then expanding A' always results in
+    // nodes that also correctly expand A, when denormalized. Remember that
+    // normalization drives in all negations and converts (bi)conditionals into
+    // ~,v,&. For example, |~(BvC)| = |~B|&|~C|. Expanding the NNF leads to |~B|
+    // and |~C|. Expanding the original formula ~(BvC) would instead lead to ~B
+    // and ~C. So we can construct the senTree by going through each node X on
+    // the fvTree, identity the node Y corresponding to X's origin (the node
+    // from which X is expanded), expand Y by the senTree rules and mark the
+    // result as corresponding to X whenever the result's NNF is X.
+    //
+    // Exceptions: (1) NNFs remove double negations; so DNE steps have to be
+    // reinserted. (2) Biconditionals are replaced by disjunctions of
+    // conjunctions in NNF, but the classical senTree rules expand them in one
+    // go, so we have to remove the conjunctive formulas.
+
+    log("initializing sentence tableau nodes");
+
+    this.addInitNodes();
     
-    function initNodes() {
-        // translates the free-variable tableau into sentence tableau and
-        // translate all formulas back from negation normal form.
-        //
-        // If A is a formula and A' its NNF then expanding A' always results in
-        // nodes that also correctly expand A, when denormalized. Remember that
-        // normalization drives in all negations and converts (bi)conditionals
-        // into ~,v,&. For example, |~(BvC)| = |~B|&|~C|. Expanding the NNF
-        // leads to |~B| and |~C|. Expanding the original formula ~(BvC) would
-        // instead lead to ~B and ~C. So we can construct the senTree by going
-        // through each node X on the fvTree, identity the node Y corresponding
-        // to X's origin (the node from which X is expanded), expand Y by the
-        // senTree rules and mark the result as corresponding to X whenever the
-        // result's NNF is X.
-        //
-        // Exceptions: (1) NNFs remove double negations; so DNE steps have to be
-        // reinserted. (2) Biconditionals are replaced by disjunctions of
-        // conjunctions in NNF, but the classical senTree rules expand them in
-        // one go, so we have to remove the conjunctive formulas.
-
-        for (var i=0; i<initFormulas.length; i++) {
-            log('adding init node '+branches[0].nodes[i]);
-            var node = tree.makeNode(branches[0].nodes[i]);
-            node.formula = initFormulas[i]; // yes, we overwrite the node's
-                                            // original (normalized) formula --
-                                            // don't need it anymore
-            if (i==0) tree.nodes.push(node);
-            else treeappendChild(nodes[i-1], node);
-        }
-        
-        // mark end nodes as closed:
-        for (var i=0; i<fvTree.closedBranches.length; i++) {
-            fvTree.closedBranches[i].nodes[fvTree.closedBranches[i].nodes.length-1].closedEnd = true;
-        }
-        
-        // go through all nodes on all branches, denormalize formulas and
-        // restore standard order of subformula expansion:
-        for (var b=0; b<branches.length; b++) {
-            var par; // here we store the parent node of the present node
-            for (var n=0; n<branches[b].nodes.length; n++) {
-                var node = branches[b].nodes[n];
-                if (node.isSenNode) {
-                    // node already on sentree
-                    par = node.swappedWith || node;
-                    continue;
-                }
-                // <node> not yet collected, <par> is its (already collected)
-                // parent
-            
-                log(tree);
-                var from = node.developedFrom;
-                log("init "+node+" from "+from+", par "+par);
-                
-                switch (from.formula.type) {
-                case 'alpha' : {
-                    if (from.__removeMe) {
-                        // if <from> is the result of a biconditional
-                        // application, we remove it.
-                        if (par == from) par = from.parent;
-                        node.developedFrom = from.developedFrom;
-                        tree.remove(from);
-                    }
-                   
-                    var f1 = from.formula.alpha(1);
-                    var f2 = from.formula.alpha(2);
-                    log("alpha1 "+f1+" alpha2 "+f2);
-                    
-                    // We know that <node> comes from the alpha formula <from>;
-                    // <f1> and <f2> are the two formulas that could legally be
-                    // derived from <from>. We need to find out which of these
-                    // corresponds to <node>. I used to do node.formula =
-                    // (node.formula.equals(f1.normalize())) ? f1 : f2; but this
-                    // breaks if f2.normalize() == f1.normalize() and f2 != f1,
-                    // e.g. in \neg((A\land \negA)\land
-                    // \neg(\negA\lor\neg\negA)). So we check for a sibling or
-                    // parent node with the same <from>:
-                    
-                    if (!node.formula.equals(f1.normalize())) node.formula = f2;
-                    else if (!node.formula.equals(f2.normalize())) node.formula = f1;
-                    else { // matches both
-                        node.formula = (par.developedFrom == node.developedFrom) ? f2 : f1;
-                    }
-                    tree.appendChild(par, node);
-                    
-                    if (par.developedFrom == node.developedFrom && node.formula == f1) {
-                        tree.reverse(par, node);
-                    }
-                    else par = node;
-                    break;
-                }
-                case 'beta': {
-                    var f1 = from.formula.beta(1);
-                    var f2 = from.formula.beta(2);
-                    if (!node.formula.equals(f1.normalize())) node.formula = f2;
-                    else if (!node.formula.equals(f2.normalize())) node.formula = f1;
-                    else { // matches both
-                        node.formula = (par.children && par.children.length) ? f2 : f1;
-                    }
-                    if (from.formula.operator == '↔' ||
-                        (from.formula.operator == '¬' && from.formula.sub.operator == '↔')) {
-                        node.__removeMe = true;
-                    }
-                    tree.appendChild(par, node);
-                    
-                    if (par.children.length == 2 && node.formula == f1) par.children.reverse();
-                    par = node;
-                    break;
-                }
-                case 'gamma': case 'delta': {
-                    // <node> is the result of expanding a (possibly negated)
-                    // quantified formula.
-                    var newFla = from.formula.sub ? from.formula.sub.matrix.negate() : from.formula.matrix;
-                    var boundVar = from.formula.sub ? from.formula.sub.variable : from.formula.variable;
-                    log(boundVar + ' is instantiated (in '+newFla+') by '+node.instanceTerm);
-                    node.formula = newFla.substitute(boundVar, node.instanceTerm);
-                    tree.appendChild(par, node);
-                    par = node;
-                    break;
-                }
-                case 'doublenegation': {
-                    // expand the DN node, then try again:
-                    if (!from.dneTo) {
-                        var newNode = new Node(from.formula.sub.sub, from);
-                        tree.makeNode(newNode);
-                        from.dneTo = newNode;
-                        var dneToPar = (from.children[0] && from.children[0].developedFrom == from.developedFrom) ?
-                            from.children[0] : from;
-                        newNode.parent = dneToPar;
-                        newNode.children = dneToPar.children;
-                        for (var i=0; i<newNode.children.length; i++) {
-                            newNode.children[i].parent = newNode;
-                        }
-                        dneToPar.children = [newNode];
-                        newNode.used = from.used;
-                        tree.nodes.push(newNode);
-                        if (par == dneToPar) par = newNode; // adjust parent of current node
-                    }
-                    // double negation eliminated, now process node again:
-                    node.developedFrom = from.dneTo;
-                    par = (par == from) ? from.dneTo : par;
-                    n -= 1;
-                    break;
-                }
-                default: {
-                    tree.appendChild(par, node);
-                    par = node;
-                }
-                }
-            }
-        }
-    }   
-
-    function removeUnusedNodes() {
-        // If the tree is closed, the used ancestors of all complementary pairs
-        // are already marked .used, except DN elim formulas that didn't exist on
-        // the original tree. We mark these .used and also the other node of a
-        // used ALPHA or BETA expansion.
-        if (!tree.isClosed) return;
-        for (var i=0; i<tree.nodes.length; i++) {
-            var node = tree.nodes[i];
-            if (!node.used) {
-                if (node.developedFrom && node.developedFrom.used &&
-                    node.developedFrom.formula.operator == '¬' &&
-                    node.developedFrom.formula.sub.operator == '¬') { // dne
-                        node.used = true;
-                }
+    // go through all nodes on all branches, denormalize formulas and restore
+    // standard order of subformula expansion:
+    var branches = this.fvTree.closedBranches.concat(this.fvTree.openBranches);
+    for (var b=0; b<branches.length; b++) {
+        var par; // here we store the parent node of the present node
+        for (var n=0; n<branches[b].nodes.length; n++) {
+            var node = branches[b].nodes[n];
+            if (node.isSenNode) {
+                // node already on sentree
+                par = node.swappedWith || node;
                 continue;
             }
-            if (!node.developedFrom) continue;
-            var expansion = tree.getExpansion(node);
-            for (var j=0; j<expansion.length; j++) {
-                expansion[j].used = true;
-            }
-        }
-        for (var i=0; i<tree.nodes.length; i++) {
-            if (!tree.nodes[i].used) {
-                tree.remove(tree.nodes[i--]); // reducing i because remove() will remove it from the array
-            }
-        }
-    }
-    
-    function replaceSkolemTerms() {
-        // skolem terms all look like 'φ1', 'φ1(𝛏1,𝛏2..)'; after unification
-        // they can also be nested: '𝛗1(𝛏1,𝛗2(𝛏1)..)'. Note that a skolem term
-        // can occur inside an ordinary function term. xxx Need to check if this
-        // should be accounted for; substitution is shallow...
-        var translations = {};
-        for (var n=0; n<tree.nodes.length; n++) {
-            var skterms = getSkolemTerms(tree.nodes[n].formula);
-            for (var c=0; c<skterms.length; c++) {
-                var termstr = skterms[c].toString();
-                log(termstr + " is skolem term");
-                if (!translations[termstr]) {
-                    translations[termstr] = newConstant();
-                    constants.push(translations[termstr]);
-                }
-                tree.nodes[n].formula = tree.nodes[n].formula.substitute(
-                    skterms[c], translations[termstr], true);
-            }
-        }
-        function getSkolemTerms(formula) {
-            var result = [];
-            var flas = [formula];
-            var fla;
-            while ((fla = flas.shift())) {
-                if (fla.sub) {
-                    flas.unshift(fla.sub);
-                }
-                else if (fla.sub1) {
-                    flas.unshift(fla.sub1);
-                    flas.unshift(fla.sub2);
-                }
-                else if (fla.matrix) {
-                    flas.unshift(fla.matrix);
-                }
-                else {
-                    for (var i=0; i<fla.terms.length; i++) {
-                        if (fla.terms[i].isArray) {
-                            if (fla.terms[i][0][0] == 'φ') result.push(fla.terms[i]);
-                        }
-                        if (fla.terms[i][0] == 'φ') result.push(fla.terms[i]);
-                    }
-                }
-            }
-            return result;
-        }
-        function newConstant() {
-            var candidates = 'abcdefghijklmno';
-            for (var i=0; i<candidates.length; i++) {
-                if (!constants.includes(candidates[i])) return candidates[i];
-            }
-            for (var i=2; true; i++) {
-                if (!constants.includes('a'+i)) return 'a'+i;
-            }
+            // <node> not yet collected, <par> is its (already collected) parent
+            log(this);
+            par = this.transferNode(node, par);
         }
     }
 }
+
+SenTree.prototype.transferNode = function(node, par) {
+    // transfer <node> from fvTree and append it to <par> node on sentree;
+    // return next par node.
+    //
+    // Example: <node> is expanded from ¬(A→(B→C)). In the fvTree, the source
+    // node has been normalized to A∧(B∧¬C), and <node> is (B∧¬C). We need to
+    // figure out that this is the second node coming from the source node, so
+    // that expansions are in the right order (and later references to
+    // expansions of <node> reference the correct node). We also need to epand
+    // the node as ¬(B→C) rather than (B∧¬C), to undo the normalization.
+    //
+    // So here's what we do: we first re-apply the rule (e.g. alpha) by which
+    // <node> was created to the unnormalized source formula. We then compare
+    // these which of these results, if normalized, equals <node>.formula and
+    // overwrite <node>.formula with the unnormalized matching formula.
+    
+    var nodeFormula = node.formula;
+
+    // first insert double negation elimination steps:
+    for (var i=0; i<node.fromNodes.length; i++) {
+        if (node.fromNodes[i].formula.type == 'doublenegation') {
+            this.expandDoubleNegation(node.fromNodes[i]);
+            log('setting fromNode '+i+' of '+node+' to '+node.fromNodes[i].dneTo);
+            node.fromNodes[i] = node.fromNodes[i].dneTo; // this also changes
+                                                         // fromNodes of other
+                                                         // nodes with
+                                                         // same fromNodes!
+        }
+    }
+    if (par.dneTo) par = par.dneTo;
+        
+    switch (node.fromRule) {
+    case Prover.alpha : {
+        var from = node.fromNodes[0];
+        log("transferring "+node+" (alpha from "+from+")");
+        var f1 = from.formula.alpha(1);
+        var f2 = from.formula.alpha(2);
+        log("alpha1 "+f1+" alpha2 "+f2);
+
+        // if <from> is the result of a biconditional application, reset
+        // fromNodes[0] to the biconditional (A<->B is expanded to A&B | ~A&~B):
+        if (from.biconditionalExpansion) {
+            // all nodes added in an expansion must have identical .fromNodes!
+            node.fromNodes = from.fromNodes;
+        }
+        
+        // We know that <node> comes from the alpha formula <from>; <f1> and
+        // <f2> are the two formulas that could legally be derived from <from>.
+        // We need to find out which of these corresponds to <node>. [I used to
+        // do node.formula = (node.formula.equals(f1.normalize())) ? f1 : f2;
+        // but this breaks if f2.normalize() == f1.normalize() and f2 != f1,
+        // e.g. in ¬((A∧¬A)∧¬(¬A∨¬¬A).]
+        
+        if (!nodeFormula.equals(f1.normalize())) node.formula = f2;
+        else if (!nodeFormula.equals(f2.normalize())) node.formula = f1;
+        else {
+            // node formula matches both alpha1 and alpha2: if previous node
+            // also originates from <from> by the alpha rule, this one must be
+            // the second.
+            node.formula = (par.fromNodes[0] && par.fromNodes[0] == from) ? f2 : f1;
+        }
+        this.appendChild(par, node);
+        // restore correct order of alpha expansions:
+        if (par.fromNodes[0] && par.fromNodes[0] == from && node.formula == f1) {
+            this.reverse(par, node);
+            return par;
+        }
+        else return node;
+        
+        // <>A = (Ev)(wRv & Av) is expanded to wRv & Av. 
+        
+    }
+        
+    case Prover.beta: {
+        var from = node.fromNodes[0];
+        log("transferring "+node+" (beta from "+from+")");
+        var f1 = from.formula.beta(1);
+        var f2 = from.formula.beta(2);
+        log("beta1 "+f1+" beta2 "+f2);
+        if (!nodeFormula.equals(f1.normalize())) node.formula = f2;
+        else if (!nodeFormula.equals(f2.normalize())) node.formula = f1;
+        else {
+            // node formula matches both beta1 and beta2: if parent node already
+            // has a child, this one is the second:
+            node.formula = (par.children && par.children.length) ? f2 : f1;
+        }
+        // if <node> is the result of a biconditional application, mark it
+        // unused for removal (A<->B is expanded to A&B | ~A&~B):
+        if (from.formula.operator == '↔' ||
+            (from.formula.operator == '¬' && from.formula.sub.operator == '↔')) {
+            node.biconditionalExpansion = true;
+            node.used = false;
+            // xxx TODO what if we have a tree with nodes ¬(A&B) and (A<->B)?! This
+            // will be closed with the hidden biconditional expansion node!
+        }
+        this.appendChild(par, node);
+        if (par.children.length == 2 && node.formula == f1) {
+            log('swapping children because node.formula == beta1');
+            par.children.reverse();
+        }
+        return node;
+    }
+        
+    case Prover.gamma: case Prover.delta: {
+        // <node> is the result of expanding a (possibly negated)
+        // quantified formula.
+        var from = node.fromNodes[0];
+        log("transferring "+node+" (gamma/delta from "+from+")");
+        var newFla = from.formula.sub ? from.formula.sub.matrix.negate() : from.formula.matrix;
+        var boundVar = from.formula.sub ? from.formula.sub.variable : from.formula.variable;
+        log(boundVar + ' is instantiated (in '+newFla+') by '+node.instanceTerm);
+        node.formula = newFla.substitute(boundVar, node.instanceTerm);
+        this.appendChild(par, node);
+        return node;
+    }
+
+    case Prover.modalGamma: {
+        // <node> is the result of expanding a □ or ¬◇ formula.
+        var from = node.fromNodes[0];
+        log("transferring "+node+" (modalGamma from "+from+")");
+        if (from.formula.sub) { // from = ¬◇A = ¬∃v(wRv ∧ Av)
+            var newFla = from.formula.sub.matrix.sub2.negate();
+            var boundVar = from.formula.sub.variable;
+        }
+        else { // from = □A = ∀v(wRv → Av)
+            var newFla = from.formula.matrix.sub2;
+            var boundVar = from.formula.variable;
+        }
+        log(boundVar + ' is instantiated (in '+newFla+') by '+node.instanceTerm);
+        node.formula = newFla.substitute(boundVar, node.instanceTerm);
+        this.appendChild(par, node);
+        return node;
+    }
+
+    default: {
+        this.appendChild(par, node);
+        return node;
+    }
+    }
+}
+
+SenTree.prototype.addInitNodes = function() {
+    // add initNodes to tree with their original formula (de-normalized) xxx add
+    // world label to modal fla?
+    var branch = this.fvTree.closedBranches.length > 0 ?
+        this.fvTree.closedBranches[0] : this.fvTree.openBranches[0];
+    
+    for (var i=0; i<this.initFormulasNonModal.length; i++) {
+        log('adding init node '+branch.nodes[i]);
+        var node = this.makeNode(branch.nodes[i]);
+        node.formula = this.initFormulasNonModal[i]; // yes, we overwrite the node's original
+                                             // (normalized) formula -- don't need
+                                             // it anymore.
+        if (i==0) this.nodes.push(node);
+        else this.appendChild(nodes[i-1], node);
+    }
+}
+
+SenTree.prototype.expandDoubleNegation = function(node) {
+    // expand doublenegation node <node> on current tree
+    log("expanding double negation "+node);
+    var newNode = new Node(node.formula.sub.sub, null, [node]);
+    this.makeNode(newNode);
+    node.dneTo = newNode;
+    // if <node> is first result of alpha expansion, dne node must be inserted
+    // after second result:
+    var dnePar = node;
+    if (node.children[0] && node.children[0].fromNodes == node.fromNodes) {
+        dnePar = node.children[0];
+    }
+    newNode.parent = dnePar;
+    newNode.children = dnePar.children;
+    dnePar.children = [newNode];
+    for (var i=0; i<newNode.children.length; i++) {
+        newNode.children[i].parent = newNode;
+    }
+    newNode.used = node.used;
+    this.nodes.push(newNode);
+} 
+
+SenTree.prototype.replaceFreeVariables = function() {
+    log("replacing free variables by new constants");
+    for (var i=0; i<this.freeVariables.length; i++) {
+        this.substitute(this.freeVariables[i], this.parser.getNewConstant());
+    }
+}
+
+SenTree.prototype.removeUnusedNodes = function() {
+    log("removing unused nodes");
+    if (!this.isClosed) return;
+    // first, mark all nodes that were added along with used nodes as used:
+    for (var i=0; i<this.nodes.length; i++) {
+        var node = this.nodes[i];
+        if (node.used) {
+            var expansion = this.getExpansion(node);
+            for (var j=0; j<expansion.length; j++) {
+                if (!expansion[j].biconditionalExpansion) {
+                    expansion[j].used = true;
+                }
+            }
+        }
+    }
+    // now remove all unused nodes:
+    for (var i=0; i<this.nodes.length; i++) {
+        if (!this.nodes[i].used) {
+            var ok = this.remove(this.nodes[i]);
+            if (ok) i--; // reducing i because remove() removed it from the array
+        }
+    }
+}
+
+
+SenTree.prototype.replaceSkolemTerms = function() {
+    log("replacing skolem terms");
+    // skolem terms all look like 'φ1', 'φ1(𝛏1,𝛏2..)'; after unification
+    // they can also be nested: '𝛗1(𝛏1,𝛗2(𝛏1)..)'. Note that a skolem term
+    // can occur inside an ordinary function term. xxx Need to check if this
+    // should be accounted for; substitution is shallow...
+    var translations = {};
+    for (var n=0; n<this.nodes.length; n++) {
+        var skterms = getSkolemTerms(this.nodes[n].formula);
+        var indivTerms = skterms[0], worldTerms = skterms[1];
+        for (var c=0; c<indivTerms.length; c++) {
+            var termstr = indivTerms[c].toString();
+            if (!translations[termstr]) {
+                log(termstr + " is skolem term");
+                translations[termstr] = this.parser.getNewConstant();
+                // this.constants.push(translations[termstr]); // xxx do I need this.constants?
+            }
+            this.nodes[n].formula = this.nodes[n].formula.substitute(
+                indivTerms[c], translations[termstr], true
+            );
+        }
+        for (var c=0; c<worldTerms.length; c++) {
+            var termstr = worldTerms[c].toString();
+            if (!translations[termstr]) {
+                log(termstr + " is worldly skolem term");
+                translations[termstr] = this.parser.getNewWorldName();
+            }
+            this.nodes[n].formula = this.nodes[n].formula.substitute(
+                worldTerms[c], translations[termstr], true
+            );
+        }
+    }
+    function getSkolemTerms(formula) {
+        if (formula.string.indexOf('φ') == -1) return [[],[]];
+        var indivTerms = [], worldTerms = [];
+        var flas = [formula];
+        var fla;
+        while ((fla = flas.shift())) {
+            if (fla.sub) {
+                flas.unshift(fla.sub);
+            }
+            else if (fla.sub1) {
+                flas.unshift(fla.sub1);
+                flas.unshift(fla.sub2);
+            }
+            else if (fla.matrix) {
+                flas.unshift(fla.matrix);
+            }
+            else {
+                for (var i=0; i<fla.terms.length; i++) {
+                    var skterm = null;
+                    // xxx todo tidy up the next few lines
+                    if (fla.terms[i].isArray) {
+                        if (fla.terms[i][0][0] == 'φ') skterm = fla.terms[i];
+                    }
+                    else if (fla.terms[i][0] == 'φ') skterm = fla.terms[i];
+                    if (skterm) {
+                        if (formula.parser.isModal && i == fla.terms.length-1) {
+                            // final term denotes a world
+                            worldTerms.push(skterm);
+                        }
+                        else indivTerms.push(skterm);
+                    }
+                }
+            }
+        }
+        return [indivTerms, worldTerms];
+    }
+}
+
+SenTree.prototype.modalize = function() {
+    // undo standard translation for formulas on the tree, and hide some nodes
+    // to make tree look like a familiar modal tree.
+    //
+    // Example: ◇(p→q) is translated into ∃v(wRv ∧ (pv → qv)), and expanded into
+    // (wRu ∧ (pu → qu)). This is further expanded to wRu and (pu → qu). We want
+    // to hide the direct result of first expansion and translate (pu → qu) back
+    // into (p → q) with world label u.
+    //
+    // Example: □p is translated into ∀v(wRv → pv), expanded by modalGamma to pu.
+
+    var removeNodes = [];
+    for (var i=0; i<this.nodes.length; i++) {
+        
+        var node = this.nodes[i];
+        var formula = node.formula;
+        log('modalising '+formula);
+
+        if (formula.predicate == this.parser.R) {
+            // wRv nodes
+            formula.string = formula.terms[0] + formula.predicate + formula.terms[1];
+        }
+        
+        // catch modal expansions: ◇A => (Rxy∧A), ¬□A => ¬(Rxy→A), □A =>
+        // (Rxy→A), ¬◇A => ¬(Rxy∧A). xxx update comment
+        if ((formula.sub1 && formula.sub1.predicate == this.parser.R) ||
+            (formula.sub && formula.sub.sub1 && formula.sub.sub1.predicate == this.parser.R)) {
+            log('marking modal expansion '+formula.string+' for removal');
+            removeNodes.push(node);
+        }
+        
+        if (removeNodes.includes(node.fromNodes[0])) {
+            // remove leaf nodes expanded from (Rxy→A) or ¬(Rxy∧A):
+            // if (formula.sub && formula.sub.predicate == this.parser.R) {
+            //     log('marking leaf node '+formula+' for removal');
+            //     removeNodes.push(node);
+            //     continue;
+            // }
+            // adjust fromNodes of surviving nodes descending from modal
+            // expansions:
+            var modalExpansion = node.fromNodes[0];
+            if (modalExpansion.fromNodes[0].formula.type == 'diamondy') {
+                // ◇A => Rxy,A come from ◇A; ¬□A => Rxy,¬A come from ¬□A
+                node.fromNodes = modalExpansion.fromNodes;
+                // xxx could node.fromNodes have more than 1 member here?
+            }
+            else { // 'boxy' origin
+                // □A => [removed ¬Rxy],A come from □A AND Rxy node; ¬◇A => [removed
+                // ¬Rxy],A come from ¬◇A AND Rxy node
+                // node.fromNodes = [modalExpansion.fromNodes[0]];
+                // // find Rxy node: first, get 'Rxy' string from removed sibling:
+                // var sibf = node.parent.children[0].formula.sub;
+                // var rxy = sibf.terms[0] + sibf.predicate + sibf.terms[1];
+                // log('rxy = '+rxy);
+                // for (var anc=node.parent; anc; anc=anc.parent) {
+                //     if (anc.formula.string == rxy) {
+                //         node.fromNodes.push(anc);
+                //         log('match: '+anc);
+                //         break;
+                //     }
+                // }
+            }
+            log('adjusting fromNodes of '+formula+' to '+node.fromNodes);
+        }
+        
+        node.formula = formula.translateToModal();
+        // log(formula+' => '+node.formula);
+        // log('w: '+node.formula.world);
+    }
+
+    for (var i=0; i<removeNodes.length; i++) {
+        this.remove(removeNodes[i]);
+    }
+    
+    log(this);
+}
+
 
 SenTree.prototype.makeNode = function(node) {
     node.parent = null;
@@ -351,7 +529,10 @@ SenTree.prototype.remove = function(node) {
         }
     }
     else {
-        if (node.children.length > 1) throw "can't remove a node with two children that itself has a sibling";
+        if (node.children.length > 1) {
+            log("can't remove a node with two children that itself has a sibling");
+            return false;
+        }
         var i = (node == node.parent.children[0]) ? 0 : 1;
         if (node.children[0]) {
             node.parent.children[i] = node.children[0];
@@ -362,6 +543,7 @@ SenTree.prototype.remove = function(node) {
     }
     this.nodes.remove(node);
     node.isRemoved = true;
+    return true;
 }
 
 SenTree.prototype.toString = function() {
@@ -404,47 +586,41 @@ SenTree.prototype.reverse = function(node1, node2) {
 
 SenTree.prototype.getExpansion = function(node) {
     // returns all nodes that were added to the tree in the same expansion step
-    // as the given node
-    log('expansion from '+node.formula.string);
-    if (!node.developedFrom) return [node];
-    var from = node.developedFrom;
-    var fromOp = from.formula.operator;
-    if (fromOp == '¬') {
-        // negated conjunction is treated like disjunction, etc.
-        fromOp = (from.formula.sub.operator == '∧') ? '∨'
-            : (from.formula.sub.operator == '∨' || from.formula.sub.operator == '→') ? '∧' :
-            from.formula.sub.operator;
+    // as the given node.
+
+    // Here we exploit the fact that when a rule creates several nodes, these
+    // have the strictly same array as fromNodes.
+
+    if (node.fromNodes.length == 0) return [node];
+
+    var res = [node];
+
+    // get ancestors from same rule application:
+    var par = node.parent;
+    while (par && par.fromNodes == node.fromNodes) {
+        res.unshift(par);
+        par = par.parent;
     }
-    switch (fromOp) {
-    case '∧' : {
-        if (node.children[0] && node.children[0].developedFrom == from) {
-            return [node, node.children[0]];
+    
+    // get descendants from same rule application:
+    var ch = node.children[0];
+    while (ch && ch.fromNodes == node.fromNodes) {
+        res.push(ch);
+        ch = ch.children[0];
+    }
+    
+    // get siblings from same rule application:
+    if (par) {
+        for (var i=0; i<par.children.length; i++) {
+            var sib = par.children[i];
+            while (sib && sib.fromNodes == node.fromNodes) {
+                if (!res.includes(sib)) res.push(sib);
+                sib = sib.children[0];
+            }
         }
-        if (node.parent.developedFrom == from) {
-            return [node.parent, node];
-        }
-        return [node];
     }
-    case '∨' : 
-    case '→' : {
-        return node.parent.children;
-    }
-    case '↔' : {
-        var res = (node.children[0] && node.children[0].developedFrom == from) ? [node, node.children[0]]
-            : (node.parent.developedFrom == from) ? [node.parent, node]
-            : [node];
-        if (!res[0].parent.children[1]) return res;
-        var i = (res[0].parent.children[0] == res[0]) ? 1 : 0;
-        res.push(res[0].parent.children[i]);
-        if (res[0].parent.children[i].children[0] && res[0].parent.children[i].children[0].developedFrom == from) {
-            res.push(res[0].parent.children[i].children[0]);
-        }
-        return res;
-    }
-    default : {
-        return [node];
-    }
-    }
+    
+    return res;
 }
 
 SenTree.prototype.getCounterModel = function() {
@@ -458,8 +634,9 @@ SenTree.prototype.getCounterModel = function() {
     }
     if (!endNode) return null;
     log("creating counterModel from endNode " + endNode);
-    var modelFinder = new ModelFinder(this.initFormulas);
+    var modelFinder = new ModelFinder(this.initFormulasNormalized);
     var model = modelFinder.model;
+    model.initInterpretation(1);
    
     // set up the domain and map every term to a number in the domain; remember
     // that f(a) may denote an individual that is not denoted by any individual
@@ -558,7 +735,7 @@ SenTree.prototype.getCounterModel = function() {
         log(model);
     } while ((node = node.parent));
     log("model: " + model);
-    if (modelFinder.isModel(model)) return model;
+    if (model.satisfiesInitFormulas()) return model;
     return null;
 }
 

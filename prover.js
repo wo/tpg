@@ -86,7 +86,6 @@
 //
 // Methods:
 //
-//    isModel()  returns true if the current model satisfies the formula
 //               (formula is handed to the constructor) 
 //
 //    search(n)  checks the next n models
@@ -98,7 +97,7 @@
 
 
 function Prover(initFormulas) {
-////////////////////////////////////////// don't add nodes twice!!!
+////////////////////////////////////////// xxx don't add nodes twice!!!
 
     this.depthLimit = 1; // depth = number of free variables on Tree
     this.nodeLimitFactor = 4;
@@ -107,15 +106,23 @@ function Prover(initFormulas) {
     
     log("initializing prover");
 
-    this.initFormulas = [];
-    for (var i=0; i<initFormulas.length; i++) {
-        this.initFormulas.push(initFormulas[i].normalize());
+    this.initFormulas = initFormulas; // formulas as entered, with conclusion negated
+    if (initFormulas[0].parser.isModal) {
+        this.initFormulasNonModal = initFormulas.map(function(f){
+            return f.translateModal();
+        });
     }
+    else {
+        this.initFormulasNonModal = initFormulas;
+    }
+    this.initFormulasNormalized = this.initFormulasNonModal.map(function(f){
+        return f.normalize();
+    });
+    
     this.steps = 0;
     this.alternatives = [];
     this.tree = new Tree(this);
-    this.rules = [Prover.alpha, Prover.beta, Prover.delta, Prover.gamma];
-    this.modelFinder = new ModelFinder(this.initFormulas);
+    this.modelFinder = new ModelFinder(this.initFormulasNormalized);
     this.counterModel = null;
     this.pauseLength = 2; // ms
 
@@ -144,7 +151,7 @@ Prover.prototype.nextStep = function() {
     // if limit is reached and occasionally searches for a countermodel; calls
     // itself again unless proof is complete.
     this.steps++;
-    log('step ' + this.steps + ". " + this.tree.openBranches);
+    log('step '+this.steps);
     
     // status msg: xxx tidy up
     var numBranches = this.tree.openBranches.length + this.tree.closedBranches.length;
@@ -152,48 +159,30 @@ Prover.prototype.nextStep = function() {
                 this.tree.numNodes + " nodes, " +
                 this.alternatives.length + " alternatives, search depth " +
                 this.depthLimit);
-        
-    var newNodes;
+
     // expand leftmost open branch on tree:
-    for (var i=0; i<this.rules.length; i++) {
-        // result is list of changed nodes, or false if rule can't be applied
-        // xxx optimise? instead of a lexical ordering, we might want to have a
-        // priority ranking for different applications of the rules?
-        newNodes = this.rules[i](this.tree.openBranches[0]);
-        if (newNodes) break;
-    }
-    log(this.tree);
-    var openBranches = this.tree.openBranches.copy();
-    // try closing branch(es) with new nodes; new nodes are either on branch 0
-    // or on neighbouring branches, after beta expansion
-    if (newNodes) {
-        for (var k=0; k<openBranches.length; k++) {
-            var branch = openBranches[k];
-            var branchChanged = false;
-            for (var j=branch.nodes.length-1; j>=0; j--) {
-                if (!newNodes.includes(branch.nodes[j])) break;
-                branchChanged = true;
-                var closed = branch.tryClose(branch.nodes[j]);
-                // note that this might close all branches, through unification!
-                if (this.tree.openBranches.length == 0) {
-                    // no more open branches: proof completed
-                    log('tree closed');
-                    return this.onfinished(1);
-                }
-                if (closed) break;
-            }
-            if (!branchChanged) break;
-        }
-        // some branch still open
-        if (this.tree.openBranches[0].nodes.length > this.depthLimit * this.nodeLimitFactor) {
-            log('reached complexity limit for backtracking');
-            this.limitReached();
-        }
-    }
-    else {
-        // no more rules can be applied
+    var todo = this.tree.openBranches[0].todoList.shift();
+    if (!todo) { // xxx can this ever happen?
         log('tree open and complete');
         return this.onfinished(0);
+    }
+    var nextRule = todo.shift();
+    var args = todo;
+    nextRule(this.tree.openBranches[0], args);
+    log(this.tree);
+    
+    // xxx should we check if a rule (say gamma) could be applied but didn't add
+    // any new nodes (e.g. because of duplicate node detection), in which case
+    // the tree remains open?
+    
+    if (this.tree.openBranches.length == 0) {
+        log('tree closed');
+        return this.onfinished(1);
+    }
+    
+    if (this.tree.openBranches[0].nodes.length > this.depthLimit * this.nodeLimitFactor) {
+        log('reached complexity limit for backtracking');
+        this.limitReached();
     }
     
     // search for a countermodel:
@@ -261,109 +250,178 @@ Prover.prototype.tryAlternative = function() {
     return false;
 }
 
-Prover.alpha = function(branch) {
-    // xxx optimize! if a branch contains lots of unexpanded non-alpha nodes, we
-    // go through them after each application of any rule, testing if alpha() is
-    // applicable. Should only test newly added nodes, or store unexpanded_alpha
-    // etc. (with num_unexpanded to quickly see if any left)?
-    for (var i=0; i<branch.unexpanded.length; i++) {
-        var node = branch.unexpanded[i];
-        if (node.type == 'alpha') { // xxx better is_alpha?
-            branch.unexpanded.remove(node); // xxx optimise?
-            return [branch.addNode(node.getSubNode(2)),
-                    branch.addNode(node.getSubNode(1))];
-        }
-    }
-    return null;
-}
+// If a rule leads to several new nodes, the third arguments to new Node()
+// should be strictly identical, so that we can easily find these new nodes
+// later
 
-Prover.beta = function(branch) {
-    for (var i=0; i<branch.unexpanded.length; i++) {
-        var node = branch.unexpanded[i];
-        if (node.type == 'beta') {
-            branch.unexpanded.remove(node);
-            branch.tree.openBranches.unshift(branch.copy());
-            var n1 = branch.tree.openBranches[0].addNode(node.getSubNode(1));
-            var n2 = branch.addNode(node.getSubNode(2));
-            return [n1,n2];
-        }
-    }
-    return null;
+Prover.alpha = function(branch, nodeList) {
+    log('alpha '+nodeList[0]);
+    var node = nodeList[0];
+    var subnode1 = new Node(node.formula.sub1, Prover.alpha, nodeList);
+    var subnode2 = new Node(node.formula.sub2, Prover.alpha, nodeList);
+    branch.addNode(subnode1);
+    branch.addNode(subnode2);
+    // tryClose is not part of addNode because we want to make sure both nodes
+    // are added in the finished tree (this matters in the alternatives clause
+    // of unification).
+    branch.tryClose(subnode1);
+    if (!branch.closed) branch.tryClose(subnode2);
 }
+Prover.alpha.priority = 1;
 
-Prover.gamma = function(branch) {
-    for (var i=0; i<branch.unexpanded.length; i++) {
-        var node = branch.unexpanded[i];
-        if (node.type == 'gamma') { 
-            if (branch.freeVariables.length == this.depthLimit) {
-                log("depthLimit " + this.depthLimit + " exceeded!");
-                this.limitReached();
-                return null;
+Prover.beta = function(branch, nodeList) {
+    log('beta '+nodeList[0]);
+    var node = nodeList[0];
+    branch.tree.openBranches.unshift(branch.copy());
+    var subnode1 = new Node(node.formula.sub1, Prover.beta, nodeList);
+    var subnode2 = new Node(node.formula.sub2, Prover.beta, nodeList);
+    branch.tree.openBranches[0].addNode(subnode2);
+    branch.addNode(subnode1);
+    branch.tryClose(subnode1);
+    branch.tree.openBranches[0].tryClose(subnode2);
+}
+Prover.beta.priority = 10;
+
+Prover.gamma = function(branch, nodeList) {
+    log('gamma '+nodeList[0]);
+    var node = nodeList[0];
+    if (branch.freeVariables.length == this.depthLimit) {
+        log("depthLimit " + this.depthLimit + " exceeded!");
+        this.limitReached();
+        return null;
+    }
+    // add application back onto todoList:
+    branch.todoList.push([Prover.gamma, node]);
+    
+    // The following lines would incorporate the Herbrand restriction on sentence tableau: 
+    // do not expand a gamma node more often than there are constants on the branch.
+    // For this purpose, s(0) and s(s(0)) should count as different constants, but 
+    // branch.constants only contains [s,0], so I would have to keep track of the actual
+    // instances somewhere. So for now, that's disabled. (2005-02-02) xxx todo
+    // if (!node.numExpansions) node.numExpansions = [];
+    // if (!node.numExpansions[branch.id]) node.numExpansions[branch.id] = 1;
+    // else {
+    //  node.numExpansions[branch.id]++;
+    //  if (node.numExpansions[branch.id] > branch.constants.length + 1) {
+    //      log("Branch unclosable by Herbrand restriction: " + node.numExpansions[branch.id] + " expansions, " + branch.constants.length + " constants on branch");
+    //      // too many gamma instances. But not all is lost if we can backtrack:
+    //      return this.backtrack() ? 0 : -1;
+    //  }
+    //}
+    
+    // <node> might be □p => ∀v(wRv→pv)
+    // if (this.parser.expressionType[node.formula.variable] == 'world variable') {
+    //     var newVariable = branch.newWorldVariable(); 
+    // } xxx remove, along with newWorldvariable...
+    // else {
+    var newVariable = branch.newVariable();
+    // } 
+    branch.freeVariables.push(newVariable);
+    var newFormula = node.formula.matrix.substitute(node.formula.variable, newVariable);
+    var newNode = new Node(newFormula, Prover.gamma, nodeList);
+    newNode.instanceTerm = newVariable; // used in sentree
+    branch.addNode(newNode);
+    branch.tryClose(newNode);
+}
+Prover.gamma.priority = 8;
+
+Prover.modalGamma = function(branch, nodeList) {
+    // □A and ¬◇A nodes are translated into ∀x(¬wRxvAx) and ∀x(¬wRx∨¬Ax). By the
+    // standard gamma rule, these would be expanded to ¬wRξ7 ∨ Aξ7 or ¬wRξ7 ∨
+    // ¬Aξ7. We don't want these nodes to appear on the displayed tree.
+    // More importantly, when these nodes are expanded, we get a ¬wRξ7 branch
+    // which also shouldn't appear on the displayed tree. That's easy to handle
+    // if the branch immediately closes (through unification, presumably).
+    // But there's no guarantee for that, since (1) we actively explore
+    // alternative trees in which unification is not applied, and (2) expansions
+    // of ∀x(¬wRx ∨ Ax) are allowed even if there's no node of the form wRy on
+    // the tree, so that unification is impossible.
+    //
+    // More importantly, if we require the ¬wRξ7 branch to close immediately, we
+    // effectly don't make use of free world variables in the tableau
+    // construction: a □A node is expanded to ¬wRξ7 ∨ Aξ7, alright, but further
+    // expansion is only allowed if some wRv occurs on the branch, in which case
+    // the expansion (effectively) adds Av to the branch. We can reach the same
+    // effect with the textbook □A rule: allow expansion only if some wRv occurs
+    // on the branch; in that case add Av to the branch.
+    //
+    // TODO: see how we could make real use of the free variables idea for
+    // world variables.
+    log('modalGamma '+nodeList[0]);
+    var node = nodeList[0];
+    // add application back onto todoList:
+    branch.todoList.push([Prover.modalGamma, node]);
+
+    var wRx = node.formula.matrix.sub1.sub;
+    var w = wRx.terms[0];
+    log('wRx: '+wRx+', w: '+w);
+    // find wR* node for □A expansion:
+    OUTERLOOP:
+    for (var i=0; i<branch.literals.length; i++) {
+        log('lit '+branch.literals[i]);
+        if (branch.literals[i].formula.terms && branch.literals[i].formula.terms[0] == w) {
+            // check if <node> has already been expanded with this wR* node:
+            for (var j=0; j<branch.nodes.length; j++) {
+                if (branch.nodes[j].fromRule == Prover.modalGamma &&
+                    branch.nodes[j].fromNodes[0] == node &&
+                    branch.nodes[j].fromNodes[1] == branch.literals[i]) {
+                    log('already used');
+                    continue OUTERLOOP;
+                }
             }
-            branch.unexpanded.remove(node);
-            branch.unexpanded.push(node);
-            // The following lines would incorporate the Herbrand restriction on sentence tableau: 
-            // do not expand a gamma node more often than there are constants on the branch.
-            // For this purpose, s(0) and s(s(0)) should count as different constants, but 
-            // branch.constants only contains [s,0], so I would have to keep track of the actual
-            // instances somewhere. So for now, that's disabled. (2005-02-02) xxx todo
-            // if (!node.numExpansions) node.numExpansions = [];
-            // if (!node.numExpansions[branch.id]) node.numExpansions[branch.id] = 1;
-            // else {
-            //  node.numExpansions[branch.id]++;
-            //  if (node.numExpansions[branch.id] > branch.constants.length + 1) {
-            //      log("Branch unclosable by Herbrand restriction: " + node.numExpansions[branch.id] + " expansions, " + branch.constants.length + " constants on branch");
-            //      // too many gamma instances. But not all is lost if we can backtrack:
-            //      return this.backtrack() ? 0 : -1;
-            //  }
-            //}
-            var newVariable = branch.newVariable();
-            branch.freeVariables.push(newVariable);
-            var newFormula = node.formula.matrix.substitute(node.formula.variable, newVariable);
-            var newNode = new Node(newFormula, node);
-            newNode.instanceTerm = newVariable;
-            return [branch.addNode(newNode)];
+            log('expanding!');
+            // expand <node> with found wR*:
+            var modalMatrix = node.formula.matrix.sub2;
+            var v = branch.literals[i].formula.terms[1];
+            log(modalMatrix);
+            var newFormula = modalMatrix.substitute(node.formula.variable, v);
+            log(newFormula);
+            var newNode = new Node(newFormula, Prover.modalGamma, [node, branch.literals[i]]);
+            newNode.instanceTerm = v;
+            branch.addNode(newNode);
+            branch.tryClose(newNode);
+            break;
         }
     }
 }
-
-Prover.delta = function(branch) {
-    for (var i=0; i<branch.unexpanded.length; i++) {
-        var node = branch.unexpanded[i];
-        if (node.type == 'delta') { 
-            // find skolem term (newTerm):
-            var funcSymbol = branch.newFunctionSymbol();
-            branch.constants.push(funcSymbol);
-            // It suffices to skolemize on variables contained in this formula.
-            // This makes some proofs much faster by making some gamma
-            // applications redundant. However, translation into sentence
-            // tableau then becomes almost impossible, because here we need the
-            // missing gamma applications. Consider Ax(Fx & Ey~Fy).
-            if (branch.freeVariables.length > 0) {
-                var skolemTerm = branch.freeVariables.copy();
-                skolemTerm.unshift(funcSymbol);
-            }
-            else skolemTerm = funcSymbol;
-            var newFormula = node.formula.matrix.substitute(node.formula.variable, skolemTerm);
-            var newNode = new Node(newFormula, node);
-            newNode.instanceTerm = skolemTerm;
-            branch.unexpanded.remove(node); 
-            return [branch.addNode(newNode)];
-        }
+Prover.modalGamma.priority = 9;
+    
+Prover.delta = function(branch, nodeList) {
+    log('delta '+nodeList[0]);
+    var node = nodeList[0];
+    // find skolem term (newTerm):
+    var funcSymbol = branch.newFunctionSymbol();
+    branch.constants.push(funcSymbol);
+    // It suffices to skolemize on variables contained in this formula.
+    // This makes some proofs much faster by making some gamma applications
+    // redundant. However, translation into sentence tableau then becomes almost
+    // impossible, because here we need the missing gamma applications.
+    // Consider Ax(Fx & Ey~Fy).
+    
+    // xxx TODO can we use only variables of the right sort (world vs indiv)
+    // in QML?
+    if (branch.freeVariables.length > 0) {
+        var skolemTerm = branch.freeVariables.copy();
+        skolemTerm.unshift(funcSymbol);
     }
-    return null;
+    else skolemTerm = funcSymbol;
+    var newFormula = node.formula.matrix.substitute(node.formula.variable, skolemTerm);
+    var newNode = new Node(newFormula, Prover.delta, nodeList);
+    newNode.instanceTerm = skolemTerm;
+    branch.addNode(newNode);
+    branch.tryClose(newNode);
 }
-
+Prover.delta.priority = 2;
 
 function Tree(prover) {
     if (!prover) return; // for copy() function
     this.prover = prover;
     var initBranch = new Branch(this);
-    initBranch.constants = []; // for run-time skolemization
-    for (var i=0; i<prover.initFormulas.length; i++) {
-        var formula = prover.initFormulas[i];
+    for (var i=0; i<prover.initFormulasNormalized.length; i++) {
+        var formula = prover.initFormulasNormalized[i];
         var node = new Node(formula);
         initBranch.addNode(node);
+        // setting initbranch.constants for run-time skolemization
         initBranch.constants = initBranch.constants.concat(formula.constants); // xxx optimise! (no duplicates)
     }
     this.openBranches = [initBranch];
@@ -372,6 +430,9 @@ function Tree(prover) {
 }
 
 Tree.prototype.closeBranch = function(branch, complementary1, complementary2) {
+    branch.closed = true;
+    this.markUsedNodes(branch, complementary1, complementary2);
+    log(this);
     this.pruneBranch(branch, complementary1, complementary2);
     this.pruneAlternatives();
     this.openBranches.remove(branch);
@@ -390,7 +451,7 @@ Tree.prototype.pruneAlternatives = function() {
         for (var j=0; j<this.openBranches.length; j++) {
             var openBranch = this.openBranches[j];
             if (!altTree.containsOpenBranch(openBranch)) { // xxx optimise: containsopenbranch looks through all open branches for each call
-                log('alternative '+i+' does not contain open branch '+openBranch);
+                // log('alternative '+i+' does not contain open branch '+openBranch);
                 continue ALTLOOP
             }
         }
@@ -415,14 +476,79 @@ Tree.prototype.containsOpenBranch = function(branch) {
     }
     return false;
 }
-    
+
+Tree.prototype.markUsedNodes = function(branch, complementary1, complementary2) {
+    // mark nodes with .used = true if they were involved in deriving the
+    // complementary pair
+    var ancestors = [complementary1, complementary2];
+    var n;
+    while ((n = ancestors.shift())) {
+        if (!n.used) {
+            for (var i=0; i<n.fromNodes.length; i++) {
+                ancestors.push(n.fromNodes[i]);
+            }
+            n.used = true;
+        }
+    }
+}
+
+
 Tree.prototype.pruneBranch = function(branch, complementary1, complementary2) {
-    // When a branch is closed, we look for beta expansions on it that weren't
-    // used to derive the complementary pair (nor any complementary pair of an
-    // already closed subbranch); all branches originating from unused beta
-    // expansions can be removed.
-    for (var n=complementary1; n; n=n.developedFrom) n.used = true;
-    for (var n=complementary2; n; n=n.developedFrom) n.used = true;
+    // When a branch is closed, we look for branching steps that weren't used to
+    // derive the complementary pair; we undo these steps and remove the other
+    // branches originating from them.
+    //
+    // Example:
+    //
+    //           /-B--    can be removed (no matter if it's open or closed)
+    // --Z--(AvB)       
+    //           \-A-¬Z   x (AvB unused)
+    //
+    // A more tricky case:
+    //
+    //                        /-D--   
+    //           /-B-----(CvD)
+    // --Z--(AvB)             \-C-¬Z   x (AvB unused, CvD used)
+    //           \-A---
+    //
+    // If the branch with D is closed, the A branch can be removed (no matter if
+    // it's open or closed). But if the D branch is open, the so-far unused node
+    // B may be needed to close that branch. So we have to keep the AvB
+    // expansion. (It will be removed if the B node is not used when closing the
+    // D branch.)
+    //
+    // The general strategy is to walk up from the endpoint of the closed branch
+    // until we reach a used branching node from which another open branch
+    // emerges; any unused branching up to that point is removed.
+    //
+    // NB: in tests this is almost never used :(
+    var obranches = this.openBranches.concat(this.closedBranches);
+    obranches.remove(branch);
+    for (var i=branch.nodes.length-1; i>0; i--) {
+        for (var j=0; j<obranches.length; j++) {
+            if (obranches[j].nodes[i] &&
+                obranches[j].nodes[i] != branch.nodes[i] &&
+                obranches[j].nodes[i].fromNodes == branch.nodes[i].fromNodes) {
+                // branch.nodes[i] is the result of a branching step;
+                // obranches[j].nodes[i] is one if its siblings.
+                if (branch.nodes[i].used) {
+                    // quit if sibling branch is open:
+                    if (!obranches[j].closed) return;
+                }
+                else {
+                    log("pruning branch "+obranches[j]+": unused expansion of "+branch.nodes[i].fromNodes[0]);
+                    if (obranches[j].closed) this.closedBranches.remove(obranches[j]);
+                    else this.openBranches.remove(obranches[j]);
+                    // We don't remove the beta expansion result on this branch;
+                    // it'll be removed in the displayed sentence tree because
+                    // it has .used == false
+                }
+            }
+        }
+    }
+    return;
+
+    // original code:
     toRoot:
     for (var i=branch.nodes.length-1; branch.nodes[i].developedFrom; i--) {
         if (branch.nodes[i].developedFrom.type != 'beta') continue;
@@ -483,7 +609,7 @@ Tree.prototype.closeCloseableBranches = function() {
 }
 
 Tree.prototype.copy = function() {
-    // return a deep copy including copy of nodes
+    // return a deep copy, including copy of nodes (but not of formulas)
     var ntree = new Tree();
     var nodemap = {} // old node id => copied Node
     ntree.prover = this.prover
@@ -502,11 +628,10 @@ Tree.prototype.copy = function() {
         if (nodemap[orig.id]) return nodemap[orig.id];
         var n = new Node();
         n.formula = orig.formula;
-        if (orig.developedFrom) {
-            if (!nodemap[orig.developedFrom.id]) {
-                throw "from node "+orig.developedFrom+" not yet copied";
-            }
-            n.developedFrom = nodemap[orig.developedFrom.id];
+        n.fromRule = orig.fromRule;
+        n.fromNodes = [];
+        for (var i=0; i<orig.fromNodes.length; i++) {
+            n.fromNodes.push(nodemap[orig.fromNodes[i].id]);
         }
         n.type = orig.type;
         n.used = orig.used;
@@ -517,25 +642,30 @@ Tree.prototype.copy = function() {
     }
     function copyBranch(orig) {
         var nodes = [];
-        var unexpanded = [];
         var literals = [];
+        var todoList = [];
         for (var i=0; i<orig.nodes.length; i++) {
             nodes.push(copyNode(orig.nodes[i]));
         } 
-        for (var i=0; i<orig.unexpanded.length; i++) {
-            unexpanded.push(nodemap[orig.unexpanded[i].id]);
-        } 
         for (var i=0; i<orig.literals.length; i++) {
             literals.push(nodemap[orig.literals[i].id]);
+        }
+        for (var i=0; i<orig.todoList.length; i++) {
+            var todo = [orig.todoList[i][0]];
+            for (var j=1; j<orig.todoList[i].length; j++) {
+                todo.push(nodemap[orig.todoList[i][j].id]);
+            }
+            todoList.push(todo);
         } 
-        var b = new Branch(ntree, nodes, unexpanded, literals, orig.freeVariables.copy(), orig.constants);
+        var b = new Branch(ntree, nodes, literals, orig.freeVariables.copy(), orig.constants,
+                           todoList, orig.closed);
         b.id = orig.id;
         return b;
     }
     return ntree;
 }
 
-Tree.prototype.genericcopy = function() {
+Tree.prototype.genericcopy = function() { // xxx remove
     // Returns a deep copy. This is a generic clone function due to Brendan Eich. 
     // It should be simplified because it slows down proofs.
     function cloneObjectGraph(obj) {
@@ -621,13 +751,15 @@ Tree.prototype.toString = function() {
     }
 }
 
-function Branch(tree, nodes, unexpanded, literals, freeVariables, constants) {
+function Branch(tree, nodes, literals, freeVariables, constants, todoList, closed) {
     this.tree = tree;
     this.nodes = nodes || [];
-    this.unexpanded = unexpanded || [];
     this.literals = literals || [];
     this.freeVariables = freeVariables || [];
     this.constants = constants || [];
+    this.todoList = todoList || [];
+    // todoList looks like this: [[Prover.alpha, nodes[0]], [Prover.seriality]]
+    this.closed = closed || false;
     this.id = Branch.counter++;
 }
 Branch.counter = 0;
@@ -639,6 +771,15 @@ Branch.prototype.newVariable = function() {
     }
     var lastvar = this.freeVariables[this.freeVariables.length-1]
     return 'ξ'+(lastvar.substr(1)*1+1);
+}
+
+Branch.prototype.newWorldVariable = function() {
+    // return new variable for gamma expansion
+    if (this.freeVariables.length == 0) {
+        return 'ω1';
+    }
+    var lastvar = this.freeVariables[this.freeVariables.length-1]
+    return 'ω'+(lastvar.substr(1)*1+1);
 }
 
 Branch.prototype.newFunctionSymbol = function() {
@@ -673,10 +814,10 @@ Branch.prototype.tryClose = function(node) {
     // and instead continue expanding nodes. So we collect all possible
     // unifiers, try the first and copy alternative trees for later exploration
     // with backtracking.
-    if (node.type != 'literal') return false;
-    // Formula.unify() only works for literals  
-    var unifiers = [];
-    var otherNodes = [];
+    if (node.type != 'literal') return false; // Formula.unify() only works for
+                                              // literals
+    var unifiers = []; // list of substitutions
+    var otherNodes = []; // corresponding list of other nodes
     for (var i=this.literals.length-1; i>=0; i--) {
         if (this.literals[i] == node) continue;
         var u = negatedFormula.unify(this.literals[i].formula);
@@ -695,7 +836,7 @@ Branch.prototype.tryClose = function(node) {
     if (unifiers.length == 0) {
         return false;
     }
-    // xxx todo: use simpler unifiers first?
+    // xxx todo: use simpler unifiers first! ¬(Pa∧¬Pf(f(a))∧∀x(Px→Pf(x)))
     
     // check whether we need to store alternatives for backtracking (only if
     // unifier affects variables on other open branches):
@@ -716,39 +857,27 @@ Branch.prototype.tryClose = function(node) {
         for (var i=1; i<unifiers.length; i++) {
             var altTree = this.tree.copy();
             log("processing and storing alternative unifier for "+node+": "+unifiers[i]);
-            // have to close the correct branch on altTree with the correct pair
-            // of nodes (that branch isn't <this> and the nodes aren't <node>
-            // and <oNode>):
-            // var altBranch = altTree.openBranches[0], altNode, altONode;
-            // for (var j=0; j<altBranch.literals.length; j++) {
-            //     if (altBranch.literals[j].formula.equals(node.formula)) {
-            //         altNode = altBranch.literals[j];
-            //     }
-            //     else if (altBranch.literals[j].formula.equals(oNode.formula)) {
-            //         altONode = altBranch.literals[j];
-            //     }
-            // }
             // applying a substitution can make other branches closable as well
             altTree.applySubstitution(unifiers[i]);
-            // altTree.closeBranch(altBranch, altNode, altONode);
             altTree.closeCloseableBranches();
-            log(altTree);
+            log('alternative tree:\n'+altTree);
             if (altTree.openBranches.length == 0) {
+                // xxx what if we're currently adding the first node of a beta
+                // expansion? Won't the tree miss the second node? 
                 log('alternative tree closes, stopping proof');
                 this.tree.prover.tree = altTree;
                 return true;
             }
             this.tree.prover.alternatives.push(altTree);
-            log(this.tree.prover.alternatives.length+' alternatives');
         }
-        if (this.unexpanded.length) { // xxx doesn't check if non-expansion rules can be applied
-            // instead of unifying, we could apply some expansion rule:
+        if (this.todoList.length) {
+            // instead of unifying, we could apply some other rule from the todoList:
             var altTree = this.tree.copy();
-            log("storing non-unified alternative (unexpanded " + this.unexpanded + ")"); 
+            log("storing non-unified alternative"); 
             // altTree is not unified, nextStep will apply next rule(s) 
             this.tree.prover.alternatives.push(altTree);
-            log(this.tree.prover.alternatives.length+' alternatives');
         }
+        log(this.tree.prover.alternatives.length+' alternatives');
     }
     else {
         log("no need to consider alternatives for backtracking");
@@ -766,14 +895,15 @@ Branch.prototype.copy = function() {
     // expansions
     var nb = new Branch(this.tree,
                         this.nodes.copy(), // Array.copy
-                        this.unexpanded.copy(),
                         this.literals.copy(),
                         this.freeVariables.copy(),
-                        this.constants.copy());
-    // disabled Herbrand restriction
+                        this.constants.copy(),
+                        this.todoList.copyDeep(), // make copies of the todo items
+                        this.closed);
+    // disabled Herbrand restriction:
     //
     // for (var i=0; i<nb.unexpanded.length; i++) {
-    //  if (nb.unexpanded[i].numExpansions) nb.unexpanded[i].numExpansions[nb.id] = nb.unexpanded[i].numExpansions[this.id];
+    //  if (nb.enexpanded[i].numExpansions) nb.unexpanded[i].numExpansions[nb.id] = nb.unexpanded[i].numExpansions[this.id];
     // }
     return nb;
 }
@@ -783,8 +913,24 @@ Branch.prototype.addNode = function(node) {
     // xxx check if node is already on branch?
     this.nodes.push(node);
     this.tree.numNodes++;
-    if (node.type == 'literal') this.literals.push(node);
-    else this.unexpanded.unshift(node); // new gamma nodes should be processed before old ones
+    if (node.type == 'literal') {
+        this.literals.push(node);
+    }
+    if (!this.closed && node.type != 'literal') {
+        // insert node expansion into todoList:
+        //
+        // (We could use more clever heuristics about the order in which nodes
+	// are expanded, e.g. look-ahead heuristics for beta expansions.
+	// Turns out that most of these don't have any consistent effect; they
+	// usually speed up some proofs and slow down others.)
+        //
+        var expansionRule = node.getExpansionRule();
+	for (var i=0; i<this.todoList.length; i++) {
+	    if (expansionRule.priority <= this.todoList[i][0].priority) break;
+            // '<=' is important so that new gamma nodes are processed before old ones
+	}
+	this.todoList.insert([expansionRule, node], i);
+    }
     return node;
 }
 
@@ -823,22 +969,56 @@ Branch.prototype.merge = function() { // xxx remove?
 }
 
 Branch.prototype.toString = function() {
-    return "[Unexpanded: " + this.unexpanded + " Literals: " + this.literals + "]";
+    return this.nodes.map(function(n){ return n.formula.string }).join(',');
 }
 
 
-function Node(formula, developedFrom) {
+function Node(formula, fromRule, fromNodes) {
+    // Each non-initial node on a branch is the result of applying a rule to
+    // (zero or more) earlier nodes on the same branch. This information about a
+    // node's origin is needed to display the final sentence tableau, and for
+    // pruning branches (see pruneBranch).
     if (!formula) return;
     this.formula = formula;
-    this.developedFrom = developedFrom || null;
+    this.fromRule = fromRule || null;
+    this.fromNodes = fromNodes || [];
     this.type = formula.type;
     this.id = Node.counter++;
 }
 Node.counter = 0;
 
-Node.prototype.getSubNode = function(subIndex) {
-    var subfla = subIndex == 1 ? this.formula.sub1 : this.formula.sub2;
-    return new Node(subfla, this);
+Node.prototype.getExpansionRule = function() {
+    // return rule for expanding this node
+    var rule = Node.type2Rule[this.type];
+    if (rule == Prover.gamma &&
+        this.formula.parser.expressionType[this.formula.variable] == 'world variable') {
+        // xxx why not have type == 'modalGamma' anyway?
+        rule = Prover.modalGamma;
+    }
+    return rule;
+}
+
+Node.type2Rule = {
+    'alpha': Prover.alpha,
+    'beta': Prover.beta,
+    'gamma': Prover.gamma,
+    'delta': Prover.delta
+}
+
+
+
+Node.prototype.iterateOverOrigin = function(iterFun) {
+    // apply <iterFun> to this node and all its ancestors, in terms of rule
+    // applications xxx remove
+    var ancestor, ancestors = [this];
+    while ((ancestor = ancestors.shift())) {
+        iterFun(ancestor);
+        for (var i=0; i<ancestor.fromNodes.length; i++) {
+            if (!ancestors.includes(ancestor.fromNodes[i])) {
+                ancestors.push(ancestor.fromNodes[i]);
+            }
+        }
+    }
 }
 
 Node.prototype.toString = function() {
@@ -846,256 +1026,3 @@ Node.prototype.toString = function() {
 }
 
 
-function ModelFinder(initFormulas) {
-    log("Creating ModelFinder");
-    
-    this.initFormulas = initFormulas;
-    this.signature = initFormulas[0].signature; // this takes all initFormulas into account
-    this.constants = [];
-    this.predicates = [];
-    for (var i=0; i<initFormulas.length; i++) {
-        var cs = initFormulas[i].constants;
-        for (var j=0; j < cs.length; j++) {
-            if (!this.constants.includes(cs[j])) this.constants.push(cs[j]);
-        }
-        var ps = initFormulas[i].predicates;
-        for (var j=0; j<ps.length; j++) {
-            if (!this.predicates.includes(ps[j])) this.predicates.push(ps[j]);
-        }
-    }
-    
-    this.model = new Model(this);
-    
-} 
-
-ModelFinder.prototype.tryNextModel = function() {
-    if (this.model.domain.length == 0) this.model.initInterpretation(1);
-    else this.model.iterate();
-    log("trying model "+this.model);
-    if (this.isModel(this.model)) return this.model;
-    return null;
-} 
-
-ModelFinder.prototype.isModel = function(model) {
-    for (var i=0; i<this.initFormulas.length; i++) {
-        if (!this.model.satisfies(this.initFormulas[i])) {
-            log("no, model doesn't satisfy "+this.initFormulas[i].string);
-            return false;
-        }
-    }
-    log("yep, model satisfies initFormulas");
-    return true;
-}
-
-function Model(modelfinder) {
-    // A first-order model has a domain D and an interpretation function assigning
-    // - to each 0-ary individual functor a member of D,
-    // - to each n-ary individual functor a function from n-tuples to members of D,
-    // - to each 0-ary predicate a truth-value,
-    // - to each n-ary predicate a function from n-tuples to truth-values.
-    //
-    // We store the interpretation function in this.values. However, JS doesn't
-    // allow lists as dict keys. So values['P'] can't be a dict mapping, say,
-    // <0,1> to true.
-    //
-    // We actually replace the dict values by simple lists: instead of 'P' -> {
-    // [0,0]: true, [0,1]: false, ... }, we have 'P' -> [true, false, ... ]; the
-    // nth value in the list is the value assigned to the nth 2-tuple from the
-    // domain. Instead of computing the relevant number n, we currently use a
-    // lookup table in which tuples are converted to strings. So we have
-    // this.argLists[2] = ['00', '01', '10', '11']. To find the value assigned
-    // to 'P' for [0,1], we first look up the index of '01' in argLists[2], and
-    // then return that index from values['P'].
-    //
-    // For zero-ary predicates and functors/constants, there is only one
-    // possible argument list: the empty list. It's more efficient to store
-    // values[a] = 0, values[p] = true directly, bypassing the lists.
-    this.domain = [];
-    this.argLists = [];
-    this.values = [];
-    this.symbols = modelfinder.predicates.concat(modelfinder.constants);
-    this.isPredicate = [];
-    for (var i=0; i<modelfinder.predicates.length; i++) {
-        this.isPredicate[modelfinder.predicates[i]] = true;
-    }
-    this.signature = modelfinder.signature;
-}
-
-Model.prototype.initInterpretation = function(numIndividuals) {
-    this.domain = [];
-    for (var i=0; i<numIndividuals; i++) {
-        this.domain.push(i); // domain is integers 0,1,...
-    }
-    this.argLists = []; // stores all possible arguments for all arities, as strings
-    this.values = {};
-    for (var i=0; i<this.symbols.length; i++) {
-        var sym = this.symbols[i];
-        var arity = this.signature.arities[sym];
-        if (arity == 0) {
-            this.values[sym] = 0; // false or 1st individual
-            continue;
-        }
-        if (!this.argLists[arity]) {
-            this.argLists[arity] = Model.initArguments(arity, numIndividuals);
-        }
-        this.values[sym] = Array.getArrayOfZeroes(this.argLists[arity].length); // note that false == 0
-        // this.values[f] is the list of values corresponding to the argument
-        // tuples in argLists[arity]
-    }
-    
-}
-
-Model.initArguments = function(arity, numIndividuals) {
-    // return list of all tuples from {0,...,numIndividuals} with length <arty>,
-    // as strings.
-    var res = [];
-    var tuple = Array.getArrayOfZeroes(arity);
-    res.push(tuple.toString());
-    while (Model.iterateTuple(tuple, numIndividuals-1)) { // optimise?
-        res.push(tuple.toString());
-    }
-    return res;
-}
-
-Model.iterateTuple = function(tuple, maxValue) {
-    // changes tuple to the next tuple in the list of the cartesian powers of
-    // {0..maxValue} of arity <tuple>.length.
-    for (var i=tuple.length-1; i>=0; i--) {
-        if (tuple[i] < maxValue) {
-            tuple[i]++;
-            return true;
-        }
-        tuple[i] = 0;
-    }
-    return false;
-    // Example 1: tuple = 011, maxValue = 2.
-    //   at i=2, tuple -> 012, return true
-    // Example 2: tuple = 011, maxValue = 1.
-    //   at i=2, tuple -> 010
-    //   at i=1, tuple -> 000
-    //   at i=0, tuple -> 100, return true
-}
-
-Model.prototype.getValue = function(symbol, args) {
-    if (!args || args.length == 0) { // zero-ary proposition letter or ind constant
-        return this.values[symbol];
-    }
-    var arity = args.length;
-    var argsIndex = this.argLists[arity].indexOf(args.toString()); // optimise?
-    return this.values[symbol][argsIndex];
-}
-
-Model.prototype.iterate = function() {
-    // change this model to the next possible model.
-    //
-    // We need to change one thing at a time. E.g., if we have F and f, we need
-    // to iterate through all possible values for f for all possible values
-    // for F.
-    for (var i=0; i<this.symbols.length; i++) {
-        var sym = this.symbols[i];
-        var maxValue = this.isPredicate[sym] ? 1 : this.domain.length-1;
-        if (!this.values[sym].isArray) { // zero-ary
-            if (this.values[sym] < maxValue) {
-                this.values[sym]++;
-                return true;
-            }
-            else this.values[sym] = 0;
-        }
-        var iterated = Model.iterateTuple(this.values[sym], maxValue);
-        if (iterated) return true;
-        // Now reset interpretation of sym to zero and iterate interpretation of
-        // next symbol; turns out iterateTuple already sets this.values[sym] to
-        // zero if no iteration was possible. So nothing left to do.
-    }
-    // no iteration possible
-    this.initInterpretation(this.domain.length+1);
-    log('extending domain of modelfinder to '+this.domain);
-}
-
-Model.prototype.satisfies = function(formula) {
-    // this could be sped up a lot xxx
-    switch (formula.type) {
-    case 'alpha' : return this.satisfies(formula.sub1) && this.satisfies(formula.sub2);
-    case 'beta' : return this.satisfies(formula.sub1) || this.satisfies(formula.sub2);
-    case 'gamma' : {
-        for (var i=0; i<this.domain.length; i++) {
-            this.values[formula.variable] = this.domain[i];
-            var res = this.satisfies(formula.matrix);
-            delete this.values[formula.variable]; // so that it's not printed by toString
-            if (!res) return false;
-        }
-        return true;
-    }
-    case 'delta' : {
-        for (var i=0; i<this.domain.length; i++) {
-            this.values[formula.variable] = this.domain[i];
-            var res = this.satisfies(formula.matrix);
-            delete this.values[formula.variable]; // so that it's not printed by toString
-            if (res) return true;
-        }
-        return false;
-    }
-    case 'literal' : {
-        var fla = formula.sub || formula;
-        var args = [];
-        for (var i=0; i<fla.terms.length; i++) {
-            args.push(this.interpretTerm(fla.terms[i]));
-        }
-        var val = this.getValue(fla.predicate, args);
-        return formula.sub ? !val : val;
-    }
-    }
-}
-
-Model.prototype.interpretTerm = function(term) {
-    if (term.isArray) {
-        var funcsym = term[0];
-        var args = [];
-        for (var i=1; i<term.length; i++) {
-            args.push(this.interpretTerm(term[i]));
-        }
-        return this.getValue(funcsym, args);
-    }
-    return this.getValue(term);
-}
-
-Model.prototype.toString = function() {
-    var str = "<table>";
-    str += "<tr><td>Domain: </td><td align='left'>{ ";
-    str += this.domain.join(", ");
-    str += " }</td></tr>";
-    for (var i=0; i<this.symbols.length; i++) {
-        var sym = this.symbols[i];
-        // p: true
-        // a: 0
-        // F: { 0,1 }
-        // G: { <0,0>, <1,1> }
-        // f: { <0,1>, <1,1> }
-        if (!this.values[sym].isArray) { // zero-ary
-            val = this.values[sym];
-        }
-        else {
-            var ext = [];
-            var arity = this.signature.arities[sym];
-            for (var j=0; j<this.argLists[arity].length; j++) {
-                if (this.isPredicate[sym]) {
-                    if (this.values[sym][j]) { // argLists[arity][j] is in extension of sym
-                        if (arity == 1) {
-                            ext.push(this.argLists[arity][j].slice(1,-1)); // remove brackets
-                        }
-                        else {
-                            ext.push('&lt;'+this.argLists[arity][j].slice(1,-1)+'&gt;');
-                        }
-                    }
-                }
-                else { // functor
-                    ext.push('&lt;'+this.argLists[arity][j].slice(1,-1)+','+this.values[sym][j]+'&gt;');
-                }
-            }
-            val = '{ '+ext.toString().slice(1,-1)+' }';
-        }
-        str += "<tr><td align='right' class='formula'>" + sym + ": </td><td align='left'>" + val + "</td></tr>";
-    }
-    str += "</table>";
-    return str;
-}
