@@ -277,9 +277,7 @@ Formula.prototype.clausalNormalForm = function() {
 
     // see http://cs.jhu.edu/~jason/tutorials/convert-to-CNF and
     // http://www8.cs.umu.se/kurser/TDBB08/vt98b/Slides4/norm1_4.pdf
-    //
-    // xxx todo use switching variables to keep CNFs short?  log('converting
-    // '+this.string+' to cnf');
+    // xxx todo use switching variables to keep CNFs short?
 
     var distinctVars = this.makeVariablesDistinct();
     var skolemized = distinctVars.skolemize();
@@ -326,7 +324,7 @@ Formula.prototype.cnf = function() {
 
 Formula.prototype.makeVariablesDistinct = function() {
     // return formula that doesn't reuse the same variable (for prenex normal
-    // form); formula must be in NNF (normalised).
+    // form); formula must be in NNF ("normalise()d").
     var usedVariables = arguments[0] || [];
     // log('making variables distinct in '+this+' (used '+usedVariables+')');
     if (this.matrix) {
@@ -334,7 +332,8 @@ Formula.prototype.makeVariablesDistinct = function() {
         var nvar = this.variable;
         if (usedVariables.includes(this.variable)) {
             // log('need new variable instead of '+this.variable);
-            nvar = this.parser.getNewVariable();
+            nvar = this.parser.expressionType[nvar] == 'world variable' ?
+                this.parser.getNewWorldVariable() : this.parser.getNewVariable();
             nmatrix = nmatrix.substitute(this.variable, nvar);
         }
         usedVariables.push(nvar);
@@ -374,7 +373,8 @@ Formula.prototype.skolemize = function() {
             var skolemTerm = skolemVars;
             skolemTerm.unshift(funcSymbol);
         }
-        else skolemTerm = this.parser.getNewConstant();
+        else skolemTerm = this.parser.expressionType[this.variable] == 'variable' ?
+            this.parser.getNewConstant() : this.parser.getNewWorldName();
         var nmatrix = this.matrix.substitute(this.variable, skolemTerm); 
         nmatrix.constants.push(skolemVars.length > 0 ? funcSymbol : skolemTerm);
         nmatrix = nmatrix.skolemize(boundVars);
@@ -901,18 +901,46 @@ Parser.prototype.getNewSymbol = function(candidates, expressionType, arity) {
 }
 
 Parser.prototype.getNewConstant = function() {
-    // for gamma/delta instances in sentrees
+    // for gamma/delta instances in sentrees and cnf skolemization
     return this.getNewSymbol('abcdefghijklmno', 'individual constant', 0);
 }
 
 Parser.prototype.getNewVariable = function() {
-    // for converting to prenex/clausal normal form (for modelfinder) 
+    // for converting to prenex/clausal normal form (for modelfinder)
     return this.getNewSymbol('xyzwvutsr', 'variable', 0);
 }
 
 Parser.prototype.getNewFunctionSymbol = function(arity) {
     // for converting to prenex/clausal normal form (for modelfinder) 
     return this.getNewSymbol('fghijklmn', arity+"-ary function symbol", arity);
+}
+
+Parser.prototype.getNewWorldVariable = function() {
+    // for standard translations: □p => ∀v(wRv ...)
+    return this.getNewSymbol('vutsr', 'world variable', 0);
+}
+
+Parser.prototype.getNewWorldName = function(reuseWorldVars) {
+    // for □/◇ instances in sentrees and cnf skolemization; if <reuseWorldVars>
+    // then uses names if they are already used as internal world variables in
+    // the fvTree
+    var candidates = 'wvutsrxyz';
+    for (var i=0; i<candidates.length; i++) {
+        if (!this.expressionType[candidates[i]]) {
+            this.registerExpression(candidates[i], 'world constant', 0);
+            return candidates[i];
+        }
+        else if (this.expressionType[candidates[i]] == 'world variable') {
+            return candidates[i];
+        }
+    }
+    for (var i=2; true; i++) {
+        var c = candidates[0]+i;
+        if (!this.expressionType[c]) {
+            this.registerExpression(c, 'world constant', 0);
+            return c;
+        }
+    }
 }
 
 Parser.prototype.initModality = function() {
@@ -929,32 +957,6 @@ Parser.prototype.initModality = function() {
     this.translatedFromModal = true;
 }
 
-Parser.prototype.getNewWorldVariable = function() {
-    // for standard translations: □p => ∀w2(wRw2 ...)
-    return this.getNewSymbol('vutsr', 'world variable', 0);
-}
-
-Parser.prototype.getNewWorldName = function() {
-    // for □/◇ instances in sentrees; doesn't matter if the same name is used as
-    // internal world variable
-    var candidates = 'wvutsrxyz';
-    for (var i=0; i<candidates.length; i++) {
-        if (!this.expressionType[candidates[i]]) {
-            this.registerExpression(candidates[i], expressionType, arity);
-            return candidates[i];
-        }
-        else if (this.expressionType[candidates[i]] == 'world variable') {
-            return candidates[i];
-        }
-    }
-    for (var i=2; true; i++) {
-        var c = candidates[0]+i;
-        if (!this.expressionType[c]) {
-            this.registerExpression(c, expressionType, arity);
-            return c;
-        }
-    }
-}
 
 Parser.prototype.parseFormula = function(str) {
     // return Formula for string

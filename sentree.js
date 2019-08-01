@@ -369,7 +369,7 @@ SenTree.prototype.replaceSkolemTerms = function() {
             var termstr = worldTerms[c].toString();
             if (!translations[termstr]) {
                 log(termstr + " is worldly skolem term");
-                translations[termstr] = this.parser.getNewWorldName();
+                translations[termstr] = this.parser.getNewWorldName(true);
             }
             this.nodes[n].formula = this.nodes[n].formula.substitute(
                 worldTerms[c], translations[termstr], true

@@ -151,27 +151,23 @@ tests = {
         var parser = new Parser();
         var fs = [parser.parseFormula('∀z∀y∃x(Rzx ∧ ¬Rxy)').normalize()];
         var mf = new ModelFinder(fs);
-        for (var i=0; i<1000; i++) {
+        for (var i=0; i<100; i++) {
             if (mf.nextStep()) break;
         }
-        assert(i<1000);
+        assert(i<100);
         assertEqual(mf.model.domain.length, 4);
     },
-    
 
     findmodel_modal: function() {
         var parser = new Parser();
         var fs = [parser.parseFormula('□p→p')];
         fs = fs.map(function(f){return f.translateModal().normalize()});
         var mf = new ModelFinder(fs);
-        var m;
         for (var i=0; i<100; i++) {
-            m = mf.tryNextModel();
-            if (m) break;
+            if (mf.nextStep()) break;
         }
-        console.log(m.toString());
-        assertEqual(m.worlds.length, 1);
-        assertEqual(m.getValue('R',[0,0]), 0);
+        assertEqual(mf.model.worlds.length, 1);
+        assert(mf.model.toString().indexOf(': { (0,0) }') > 0);
     },
 
     findmodel_modal2: function() {

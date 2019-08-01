@@ -34,14 +34,17 @@
 // constraints, we take into account which variables quantify over worlds and
 // which over individuals. Accessibility conditions like reflexivity are added
 // to the constraints. The elements of W are also natural numbers starting with
-// 0. That's OK: nothing in the definition of a Kripke model requires that the
+// 0. (That's OK: nothing in the definition of a Kripke model requires that the
 // worlds must be distinct from the individuals; note that we can still have
-// more worlds than individuals or more individuals than worlds.
+// more worlds than individuals or more individuals than worlds.)
 //
 // In modal models, all predicates take a world as their last argument; 'R'
 // takes two worlds, function terms only take individuals. 
 
 function ModelFinder(initFormulas, accessibilityConstraints) {
+    // initFormulas = list of demodalized formulas in NNF for which we try to
+    //                find a model
+    // accessibilityConstraints = another such list, for modal models
     log("creating ModelFinder");
 
     // break down initFormulas and accessibilityConstraints into clauses:
@@ -76,8 +79,8 @@ function ModelFinder(initFormulas, accessibilityConstraints) {
 }
 
 ModelFinder.prototype.getClauses = function(formulas) {
-    // converts the formulas in <formulas> into clausal normal form and returns
-    // combined list of clauses
+    // convert <formulas> into clausal normal form and return combined list of
+    // clauses
     var res = [];
     formulas.forEach(function(formula) {
         log('getting clauses from '+formula);
@@ -201,10 +204,11 @@ function Model(modelfinder, numIndividuals, numWorlds) {
         this.domain.push(i); // domain is integers 0,1,...
     }
     this.worlds = [];
-    for (var i=0; i<modelfinder.numWorlds; i++) {
+    for (var i=0; i<numWorlds; i++) {
         this.worlds.push(i); // world domain is also integers 0,1,...
     }
     this.isModal = numWorlds > 0;
+    log('Model domain '+this.domain+', worlds '+this.worlds);
 
     // initialize interpretation function:
 
@@ -257,8 +261,8 @@ Model.prototype.getConstraints = function() {
             continue;
         }
         // get all possible interpretations of the variables:
-        var interpretations = Model.listTuples(this.domain, variables.length); // xxx treat modal variables specially!
-        log('    variable interpretations: '+interpretations);
+        var interpretations = this.getVariableAssignments(variables);
+        log('    variables: '+variables+', interpretations: '+interpretations);
         // e.g. [[0,0],[0,1],[1,0],[1,1]] for two variables and domain [0,1]
         for (var i=0; i<interpretations.length; i++) {
             var interpretation = interpretations[i];
@@ -278,8 +282,28 @@ Model.prototype.getConstraints = function() {
     return res;
 }
 
-Model.listTuples = function(domain, arity) {
-    // xxx cache!
+Model.prototype.getVariableAssignments = function(variables) {
+    // list all interpretations of <variables> on the model's domain(s), as
+    // sequences; e.g. [[0,0],[0,1],[1,0],[1,1]] for domain=[0,1] and two
+    // individual variables.
+    var res = [];
+    var tuple = Array.getArrayOfZeroes(variables.length);
+    res.push(tuple.copy());
+    var maxValues = [];
+    for (var i=0; i<variables.length; i++) {
+        maxValues.push(this.parser.expressionType[variables[i]] == 'variable' ?
+                       this.domain.length-1 : this.worlds.length-1);
+    }
+    while (Model.iterateTuple(tuple, maxValues)) { // optimise?
+        res.push(tuple.copy());
+    }
+    // log(res.toString());
+    return res;
+}
+
+Model.listTuples = function(domain, n) {
+    // list all n-tuples from <domain>, e.g. [[0,0],[0,1],[1,0],[1,1]] for
+    // domain=[0,1] and n=2
     var res = [];
     var maxValue = domain.length-1;
     var tuple = Array.getArrayOfZeroes(arity);
@@ -301,7 +325,26 @@ Model.crossProduct = function(tuples, set) {
     return res;
 }
 
-Model.iterateTuple = function(tuple, maxValue) { // xxx should be array property?
+Model.iterateTuple = function(tuple, maxValues) { // xxx should be array property?
+    // changes tuple to the next tuple in the list of the cartesian powers of
+    // {0..maxValue}, with power <tuple>.length.
+    for (var i=tuple.length-1; i>=0; i--) {
+        if (tuple[i] < maxValues[i]) {
+            tuple[i]++;
+            return true;
+        }
+        tuple[i] = 0;
+    }
+    return false;
+    // Example 1: tuple = 011, maxValue = 2.
+    //   at i=2, tuple -> 012, return true
+    // Example 2: tuple = 011, maxValue = 1.
+    //   at i=2, tuple -> 010
+    //   at i=1, tuple -> 000
+    //   at i=0, tuple -> 100, return true
+}
+
+Model.OLDiterateTuple = function(tuple, maxValue) { // xxx should be array property?
     // changes tuple to the next tuple in the list of the cartesian powers of
     // {0..maxValue}, with power <tuple>.length.
     for (var i=tuple.length-1; i>=0; i--) {
@@ -767,13 +810,12 @@ Model.prototype.denotationsAreConsistent = function() {
 Model.prototype.toHTML = function() {
     var str = "<table>";
     if (this.parser.isModal) {
-        this.classifyDomain();
         str += "<tr><td>Worlds: </td><td align='left'>{ ";
-        str += this.domainWorlds.join(", ");
+        str += this.worlds.join(", ");
         str += " }</td></tr>\n";
-        if (this.domainIndividuals.length > 0) {
+        if (this.domain.length > 0) {
             str += "<tr><td>Individuals: </td><td align='left'>{ ";
-            str += this.domainIndividuals.join(", ");
+            str += this.domain.join(", ");
             str += " }</td></tr>\n";
         }
     }
@@ -915,32 +957,6 @@ Model.prototype.getPredicateExtensions = function() {
         }
     }
     return result;
-}
-
-Model.prototype.classifyDomain = function() {
-    // classify elements in the domain into worlds and individuals; create
-    // domainWorlds and domainIndividuals attributes.
-
-    // xxx
-    this.domainIndividuals = [];
-    this.domainWorlds = this.domain;
-    return;
-    
-    
-    this.domainWorlds = [];
-    this.domainIndividuals = [];
-    
-    for (var i=0; i<this.symbols.length; i++) {
-        var sym = this.symbols[i];
-        if (!this.isPredicate[sym]) continue;
-        var arity = this.parser.arities[sym];
-        for (var j=0; j<this.argLists[sym].length; j++) {
-            if (this.values[sym][j]) { // argLists[sym][j] is in extension of sym
-                var world = this.argLists[sym][j].slice(1,-1).split(',').pop();
-                this.domainWorlds.push(world);
-            }
-        }
-    }
 }
 
 Model.prototype.toString = function() {
