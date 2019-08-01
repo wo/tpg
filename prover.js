@@ -186,7 +186,7 @@ Prover.prototype.nextStep = function() {
     }
     
     // search for a countermodel:
-    var counterModel = this.modelFinder.tryNextModel();
+    var counterModel = this.modelFinder.nextStep();
     if (counterModel) {
         this.counterModel = counterModel;
         return this.onfinished(0);

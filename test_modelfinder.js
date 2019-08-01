@@ -6,7 +6,7 @@ tests = {
         var mf = new ModelFinder([parser.parseFormula('p'), parser.parseFormula('Ff(a,a)')]);
         assert(mf.constants.equals(['f','a']));
         assert(mf.predicates.equals(['p','F']));
-        assert(mf.terms.equals(['f(a,a)']));
+        assertEqual(mf.terms.toString(), '[[f,a,a]]');
         assertEqual(mf.model.domain.length, 1);
         assertEqual(mf.model.worlds.length, 0);
     },
@@ -58,6 +58,17 @@ tests = {
         assertEqual(m.constraints.toString(), '[[F0],[F1],[H0f(0)0],[H0f(0)1],[H1f(1)0],[H1f(1)1]]');
     },
 
+    makeconstraints_modal1: function() {
+        var parser = new Parser();
+        var initflas = [parser.parseFormula('∀x∃y(Fx∧∀zHxyz)')];
+        // skolemized: (Fx∧Hxf(x)z)
+        var mf = new ModelFinder(initflas);
+        var m = mf.model;
+        assertEqual(m.constraints.toString(), '[[F0],[H0f(0)0]]');
+        m = new Model(mf, 2, 0);
+        assertEqual(m.constraints.toString(), '[[F0],[F1],[H0f(0)0],[H0f(0)1],[H1f(1)0],[H1f(1)1]]');
+    },
+
     countermodel1: function() {
         var parser = new Parser();
         var mf = new ModelFinder([parser.parseFormula('¬p')]);
@@ -97,112 +108,56 @@ tests = {
         assert(mf.model.toString().indexOf('F: { 0 }')>0);
     },
 
-    satisfies: function() {
-        var parser = new Parser();
-        var mf = new ModelFinder([parser.parseFormula('¬p'), parser.parseFormula('Ff(a,b)')]);
-        mf.nextStep();
-        mf.nextStep();
-        assertEqual(mf.model.satisfies([parser.parseFormula('p')]), false);
-        assertEqual(mf.model.satisfies([parser.parseFormula('¬p')]), true);
-        assertEqual(mf.model.satisfies([parser.parseFormula('p'), parser.parseFormula('¬p')]), true);
-        assertEqual(mf.model.satisfies([parser.parseFormula('Fa')]), false);
-        assertEqual(mf.model.satisfies([parser.parseFormula('Ff(a,b)')]), false);
-        assertEqual(mf.model.satisfies([parser.parseFormula('Ff(f(a,a),b)')]), false);
-    },
-
-    trynextmodel: function() {
-        var parser = new Parser();
-        var mf = new ModelFinder([parser.parseFormula('p'), parser.parseFormula('q')]);
-        var m = mf.tryNextModel();
-        assertEqual(m, null);
-        assertEqual(mf.model.getValue('p'), 0);
-        assertEqual(mf.model.getValue('q'), undefined);
-        var m = mf.tryNextModel();
-        assertEqual(m, null);
-        assertEqual(mf.model.getValue('p'), 1);
-        var m = mf.tryNextModel();
-        assertEqual(m, null);
-        assertEqual(mf.model.getValue('p'), 1);
-        assertEqual(mf.model.getValue('q'), 0);
-        var m = mf.tryNextModel();
-        assertEqual(m, mf.model);
-        assertEqual(mf.model.getValue('p'), 1);
-        assertEqual(mf.model.getValue('q'), 1);
-    },
-    
-    trynextmodel2: function() {
-        var parser = new Parser();
-        var mf = new ModelFinder([parser.parseFormula('¬p'), parser.parseFormula('¬q')]);
-        var m = mf.tryNextModel();
-        assertEqual(m, null);
-        assertEqual(mf.model.getValue('p'), 0);
-        assertEqual(mf.model.getValue('q'), undefined);
-        var m = mf.tryNextModel();
-        assertEqual(m, mf.model);
-        assertEqual(mf.model.getValue('p'), 0);
-        assertEqual(mf.model.getValue('q'), 0);
-    },
-
-    trynextmodel3: function() {
-        var parser = new Parser();
-        var mf = new ModelFinder([parser.parseFormula('Ff(a,b)')]);
-        var m = mf.tryNextModel();
-        assertEqual(m, null);
-        var m = mf.tryNextModel();
-        assertEqual(m, mf.model);
-    },
-
-    trynextmodel4: function() {
+    countermodel5: function() {
         var parser = new Parser();
         var mf = new ModelFinder([parser.parseFormula('∀xFx')]);
-        var m = mf.tryNextModel();
-        assertEqual(m, null);
-        var m = mf.tryNextModel();
-        assertEqual(m, mf.model);
+        var m = mf.nextStep();
+        assert(mf.model.toString().indexOf('F: { 0 }')>0);
     },
 
-    modelstring: function() {
-        var parser = new Parser();
-        var mf = new ModelFinder([parser.parseFormula('p'), parser.parseFormula('¬q')]);
-        var m = mf.tryNextModel();
-        m = mf.tryNextModel();
-        m = mf.tryNextModel();
-        var s = m.toString();
-        assert(s.indexOf('true')>-1);
-        assert(s.indexOf('false')>-1);
-    },
-
-    findmodel1: function() {
+    countermodel6: function() {
         var parser = new Parser();
         var fs = [parser.parseFormula('Fa ∧ ¬Fb')];
         var mf = new ModelFinder(fs);
-        var m;
         for (var i=0; i<100; i++) {
-            m = mf.tryNextModel();
-            if (m) break;
+            if (mf.nextStep()) break;
         }
-        assertEqual(m.domain.length, 2);
-        assertEqual(m.satisfies([parser.parseFormula('Fa')]), true);
-        assertEqual(m.satisfies([parser.parseFormula('Fb')]), false);
-        console.log(m.toString());
+        assertEqual(mf.model.domain.length, 2);
+        assert(mf.model.toString().indexOf('F: { 0 }')>0);
     },
 
-    findmodel2: function() {
+    countermodel7: function() {
         var parser = new Parser();
-        var fs = [parser.parseFormula('∀x∃yRxy ∧ ¬∃xRxx')];
-        fs = fs.map(function(f){return f.normalize()});
+        var fs = [parser.parseFormula('∀x∃yRxy ∧ ¬∃xRxx').normalize()];
         var mf = new ModelFinder(fs);
-        var m;
         for (var i=0; i<100; i++) {
-            m = mf.tryNextModel();
-            if (m) break;
+            if (mf.nextStep()) break;
         }
-        console.log(m.toString());
-        assertEqual(m.getValue('R',[0,1]), 1);
-        assertEqual(m.getValue('R',[1,0]), 1);
-        assertEqual(m.getValue('R',[0,0]), 0);
-        assertEqual(m.getValue('R',[1,1]), 0);
+        assertEqual(mf.model.domain.length, 2);
+        assert(mf.model.toString().indexOf('R: { (0,1),(1,0) }') > 0);
     },
+
+    countermodel_shortestformulawith3individuals: function() {
+        var parser = new Parser();
+        var fs = [parser.parseFormula('∀y∃x(Ryx ∧ ¬Rxy)').normalize()];
+        var mf = new ModelFinder(fs);
+        for (var i=0; i<100; i++) {
+            if (mf.nextStep()) break;
+        }
+        assertEqual(mf.model.domain.length, 3);
+    },
+
+    countermodel_shortestformulawith4individuals_FAILS: function() { // xxx TODO check why model doesn't switch to 4 individuals even after 10000 steps 
+        var parser = new Parser();
+        var fs = [parser.parseFormula('∀z∀y∃x(Rzx ∧ ¬Rxy)').normalize()];
+        var mf = new ModelFinder(fs);
+        for (var i=0; i<1000; i++) {
+            if (mf.nextStep()) break;
+        }
+        assert(i<1000);
+        assertEqual(mf.model.domain.length, 4);
+    },
+    
 
     findmodel_modal: function() {
         var parser = new Parser();
@@ -234,18 +189,5 @@ tests = {
         assertEqual(m.getValue('R',[0,0]), 0);
     },
 
-    findmodel3_TODO: function() {
-        var parser = new Parser();
-        var fs = [parser.parseFormula('∀y∃x(Ryx ∧ ¬Rxy)')]; // takes forever
-        fs = fs.map(function(f){return f.normalize()});
-        var mf = new ModelFinder(fs);
-        var m;
-        for (var i=0; i<10; i++) {
-            m = mf.tryNextModel();
-            if (m) break;
-        }
-        console.log(m.toString());
-    },
-    
     
 }

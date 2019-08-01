@@ -3,10 +3,10 @@
 //
 // This works as follows.
 //
-// 1. We transform initFormulas into clausal normal form, giving us literal
-//    "constraints" that we're trying to satisfy. For example, Fa ∧ Fb is split
-//    into two constraints, Fa and Fb; ∀x∃yRxy is turned into Rxf(x); Fa ∨ Fb is
-//    turned into the disjunctive constraint [Fa, Fb].
+// 1. We transform initFormulas (in NNF) into clausal normal form, giving us
+//    literal "constraints" that we're trying to satisfy. For example, Fa ∧ Fb
+//    is split into two constraints, Fa and Fb; ∀x∃yRxy is turned into Rxf(x);
+//    Fa ∨ Fb is turned into the disjunctive constraint [Fa, Fb].
 //
 // 2. Now we start with a domain of size 1, namely [0]. If no countermodel is
 //    found, we increase the domain to [0,1], and so on. The interpretation of
@@ -33,54 +33,13 @@
 // Modal models have two domains, W and D. When breaking down initFormulas into
 // constraints, we take into account which variables quantify over worlds and
 // which over individuals. Accessibility conditions like reflexivity are added
-// to the constraints.
-//
-//
-// Some more details on how we store models/interpretations:
-//
-// A first-order model has a domain D and an interpretation function assigning
-//
-// - to each 0-ary individual functor a member of D,
-// - to each n-ary individual functor a function from n-tuples to members of D,
-// - to each 0-ary predicate a truth-value,
-// - to each n-ary predicate a function from n-tuples to truth-values.
-//
-// We store the interpretation function in model.values. However, JS doesn't
-// allow lists as dict keys. So values['P'] can't be a dict mapping, say,
-// <0,2> to true.
-//
-// We get around this by replacing the dict values with simple lists: instead of
-// 'P' -> { [0,0]: true, [0,1]: false, ... }, we have 'P' -> [true, false,
-// ... ]; the nth value in the list is the value assigned to the nth 2-tuple
-// from the domain. So to find out whether [0,1] in |P|, we have to determine
-// the position of [0,1] in the list of all 2-tuples from the domain, and then
-// look up that position in values['P'].
-//
-// Instead of computing the relevant number list position on the fly, we use a
-// lookup table in which tuples are converted to strings. For example, we have
-// model.argLists['P'] = ['[0,0]', '[0,1]', '[1,0]', '[1,1]'].  So to find the
-// value assigned to 'P' for [0,1], we first look up the index of '[0,1]' in
-// argLists['P'], and then return that index from values['P']. This format is
-// convenient because to iterate over possible interpretations 'P', we simply
-// need to turn an array like [0,0,0,1] (representing truth-values) into
-// [0,0,1,0]. (Different binary predicates will share the same argList.)
-//
-// For zero-ary predicates and zero-ary functors (constants), there is only one
-// possible argument list: the empty list. It's more efficient to store
-// values[a] = 0, values[p] = true directly, bypassing argLists.
-//
-// Modal models have a further domain W. The elements of W are also natural
-// numbers starting with 0. That's OK: nothing in the definition of a Kripke
-// model requires that the worlds must be distinct from the individuals; note
-// that we can still have more worlds than individuals or more individuals than
-// worlds.
+// to the constraints. The elements of W are also natural numbers starting with
+// 0. That's OK: nothing in the definition of a Kripke model requires that the
+// worlds must be distinct from the individuals; note that we can still have
+// more worlds than individuals or more individuals than worlds.
 //
 // In modal models, all predicates take a world as their last argument; 'R'
-// takes two worlds, function terms only take individuals. That's why we have to
-// associate argLists with symbols rather than store them by arity, as
-// argLists[1], argLists[2], etc. For example, argLists['R'] is the list of all
-// pairs taken from W, while argLists['f'] for binary 'f' may be the list of all
-// pairs taken from D.
+// takes two worlds, function terms only take individuals. 
 
 function ModelFinder(initFormulas, accessibilityConstraints) {
     log("creating ModelFinder");
@@ -139,11 +98,11 @@ ModelFinder.prototype.nextStep = function() {
     // model.constraints[model.constraintPosition]. We need to do slightly
     // different things depending on whether we're processing this constraint
     // for the first time or not. If it's the first time, we (1) assign all new
-    // terms the extension 0; then we (2) see if there's an interpretation of
+    // terms the denotation 0; then we (2) see if there's an interpretation of
     // the predicates that satisfies the constraint; if yes, we move on to the
     // next constraint on the next call; if no, we process the same constraint
     // again. If we process the same constraint again, we (1') try to find a new
-    // assignment of extensions to the new terms; if there's none, we backtrack
+    // assignment of denotations to the new terms; if there's none, we backtrack
     // to earlier constraints (which will be processed again at that point) or
     // increase the domain if there are no earlier constraints; if there is a
     // new assignment of terms, we go through (2) as above.
@@ -156,38 +115,46 @@ ModelFinder.prototype.nextStep = function() {
         log("trying to satisfy next constraint "+curConstraint);
         // init term values for next constraint:
         for (var i=0; i<newTerms.length; i++) {
-            log('initialising extension of '+newTerms[i]+' to 0');
-            model.extensions[newTerms[i]] = 0;
+            log('initialising denotation of '+newTerms[i]+' to 0');
+            model.denotations[newTerms[i]] = 0;
         }
         model.prevConstraintPosition = model.constraintPosition;
     }
     else {
         model.prevConstraintPosition = model.constraintPosition;
-        log("trying to satisfy constraint "+curConstraint+" with different term extension");
-        if (!model.iterateTermExtensions(newTerms)) {
-            log("no more term extensions to try; backtracking.");
+        log("trying to satisfy constraint "+curConstraint+" with different denotations");
+        if (!model.iterateDenotations(newTerms)) {
+            log("no more term denotations to try; backtracking.");
             if (model.constraintPosition == 0) {
                 log('nothing to backtrack to; increasing domain');
                 this.initNextModel();
                 return false;
             }
             model.constraintPosition--;
-            // When we backtrack to an earlier constraint, we want to erase the
-            // (partial) interpretations of predicates and terms made for later
-            // constraints. IterateTermExtensions conventiently leaves all new
-            // terms in their initial interpretation, denoting 0. But we also
-            // want to undo partial predicate interpretations made to satisfy
-            // the previous constraint before we go back to it. E.g. if we've
-            // set |F|(0,1)=true because we had |a|=0, |b|=1 and the previous
-            // constraint was Fab, we want to erase this value of |F| before
-            // setting |a|=0, |b|=2. But how do we know what to erase?
-            // |F|(0,1)=true may have been forced already by an earlier
-            // constraint. So we store earlier interpretations of the
-            // predicates. That is, when turning to a constraint "from below",
-            // we store the present extension of all predicates. If we revert to
-            // that constraint "from above", we first set the extension back to
-            // that record.
-            model.extensions = model.storedExtensions[model.constraintPosition];
+            // When we backtrack from a given constraint (say, Fb) to the
+            // previous constraint (say, Fa) because Fb couldn't be satisfied,
+            // we need to undo the partial interpretation of F that satisfied
+            // Fa; but we don't want to anul the interpretation of the new terms
+            // in the previous constraint: we want to check if the constraint
+            // can be satisfied on the next iteration of the new terms. If we
+            // succeed and we move forward again, we want to start from scratch
+            // interpreting the new terms in the later constraint (Fb). So when
+            // we backtrack from constraint Y to constraint X, we need to (1)
+            // erase the interpretation of new terms in Y, and (2) erase the
+            // partial interpretation of predicates that brought us from X to
+            // Y. (1) is easy, but (2) isn't because constraints can have many
+            // disjuncts and it's not trivial to figure out which disjunct
+            // brought us forward; moreover, if we've set |F|(1)=true because we
+            // have |a|=1 and wanted to satisfy Fa, we can only erase
+            // |F|(1)=true if it wasn't already set by an earlier constraint
+            // (say, Fc, under |c|=1). So we keep track of when a record in a
+            // predicate extension is created. That is, this.extensions is an
+            // array; this.extensions[0] contains the predicate interpretations
+            // added for constraint 0, and so on.
+            delete model.extensions[model.constraintPosition];
+            for (var i=0; i<newTerms.length; i++) {
+                delete model.denotations[newTerms[i]];
+            }
             return false;
         }
     }
@@ -202,14 +169,10 @@ ModelFinder.prototype.nextStep = function() {
             log("no more constraints to satisfy; we've found a model!");
             return true;
         }
-        // store current extensions for backtracking:
-        if (model.constraintPosition > 0) {
-            model.storedExtensions[model.constraintPosition-1] = model.copyExtensions(); // xxx only need to preserve predicate extensions
-        }
         return false;
     }
     else {
-        log("can't satisfy constraint"); // try with different extensions next time
+        log("can't satisfy constraint"); // try with different denotations next time
         return false;
     }
 } 
@@ -244,16 +207,9 @@ function Model(modelfinder, numIndividuals, numWorlds) {
     this.isModal = numWorlds > 0;
 
     // initialize interpretation function:
-    
-    this.argLists = {}; // will store all possible arguments for all symbols, as
-                        // strings, e.g. 'P' => ['[0,0],[0,1],...'].
-    
-    this.values = {}; // symbol => extension for zero-ary expressions, otherwise
-                      // symbol => list of extensions corresponding to the list
-                      // of arguments in this.argLists[symbol].
 
-    this.extensions = {}; // 'P' => { '[0,1]' => true, '[1,1]' => false }
-                          // 'f(a)' => 0
+    this.denotations = {}; // term extensions, e.g. 'a' => 0, '[f,a]' => 2
+    this.extensions = []; // predicate extensions, e.g. [0] => ['G','a',true]
     
     // replace universal variables in modelfinder.clauses by domain elements:
     this.constraints = this.getConstraints();
@@ -261,7 +217,6 @@ function Model(modelfinder, numIndividuals, numWorlds) {
     this.constraintTerms = this.getConstraintTerms();
     this.constraintPosition = 0;
     this.prevConstraintPosition = -1;
-    this.storedExtensions = []; 
     
     // The following dictionaries will come in handy:
     // modelfinder.predicates.map(function(x){ this[x]=true; }, this.isPredicate={});
@@ -366,9 +321,10 @@ Model.iterateTuple = function(tuple, maxValue) { // xxx should be array property
 }
 
 Model.prototype.getConstraintTerms = function() {
-    // returns list of new terms for each constraint; i.e., position 2 in the
-    // list is a list of terms that first occur in the second constraint. Terms
-    // include subterms; see this.extensionsAreconsistent() for why.
+    // returns list of new terms for each constraint (as strings); i.e.,
+    // position 2 in the list is a list of terms that first occur in the second
+    // constraint. Terms include subterms; see this.denotationsAreconsistent()
+    // for why.
     var res = [];
     var termIsOld = {};
     for (var i=0; i<this.constraints.length; i++) {
@@ -396,42 +352,30 @@ Model.prototype.getConstraintTerms = function() {
     return res;
 }
 
-Model.prototype.initNextConstraintInterpretation = function() {
-}
-
-Model.prototype.copyExtensions = function() {
-    // returns a copy of extensions dictionary
-    var result = [];
-    for (p in this.extensions) {
-        if (this.extensions.hasOwnProperty(p)) {
-            result[p] = this.extensions[p];
-        }
-    }
-    return result;
-}
-
-
-
-Model.prototype.iterateTermExtensions = function(terms) {
-    // return next possible assignment of extensions to <terms>. We want to
+Model.prototype.iterateDenotations = function(terms) {
+    // return next possible assignment of denotations to <terms>. We want to
     // avoid redundant permutations here. For example, there's no point trying
-    // |a|=0, |b|=1 and later |a|=1, |b|=0. So we fix the first term to always
-    // denote 0. The second term either denotes 0 or (if available) 1, but never
-    // 2. The third term denotes 0 or 1 or 2, etc.
+    // |a|=0, |b|=1 and later |a|=1, |b|=0. So we fix the first constant to
+    // always denote 0. The second either denotes 0 or (if available) 1, but
+    // never 2. And so on. xxx can we also do this for functional terms? Not
+    // obvious how: f(0) isn't even in the list of all terms.
 
     for (var i=terms.length-1; i>=0; i--) {
         var term = terms[i];
-        var termIndex = this.modelfinder.terms.indexOf(term);
-        var maxValue = Math.max(termIndex, this.domain.length-1); // xxx dist world terms from ind terms
-        if (this.extensions[term] < maxValue) {
-            this.extensions[term]++;
-            log("setting extension of "+term+" to "+this.extensions[term]);
+        var maxValue = this.domain.length-1; // xxx distinguish world terms
+        if (terms[0] == '[') {
+            var termIndex = this.modelfinder.terms.indexOf(term);
+            maxValue = Math.min(maxValue, termIndex);
+        }
+        if (this.denotations[term] < maxValue) {
+            this.denotations[term]++;
+            log("increasing denotation of "+term+" to "+this.denotations[term]);
             return true;
         }
         else {
-            this.extensions[term] = 0;
-            log("setting/keeping extension of "+term+" at "+0);
-            // now try to increment extension of previous term 
+            log(term+" has max denotation "+maxValue+"; setting to 0");
+            this.denotations[term] = 0;
+            // now try to increment denotation of previous term 
         }
     }
     return false;
@@ -464,16 +408,16 @@ Model.prototype.satisfy = function(clause) {
     // tries to extend this.extensions for the predicates so as to satisfy the
     // clause. However, before we do that, we take care of another issue. When
     // looking for models, we treat all terms as black boxes, assigning them
-    // extensions with no regard to the extensions assigned to other terms. This
-    // is much faster than iterating through all possible extensions for all
-    // function symbols, but it allows for inconsistent extension assignments
+    // denotations with no regard to the denotations assigned to other terms. This
+    // is much faster than iterating through all possible denotations for all
+    // function symbols, but it allows for inconsistent denotation assignments
     // where e.g. |f(a)|=0, |f(0)|=1, and |f(f(a))|=0. Since the present
-    // function is called whenever this.extensions has been modified, we use it
-    // to test whether the extensions are consistent. If not, we return false,
-    // which will trigger a change in this.extensions and another call of this
-    // function, etc. TODO extensionsAreconsistent should be made redundant by
-    // making iterateTermExtensions smarter: skip inconsistent term assignments
-    if (!this.extensionsAreConsistent()) return false;
+    // function is called whenever this.denotations has been modified, we use it
+    // to test whether the denotations are consistent. If not, we return false,
+    // which will trigger a change in this.denotations and another call of this
+    // function, etc. TODO denotationsAreconsistent should be made redundant by
+    // making iterateDenotations smarter: skip inconsistent term assignments
+    if (!this.denotationsAreConsistent()) return false;
     for (var i=0; i<clause.length; i++) {
         log("trying to satisfy "+clause[i].string);
         var atom = clause[i].sub || clause[i];
@@ -483,38 +427,52 @@ Model.prototype.satisfy = function(clause) {
         for (var j=0; j<atom.terms.length; j++) {
             var term = atom.terms[j];
             if (typeof term == 'number') args.push(term);
-            else args.push(this.extensions[term.toString()]);
+            else args.push(this.denotations[term.toString()]);
         }
         var argsStr = args.toString();
-        if (!this.extensions[predicate]) {
-            this.extensions[predicate] = {};
-            this.extensions[predicate][argsStr] = tv;
-            log("  initialising predicate extension for "+argsStr+" to "+tv);
-            return true;
+        var storedTv = this.evaluatePredication(predicate, argsStr);
+        if (storedTv !== null) {
+            if (storedTv == tv) {
+                log("   "+predicate+" applied to "+argsStr+" already equals "+tv);
+                return true;
+            }
+            log("   failed: "+predicate+" applied to "+argsStr+" equals "+storedTv);
+            continue;
         }
-        if (!(argsStr in this.extensions[predicate])) {
-            this.extensions[predicate][argsStr] = tv;
-            log("  setting predicate extension for "+argsStr+" to "+tv);
-            return true;
-        }
-        if (this.extensions[predicate][argsStr] == tv) {
-            log("  predicate extension for "+argsStr+" already equals "+tv);
-            return true;
-        }
-        log("  failed");
+        log("  setting extension of "+predicate+" for "+argsStr+" to "+tv);
+        this.extensions[this.constraintPosition] = [predicate, argsStr, tv];
+        return true;
     }
     return false;
 }
 
-Model.prototype.extensionsAreConsistent = function() {
-    // tests if the assignment of extensions to singular terms is inconsistent,
+Model.prototype.evaluatePredication = function(predicate, argsStr) {
+    // returns the truth-value of the predicate applied to argsStr, on the
+    // present interpretation, or null if the predicate is undefined for
+    // argsStr.
+
+    // Recall that this.extensions is a (gappy) list that stores for each
+    // constraintPosition at which a predicate was partially interpreted a
+    // triple of the predicate, the argsStr and the truth-value.
+    for (var i=0; i<this.extensions.length; i++) {
+        if (this.extensions[i] &&
+            this.extensions[i][0] == predicate &&
+            this.extensions[i][1] == argsStr) {
+            return this.extensions[i][2];
+        }
+    }
+    return null;
+}
+
+Model.prototype.denotationsAreConsistent = function() {
+    // tests if the assignment of denotations to singular terms is inconsistent,
     // like |a|=0, |f(0)|=1 and |f(a)|=0, or |f(a)|=0, |f(0)|=1, and
     // |f(f(a))|=0.
 
-    // We go through all terms for which we know an extension. For example,
+    // We go through all terms for which we know an denotation. For example,
     // suppose we know that |f(a)|=0. Whenever f(a) then occurs in another term
-    // of which we know the extension, we can replace it by 0 and register the
-    // extension of the resulting term. E.g. if we have |f(f(a))|=1, we register
+    // of which we know the denotation, we can replace it by 0 and register the
+    // denotation of the resulting term. E.g. if we have |f(f(a))|=1, we register
     // the new fact |f(0)|=1. Whenever we "register" a fact, we check if it
     // contradicts what we already know.
     //
@@ -527,8 +485,8 @@ Model.prototype.extensionsAreConsistent = function() {
     // A trickier case: |a|=0, |f(a)|=0, |f(f(0))|=1. We first register
     // |f(0)|=0. That's not yet a contradiction. We also need to process what we
     // now found out about f(0), substituting it in f(f(0)). So when we loop
-    // through all terms for which we know an extension, we have to loop not
-    // just through this.extensions.
+    // through all terms for which we know an denotation, we have to loop not
+    // just through this.denotations.
     //
     // What if we have |f(a)|=0, and |f(f(a))|=1? We get |f(0)|=1. This entails
     // that |a| is not 0. Now what if we also have |f(b)|=1 and |b|=1? We get
@@ -536,7 +494,7 @@ Model.prototype.extensionsAreConsistent = function() {
     // elements, this contradicts |f(a)|=0. Argh.
     //
     // Maybe we need to interpret not only occurrent terms but also subterms. So
-    // if we have f(f(a)) in a formula, we need to assign extensions to a, f(a),
+    // if we have f(f(a)) in a formula, we need to assign denotations to a, f(a),
     // and f(f(a)). (But we don't need to interpret f for all possible
     // arguments.) Should this interpretation of subterms happen here or as part
     // of the main term assignment? If it happens there, we'll iterate through
@@ -549,26 +507,26 @@ Model.prototype.extensionsAreConsistent = function() {
 
 
     
-    var extensions = {}; // Here we register new facts about extensions
-    var interpretedExpressions = Object.keys(this.extensions); // this will grow
+    var denotations = {}; // Here we register new facts about denotations
+    var interpretedExpressions = Object.keys(this.denotations); // this will grow
     for (var i=0; i<interpretedExpressions.length; i++) {
-        var expr = interpretedExpressions[i]; // e.g. '[f,[f,a]]' or 'a' or 'F' (no harm)
-        extensions[expr] = this.extensions[expr];
+        var expr = interpretedExpressions[i]; // e.g. '[f,[f,a]]' or 'a'
+        denotations[expr] = this.denotations[expr];
     }
     for (var i=0; i<interpretedExpressions.length; i++) {
         var expr = interpretedExpressions[i];
         for (var j=0; j<interpretedExpressions.length; j++) {
             var expr2 = interpretedExpressions[j];
             if (expr2.indexOf(expr) > 0) {
-                var newExpr2 = expr2.replace(expr, extensions[expr]);
+                var newExpr2 = expr2.replace(expr, denotations[expr]);
                 log(expr2+" contains "+expr+"; equivalent to "+newExpr2);
-                if (!(newExpr2 in extensions)) {
-                    extensions[newExpr2] = extensions[expr2];
+                if (!(newExpr2 in denotations)) {
+                    denotations[newExpr2] = denotations[expr2];
                     interpretedExpressions.push(newExpr2);
                 }
-                else if (extensions[newExpr2] != extensions[expr2]) {
-                    log(expr2+" denotes "+extensions[expr2]+"; but "+newExpr2+" "+extensions[newExpr2]);
-                    log("term extensions are inconsistent");
+                else if (denotations[newExpr2] != denotations[expr2]) {
+                    log(expr2+" denotes "+denotations[expr2]+"; but "+newExpr2+" "+denotations[newExpr2]);
+                    log("term denotations are inconsistent");
                     return false; 
                 }
             }
@@ -825,7 +783,8 @@ Model.prototype.toHTML = function() {
         str += " }</td></tr>\n";
     }
 
-    var extensions = this.completeExtensions();
+    var termExtensions = this.getTermExtensions();
+    var predicateExtensions = this.getPredicateExtensions();
 
     // xxx DRI in what follows
     
@@ -834,18 +793,19 @@ Model.prototype.toHTML = function() {
     // f: { <0,1>, <1,1> }
     for (var i=0; i<this.modelfinder.origConstants.length; i++) {
         var sym = this.modelfinder.origConstants[i];
+        var ext = termExtensions[sym];
         var val;
-        if (!extensions[sym].isArray) { // zero-ary
-            val = extensions[sym];
+        if (!ext.isArray) { // zero-ary
+            val = ext;
         }
-        // extensions[sym] is something like [1,2] or [[0,1],[1,1]]
-        else if (extensions[sym].length > 0 && !extensions[sym][0].isArray) {
+        // ext is something like [1,2] or [[0,1],[1,1]]
+        else if (ext.length > 0 && !ext[0].isArray) {
             // extensions[sym] is something like [1,2]
-            val = '{ '+extensions[sym].join(',')+' }';
+            val = '{ '+ext.join(',')+' }';
         }
         else {
         // extensions[sym] is something like [[0,1],[1,1]]
-            val = '{ '+extensions[sym].map(function(tuple) {
+            val = '{ '+ext.map(function(tuple) {
                 return '('+tuple.join(',')+')';
             }).join(',')+' }';
         }
@@ -858,17 +818,18 @@ Model.prototype.toHTML = function() {
     // G: { <0,0>, <1,1> }
     for (var i=0; i<this.modelfinder.predicates.length; i++) {
         var sym = this.modelfinder.predicates[i];
+        var ext = predicateExtensions[sym];
         var val;
-        if (!extensions[sym].isArray) { // zero-ary
-            val = extensions[sym];
+        if (!ext.isArray) { // zero-ary
+            val = ext;
         }
-        else if (extensions[sym].length > 0 && !extensions[sym][0].isArray) {
-            // extensions[sym] is something like [1,2]
-            val = '{ '+extensions[sym].join(',')+' }';
+        else if (ext.length > 0 && !ext[0].isArray) {
+            // ext is something like [1,2]
+            val = '{ '+ext.join(',')+' }';
         }
         else {
-            // extensions[sym] is something like [[0,1],[1,1]]
-            val = '{ '+extensions[sym].map(function(tuple) {
+            // ext is something like [[0,1],[1,1]]
+            val = '{ '+ext.map(function(tuple) {
                 return '('+tuple.join(',')+')';
             }).join(',')+' }';
         }
@@ -879,74 +840,79 @@ Model.prototype.toHTML = function() {
     return str;
 }
 
-Model.prototype.completeExtensions = function() {
-    // this.extensions is a dict with entries like 'p' => { '[]' => false }, 'P'
-    // => { '[0,1]' => true, '[1,1]' => false }, and 'f(a)' => 0. Let's turn
-    // this into a complete list of extensions for all non-logical symbols,
-    // i.e. this.predicates and this.origConstants.
+Model.prototype.getTermExtensions = function() {
+    // this.denotations is a dict with entries like '[f,a]' => 0, 'a' => 1.  We
+    // return a new dict that assigns extensions to all function symbols and
+    // constants in initFormulas, with records like 'f' => (1,0).
     var result = {};
-    for (var i=0; i<this.modelfinder.predicates.length; i++) {
-        // Zero-ary predicates will have truth-values as extensions, one-ary
-        // predicates list of individuals, other predicates lists of lists of
-        // individuals.
-        var pred = this.modelfinder.predicates[i];
-        var ext = this.extensions[pred];
-        if (!ext) {
-            if (this.parser.arities[pred] == 0) result[pred] = false;
-            else result[pred] = [];
-        }
-        else {
-            result[pred] = [];
-            var argumentLists = Object.keys(ext);
-            for (var j=0; j<argumentLists.length; j++) {
-                var args = argumentLists[j];
-                if (this.parser.arities[pred] == 0) {
-                    result[pred] = ext[args];
-                }
-                else if (ext[args]) { // only list positive extensions
-                    args = args.slice(1,-1).split(',');
-                    if (args.length == 1) result[pred].push(args[0]);
-                    else result[pred].push(args);
-                }
-            }
-        }
-    }
-    var interpretedExpressions = Object.keys(this.extensions);
+    var interpretedTerms = Object.keys(this.denotations);
     for (var i=0; i<this.modelfinder.origConstants.length; i++) {
-        // Zero-ary constants will have individuals as extensions, others lists
+        // Zero-ary constants will have individuals as denotations, others lists
         // of lists of individuals.
         var cons = this.modelfinder.origConstants[i];
         if (this.parser.arities[cons] == 0) {
-            result[cons] = this.extensions[cons] || 0;
+            result[cons] = this.denotations[cons] || 0;
             continue;
         }
-        // If cons is 'f', we have records in this.extensions for things like
+        // If cons is 'f', we have records in this.denotations for things like
         // '[f,0]' or '[f,a]' or '[f,[f,a]]'. We will then also have
         // records for the subterms.
         result[cons] = [];
         // log("constructing extension for "+cons+" (arity "+this.parser.arities[cons]+")");
-        for (var j=0; j<interpretedExpressions.length; j++) {
-            var expr = interpretedExpressions[j];
+        for (var j=0; j<interpretedTerms.length; j++) {
+            var expr = interpretedTerms[j];
             if (expr.indexOf('['+cons+',') == 0) { // '[f,a]' or '[f,[f,a]]', etc.
-                // log("   we know that "+expr+" = "+this.extensions[expr]);
-                // replace complex arguments like '[f,a]' by their extension: 
-                var expr2 = expr.slice(1,-1).replace(/(\[.+?\])/, this.extensions['$1'] || '0');
+                // log("   we know that "+expr+" = "+this.denotations[expr]);
+                // replace complex arguments like '[f,a]' by their denotation: 
+                var expr2 = expr.slice(1,-1).replace(/(\[.+?\])/, this.denotations['$1'] || '0');
                 // log("   subterms replaced: "+expr2);
                 var args = expr2.split(',');
                 args.shift(); 
                 // convert simple arguments like 'a' to numbers:
                 for (var k=0; k<args.length; k++) {
                     if (typeof args[k] != 'number') { 
-                        args[k] = this.extensions[args[k]] || 0;
+                        args[k] = this.denotations[args[k]] || 0;
                     }
                 }
-                var value = this.extensions[expr];
+                var value = this.denotations[expr];
                 // log("   adding "+args+" => "+value);
                 result[cons].push(args.concat([value]));
             }
         }
         // log("  "+result[cons]);
         // xxx make sure functions are total?
+    }
+    return result;
+}
+
+Model.prototype.getPredicateExtensions = function() {
+    // this.extensions is a list with entries like ['p','[]',true] and
+    // ['F','[0,0]',false]. We return a dict that assigns extensions to all
+    // predicates in initFormulas, with records like 'F' => [[0,1],[1,0]].
+    var result = {};
+    for (var i=0; i<this.modelfinder.predicates.length; i++) {
+        // Zero-ary predicates will have truth-values as extensions, one-ary
+        // predicates list of individuals, other predicates lists of lists of
+        // individuals.
+        var pred = this.modelfinder.predicates[i];
+        result[pred] = [];
+        for (var j=0; j<this.extensions.length; j++) {
+            if (!this.extensions[j] || this.extensions[j][0] != pred) continue;
+            var argsStr = this.extensions[j][1]; // e.g. '[0]' or '[0,2]'
+            var tv = this.extensions[j][2];
+            if (argsStr == '[]') { // proposition letter
+                result[pred] = tv;
+                break;
+            }
+            if (!tv) continue; // only list positive extension
+            var args = argsStr.slice(1,-1).split(',');
+            if (args.length == 1) {
+                result[pred].push(args[0]);
+            }
+            else {
+                result[pred].push(args);
+            }
+        }
     }
     return result;
 }
