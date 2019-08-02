@@ -389,28 +389,6 @@ Model.prototype.iterateDenotations = function(terms) {
 }
 
 
-// Model.prototype.getConstraintSymbols = function() {
-//     var res = [];
-//     var symbolIsOld = {};
-//     for (var i=0; i<this.constraints.length; i++) {
-//         var clause = this.constraints[i];
-//         var symbols = [];
-//         for (var j=0; j<clause.length; j++) {
-//             var formulaSymbols = clause[j].predicates.concat(clause[j].constants);
-//             for (var k=0; k<formulaSymbols.length; k++) {
-//                 var sym = formulaSymbols[k];
-//                 if (typeof sym != 'number' && !symbolIsOld[sym]) {
-//                     symbols.push(sym);
-//                     symbolIsOld[sym] = true;
-//                 }
-//             }
-//         }
-//         res.push(symbols);
-//     }
-//     return res;
-// }
-
-
 Model.prototype.satisfy = function(clause) {
     // tries to extend this.extensions for the predicates so as to satisfy the
     // clause. However, before we do that, we take care of another issue. When
@@ -512,8 +490,6 @@ Model.prototype.denotationsAreConsistent = function() {
 
     // xxx TODO check (i.e. prove) that this covers all cases
 
-
-    
     var denotations = {}; // Here we register new facts about denotations
     var interpretedExpressions = Object.keys(this.denotations); // this will grow
     for (var i=0; i<interpretedExpressions.length; i++) {
@@ -542,234 +518,6 @@ Model.prototype.denotationsAreConsistent = function() {
     return true;
 }
 
-// Model.prototype.interpret = function(predicate, args) {
-//     // tries to find an interpretation of <predicate> so that is satisfies
-//     // <args>
-//     var val = this.getValue(atom.predicate, args);
-//     if (val) {
-//         // predicate is already defined for args:
-//         log('value is of atom is already set as '+val);
-//         return val == tv;
-//     }
-//     if (atom.terms.length == 0) { // propositional constant
-//         this.values[atom.predicate] = tv;
-//         return true;
-//     }
-//     if (!model.values[atom.predicate]) {
-//         // predicate is so far uninterpreted
-//         var arity = atom.terms.length; 
-//         this.argLists[atom.predicate] = Model.initArguments(arity, this.domain.length);
-//     }
-//     // make sure the value assigned to predicate for terms is tv:
-//     var argsIndex = this.argLists[atom.predicate].indexOf(args.toString());
-//     this.values[atom.predicate][argsIndex] = tv;
-//     return true;
-// }
-
-// Model.prototype.interpretClause = function(clauseWithNumeralTerms) {
-//     // tries to change the model so that it satisfies the clause (i.e. one
-//     // literal in it); returns true if successful, false if not.
-//     for (var i=0; i<clauseWithNumeralTerms.length; i++) {
-//         var literal = clauseWithNumeralTerms[i];
-//         if (this.interpret(literal)) return true;
-//     }
-//     return false;
-// }
-    
-// Model.prototype.nextInterpretation = function(symbols) {
-//     // iterate through all interpretations of <symbols> on the current
-//     // domain(s).
-//     if (!(symbols[0] in this.values)) {
-//         log('initializing interpretation of symbols '+symbols+' (all values 0)');
-//         this.initInterpretation(symbols);
-//         return true;
-//     }
-//     // We go through all symbols. If the value assigned to the first isn't
-//     // maximal, we increase it and return. If it's maximal, we set it back to
-//     // zero and try increasing the value of the next symbol. So for two symbols
-//     // with possible values 0,1 and 0,1,2 the interpretation goes through 0,0 ->
-//     // 1,0 -> 0,1 -> 1,1 -> 0,2 -> 1,2.
-//     for (var i=0; i<symbols.length; i++) {
-//         var sym = symbols[i];
-//         // Let's see if we can find a new interpretation of this symbol.
-//         var maxValue = this.maxValue[sym];
-//         if (!this.values[sym].isArray) { // zero-ary
-//             if (this.values[sym] < maxValue) {
-//                 // Yes, there's a new interpretation of sym; let's use it.
-//                 this.values[sym]++;
-//                 log('setting value of '+sym+' to '+this.values[sym]);
-//                 return true;
-//             }
-//             // No; we've tried all interpretations of sym; let's reset it to its
-//             // initial value and change the interpretation of the next symbol.
-//             else {
-//                 log(sym+' has max value; setting it to 0');
-//                 this.values[sym] = 0;
-//             }
-//         }
-//         else {
-//             // Do the same for symbols that aren't zero-ary:
-//             var iterated = Model.iterateTuple(this.values[sym], maxValue);
-//             if (iterated) {
-//                 log('setting value of '+sym+' to '+this.values[sym]);
-//                 return true;
-//             }
-//             else {
-//                 // Now we should reset the interpretation of sym to zero and iterate
-//                 // over interpretation of next symbol; turns out iterateTuple
-//                 // already sets this.values[sym] to zero if no iteration was
-//                 // possible. So nothing left to do.
-//                 log(sym+' has max value; setting it to '+this.values[sym]);
-//             }
-//         }
-//     }
-//     // No iteration possible.
-//     log('no more interpretation of '+symbols);
-//     return false;
-// }
-
-// Model.prototype.initInterpretation = function(symbols) {
-//     // create first interpretation of <symbols>
-//     for (var i=0; i<symbols.length; i++) {
-//         var sym = symbols[i];
-//         var arity = this.parser.arities[symbols[i]];
-//         if (arity == 0) {
-//             this.values[sym] = 0; // false or 1st individual/world (conveniently
-//             log('initial value of '+sym+' is 0');
-//         }
-//         else {
-//             this.argLists[sym] = this.initArgList(sym, arity);
-//             this.values[sym] = Array.getArrayOfZeroes(this.argLists[sym].length);
-//             // this.values[sym] is the list of values corresponding to the
-//             // argument tuples in argLists[sym]; recall that 0 == false.
-//             log('argList of '+sym+' is '+this.argLists[sym]);
-//             log('initial values of '+sym+' are '+this.values[sym]);
-//         }
-//     }
-// }
-
-// Model.prototype.initArgList = function(symbol, arity) {
-//     // return list of all possible arguments to |<symbol>|, as strings.
-//     //
-//     // For non-modal models, this is always the list of n-tuples from
-//     // this.domain, where n is <symbol>'s arity.
-//     //
-//     // In modal models, function terms don't take worlds as arguments, so here
-//     // we also return the list of n-tuples from this.domain; for normal
-//     // predicates we instead return the list of (n-1)-tuples from this.domain X
-//     // this.worlds; for 'R', we return the list of pairs from this.worlds.
-//     var res = [];
-//     var tuples = [];
-//     if (!this.isModal) {
-//         log('listing all '+arity+'-tuples from '+this.domain);
-//         tuples = Model.listTuples(this.domain, arity);
-//     }
-//     else {
-//         if (symbol == this.parser.R) {
-//             tuples = Model.listTuples(this.worlds, 2);
-//         }
-//         else if (this.isPredicate[symbol]) {
-//             tuples = Model.crossProduct(
-//                 Model.listTuples(this.domain, arity-1),
-//                 this.worlds
-//             );
-//         }
-//         else {
-//             tuples = Model.listTuples(this.domain, arity);
-//         }
-//     }
-//     return tuples.map(function(x) { return x.toString() });
-// }
-
-// Model.prototype.removeInterpretation = function(symbols) {
-//     // remove interpretation of <symbols> from this model
-//     for (var i=0; i<symbols.length; i++) {
-//         var sym = symbols[i];
-//         delete this.values[sym];
-//         if (sym in this.argLists) delete this.argLists[sym];
-//     }
-// } 
-
-
-// Model.prototype.getValue = function(symbol, args) {
-//     if (!args || args.length == 0) { // zero-ary proposition letter or ind constant
-//         return this.values[symbol];
-//     }
-//     var argsIndex = this.argLists[symbol].indexOf(args.toString()); // optimise?
-//     return this.values[symbol][argsIndex];
-// }
-
-// Model.prototype.iterate = function() { // remove xxx
-//     // change this model to the next possible model.
-//     //
-//     // We need to change one thing at a time. E.g., if we have F and f, we need
-//     // to iterate through all possible values for f for all possible values
-//     // for F.
-//     for (var i=0; i<this.symbols.length; i++) {
-//         var sym = this.symbols[i];
-//         var maxValue = this.isPredicate[sym] ? 1 : this.domain.length-1;
-//         if (!this.values[sym].isArray) { // zero-ary
-//             if (this.values[sym] < maxValue) {
-//                 this.values[sym]++;
-//                 return true;
-//             }
-//             else this.values[sym] = 0;
-//         }
-//         var iterated = Model.iterateTuple(this.values[sym], maxValue);
-//         if (iterated) return true;
-//         // Now reset interpretation of sym to zero and iterate interpretation of
-//         // next symbol; turns out iterateTuple already sets this.values[sym] to
-//         // zero if no iteration was possible. So nothing left to do.
-//     }
-//     // no iteration possible
-//     this.initInterpretation(this.domain.length+1);
-//     log('extending domain of modelfinder to '+this.domain);
-// }
-
-// Model.prototype.satisfies = function(clause) {
-//     // tests if this model satisfies the given list of literals, interpreted disjunctively
-//     for (var i=0; i<clause.length; i++) {
-//         var literal = clause[i];
-//         log('testing if model satisfies '+literal.string);
-//         var atom = literal.sub || literal;
-//         var args = [];
-//         for (var i=0; i<atom.terms.length; i++) {
-//             if (typeof atom.terms[i] == 'number') args.push(atom.terms[i]);
-//             else args.push(this.interpretTerm(atom.terms[i]));
-//         }
-//         log('args: '+args);
-//         var val = this.getValue(atom.predicate, args);
-//         log('value is of atom is '+val);
-//         var success = literal.sub ? !val : val;
-//         if (success) return true;
-//     }
-//     return false;
-// }
-
-// Model.prototype.interpretTerm = function(term) {
-//     if (term.isArray) {
-//         var funcsym = term[0];
-//         var args = [];
-//         for (var i=1; i<term.length; i++) {
-//             if (typeof term[i] == 'number') args.push(term[i]);
-//             else args.push(this.interpretTerm(term[i]));
-//         }
-//         return this.getValue(funcsym, args);
-//     }
-//     return this.getValue(term);
-// }
-
-// Model.prototype.satisfiesInitFormulas = function() {
-//     var initFormulas = this.modelfinder.initFormulas;
-//     for (var i=0; i<initFormulas.length; i++) {
-//         if (!this.satisfies(initFormulas[i])) {
-//             log("no, model doesn't satisfy "+initFormulas[i].string);
-//             return false;
-//         }
-//     }
-//     log("yep, model satisfies initFormulas");
-//     return true;
-// }
 
 Model.prototype.toHTML = function() {
     var str = "<table>";
@@ -849,18 +597,19 @@ Model.prototype.toHTML = function() {
 Model.prototype.getTermExtensions = function() {
     // this.denotations is a dict with entries like '[f,a]' => 0, 'a' => 1.  We
     // return a new dict that assigns extensions to all function symbols and
-    // constants in initFormulas, with records like 'f' => (1,0).
+    // constants in initFormulas, with records like 'f' => [(1,0),(0,1)].
     var result = {};
-    var interpretedTerms = Object.keys(this.denotations);
+    var denotations = this.denotations; // 'this' not available in replace function below 
+    var interpretedTerms = Object.keys(denotations);
     for (var i=0; i<this.modelfinder.origConstants.length; i++) {
         // Zero-ary constants will have individuals as denotations, others lists
         // of lists of individuals.
         var cons = this.modelfinder.origConstants[i];
         if (this.parser.arities[cons] == 0) {
-            result[cons] = this.denotations[cons] || 0;
+            result[cons] = denotations[cons] || 0;
             continue;
         }
-        // If cons is 'f', we have records in this.denotations for things like
+        // If cons is 'f', we have records in denotations for things like
         // '[f,0]' or '[f,a]' or '[f,[f,a]]'. We will then also have
         // records for the subterms.
         result[cons] = [];
@@ -868,24 +617,26 @@ Model.prototype.getTermExtensions = function() {
         for (var j=0; j<interpretedTerms.length; j++) {
             var expr = interpretedTerms[j];
             if (expr.indexOf('['+cons+',') == 0) { // '[f,a]' or '[f,[f,a]]', etc.
-                // log("   we know that "+expr+" = "+this.denotations[expr]);
+                // log("   we know that "+expr+" = "+denotations[expr]);
                 // replace complex arguments like '[f,a]' by their denotation: 
-                var expr2 = expr.slice(1,-1).replace(/(\[.+?\])/, this.denotations['$1'] || '0');
+                var expr2 = expr.slice(1,-1).replace(/\[.+?\]/, function(m) {
+                    return denotations[m] || '0';
+                });
                 // log("   subterms replaced: "+expr2);
                 var args = expr2.split(',');
                 args.shift(); 
                 // convert simple arguments like 'a' to numbers:
                 for (var k=0; k<args.length; k++) {
-                    if (typeof args[k] != 'number') { 
-                        args[k] = this.denotations[args[k]] || 0;
+                    if (isNaN(args[k])) { // isNaN('1') == false 
+                        args[k] = denotations[args[k]] || 0;
                     }
                 }
-                var value = this.denotations[expr];
+                var value = denotations[expr];
                 // log("   adding "+args+" => "+value);
                 result[cons].push(args.concat([value]));
             }
         }
-        // log("  "+result[cons]);
+        log("  "+result[cons]);
         // xxx make sure functions are total?
     }
     return result;
