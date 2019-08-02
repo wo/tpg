@@ -183,11 +183,14 @@ ModelFinder.prototype.nextStep = function() {
 ModelFinder.prototype.initNextModel = function() {
     var numWorlds = this.model.worlds.length;
     var numIndividuals = this.model.domain.length;
-    if (numWorlds && numWorlds < this.model.domain.length) {
+    if (numWorlds && this.parser.isPropositional) {
         numWorlds++;
     }
     else {
-        numIndividuals++; // xxx this means we're looking at QML models even for PML!
+        if (numWorlds && numWorlds < this.model.domain.length) {
+            numWorlds++;
+        }
+        else numIndividuals++; 
     }
     this.model = new Model(this, numIndividuals, numWorlds);
 }
@@ -525,7 +528,7 @@ Model.prototype.toHTML = function() {
         str += "<tr><td>Worlds: </td><td align='left'>{ ";
         str += this.worlds.join(", ");
         str += " }</td></tr>\n";
-        if (this.domain.length > 0) {
+        if (!this.parser.isPropositional) {
             str += "<tr><td>Individuals: </td><td align='left'>{ ";
             str += this.domain.join(", ");
             str += " }</td></tr>\n";

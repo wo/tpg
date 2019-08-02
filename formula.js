@@ -675,7 +675,7 @@ function AtomicFormula(predicate, terms) {
     this.predicates = [predicate];
     this.constants = []; // includes function symbols
     this.variables = [];
-    // classify atomic terms:
+    // classify atomic terms into variables and constants:
     var list = terms;
     for (var i=0; i<list.length; i++) {
         if (list[i].isArray) list = list.concat(list[i]);
@@ -687,8 +687,11 @@ function AtomicFormula(predicate, terms) {
             else this.constants.pushNoDuplicates(list[i]);
         }
     }
-    if (this.terms.length > 0) {
-        this.parser.isPropositional = false;
+    if (this.parser.isPropositional &&
+        this.terms.length > 0 &&
+        (!this.parser.isModal ||
+         (this.predicate != this.parser.R && this.terms.length > 1))) {
+            this.parser.isPropositional = false;
     }
     // log(this.constants);
 }
@@ -744,7 +747,11 @@ function QuantifiedFormula(quantifier, variable, matrix) {
     this.variables = matrix.variables; // if current variable is vacuous we
                                        // don't care if it's listed under
                                        // variables
-    this.parser.isPropositional = false;
+    
+    // We could now set this.parser.isPropositional = false, so that ∀xP counts
+    // as a non-propositional formula; OTOH, it's useful to have
+    // parser.isPropositional true for modal formulas. So we only set
+    // parser.isPropositional in AtomicFormula and treat ∀xP as propositional.
 }
 
 QuantifiedFormula.prototype = Object.create(Formula.prototype);
@@ -940,7 +947,8 @@ Parser.prototype.getNewWorldName = function(reuseWorldVars) {
             this.registerExpression(candidates[i], 'world constant', 0);
             return candidates[i];
         }
-        else if (this.expressionType[candidates[i]] == 'world variable') {
+        else if (reuseWorldVars &&
+                 this.expressionType[candidates[i]] == 'world variable') {
             return candidates[i];
         }
     }

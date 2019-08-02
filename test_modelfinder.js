@@ -5,7 +5,8 @@ tests = {
         var parser = new Parser();
         var mf = new ModelFinder([parser.parseFormula('p'), parser.parseFormula('Ff(a,a)')]);
         assert(mf.predicates.equals(['p','F']));
-        assertEqual(mf.terms.toString(), '[[f,a,a]]');
+        assertEqual(mf.origConstants.toString(), '[f,a]');
+        assertEqual(mf.names.toString(), '[a]');
         assertEqual(mf.model.domain.length, 1);
         assertEqual(mf.model.worlds.length, 0);
     },
@@ -156,7 +157,21 @@ tests = {
         assertEqual(mf.model.domain.length, 4);
     },
 
-    findmodel_modal: function() {
+    countermodel_modal1: function() {
+        var parser = new Parser();
+        var fs = [parser.parseFormula('◇p'), parser.parseFormula('¬p')];
+        fs = fs.map(function(f){return f.translateModal().normalize()});
+        var mf = new ModelFinder(fs);
+        for (var i=0; i<100; i++) {
+            if (mf.nextStep()) break;
+        }
+        assertEqual(mf.model.worlds.length, 2);
+        assert(mf.model.toString().indexOf('w: 0') > 0);
+        assert(mf.model.toString().indexOf('R: { (0,1) }') > 0);
+        assert(mf.model.toString().indexOf('p: { 1 }') > 0);
+    },
+
+    countermodel_modal2: function() {
         var parser = new Parser();
         var fs = [parser.parseFormula('□p→p')];
         fs = fs.map(function(f){return f.translateModal().normalize()});
@@ -165,22 +180,21 @@ tests = {
             if (mf.nextStep()) break;
         }
         assertEqual(mf.model.worlds.length, 1);
-        assert(mf.model.toString().indexOf(': { (0,0) }') > 0);
+        assert(mf.model.toString().indexOf('R: { (0,0) }') > 0);
     },
 
-    findmodel_modal2: function() {
+    countermodel_modal3: function() {
         var parser = new Parser();
-        var fs = [parser.parseFormula('◇p'), parser.parseFormula('¬p')];
-        fs = fs.map(function(f){return f.translateModal().normalize()});
+        var fs = [parser.parseFormula('□p').translateModal(),
+                  parser.parseFormula('∀v∃u(vRu)')];
         var mf = new ModelFinder(fs);
-        var m;
         for (var i=0; i<100; i++) {
-            m = mf.tryNextModel();
-            if (m) break;
+            if (mf.nextStep()) break;
         }
-        console.log(m.toString());
-        assertEqual(m.worlds.length, 1);
-        assertEqual(m.getValue('R',[0,0]), 0);
+        assertEqual(mf.model.worlds.length, 2);
+        assert(mf.model.toString().indexOf('w: 0') > 0);
+        assert(mf.model.toString().indexOf('R: { (0,1) }') > 0);
+        assert(mf.model.toString().indexOf('p: { 1 }') > 0);
     },
 
     
