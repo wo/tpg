@@ -3,10 +3,11 @@
 //
 // This works as follows.
 //
-// 1. We transform initFormulas (in NNF) into clausal normal form, giving us
-//    literal "constraints" that we're trying to satisfy. For example, Fa ∧ Fb
-//    is split into two constraints, Fa and Fb; ∀x∃yRxy is turned into Rxf(x);
-//    Fa ∨ Fb is turned into the disjunctive constraint [Fa, Fb].
+// 1. We transform the formulas for which we want to find a model (in
+//    demodalized NNF) into clausal normal form, which gives us literal
+//    "constraints" that we're trying to satisfy. For example, Fa ∧ Fb is split
+//    into two constraints, Fa and Fb; ∀x∃yRxy is turned into Rxf(x); Fa ∨ Fb is
+//    turned into the disjunctive constraint [Fa, Fb].
 //
 // 2. Now we start with a domain of size 1, namely [0]. If no countermodel is
 //    found, we increase the domain to [0,1], and so on. The interpretation of
@@ -14,36 +15,37 @@
 //    following:
 //
 // 3. We replace free variables in the constraints by numbers. So ∀xFx is
-//    replaced by two constraints, F0 and F1. [Note that numerals are not
-//    allowed as terms, so there can be no clash. xxx check]
+//    replaced by two constraints, F0 and F1. [Numerals in formulas are never
+//    interpreted as terms, so there can be no clash.]
 //
 // 4. Now we go through all the constraints (which are lists of literals,
 //    interpreted disjunctively). If a constraint contains uninterpreted terms,
 //    we also go through all ways of assigning to them members of the domain as
-//    referents. (We don't assign a meaning to function symbols here, only to
-//    complete terms like f(a,g(b)).)  For each of these assignments, we try to
-//    satisfy the constraint by extending the interpretation of the
-//    predicates. (For example, if we need to satisfy F0, we check if |F| is
-//    already defined for 0; if not, we set |F|(0)=true; if |F| is defined and
-//    |F|(0)=true, we continue; if |F|(0)=false, we give up.) Whenever the
-//    constraint is satisfied, we move on to the next constraint. If
-//    satisfaction is impossible, we backtrack and try another interpretation of
-//    the individuals.
+//    referents. (We don't assign a full meaning to function symbols here, only
+//    to complete terms like f(a,g(b)) and to their parts.) For each of these
+//    assignments, we try to satisfy the constraint by extending the
+//    interpretation of the predicates. (For example, if we need to satisfy F0,
+//    we check if |F| is already defined for 0; if not, we set |F|(0)=true; if
+//    |F| is defined and |F|(0)=true, we continue; if |F|(0)=false, we give up.)
+//    Whenever the constraint is satisfied, we move on to the next
+//    constraint. If satisfaction is impossible, we backtrack and try another
+//    interpretation of the individuals.
 //
-// Modal models have two domains, W and D. When breaking down initFormulas into
-// constraints, we take into account which variables quantify over worlds and
-// which over individuals. Accessibility conditions like reflexivity are added
-// to the constraints. The elements of W are also natural numbers starting with
-// 0. (That's OK: nothing in the definition of a Kripke model requires that the
-// worlds must be distinct from the individuals; note that we can still have
-// more worlds than individuals or more individuals than worlds.)
-//
-// In modal models, all predicates take a world as their last argument; 'R'
-// takes two worlds, function terms only take individuals. 
+// Models for originally modal formulas (which we recognize from parser.isModal
+// == true) have two domains, W and D. The elements of W are also natural
+// numbers starting with 0. (That's OK: nothing in the definition of a Kripke
+// model requires that the worlds must be distinct from the individuals; note
+// that we can still have more worlds than individuals or more individuals than
+// worlds.) When breaking down initFormulas into constraints, we take into
+// account which variables quantify over worlds and which over
+// individuals. Accessibility conditions like reflexivity are added to the
+// formulas for which we want to find a model. In modal models, all predicates
+// take a world as their last argument; 'R' takes two worlds, function terms
+// only take individuals.
 
 function ModelFinder(initFormulas, accessibilityConstraints) {
     // initFormulas = list of demodalized formulas in NNF for which we try to
-    //                find a model
+    //                find a model;
     // accessibilityConstraints = another such list, for modal models
     log("creating ModelFinder");
 
@@ -51,26 +53,24 @@ function ModelFinder(initFormulas, accessibilityConstraints) {
     initFormulas = initFormulas.concat(accessibilityConstraints || []);
     this.clauses = this.getClauses(initFormulas);
     
-    // collect symbols that need to be interpreted (including skolem symbols):
+    // collect expressions that need to be interpreted:
     this.parser = initFormulas[0].parser;
     this.predicates = [];
-    this.constants = [];
-    this.terms = [];
+    this.origConstants = []; // excludes skolem symbols
     for (var i=0; i<this.clauses.length; i++) {
         for (var j=0; j<this.clauses[i].length; j++) {
             var atom = this.clauses[i][j].sub || this.clauses[i][j];
-            this.terms = this.terms.concatNoDuplicates(atom.terms);
-            this.constants = this.constants.concatNoDuplicates(atom.constants);
-            this.predicates = this.predicates.concatNoDuplicates(atom.predicates);
+            this.predicates.pushNoDuplicates(atom.predicate);
         }
     }
-    
-    // but also store original list of constants without skolem symbols to
-    // display in the printed model:
-    this.origConstants = [];
     for (var i=0; i<initFormulas.length; i++) {
         this.origConstants = this.origConstants.concatNoDuplicates(initFormulas[i].constants);
     }
+
+    // needed in Model.iterateDenotations():
+    this.names = this.parser.getSymbols('individual constant');
+    this.worldNames = this.parser.getSymbols('world constant');
+    this.isWorldTerm = {}; // set by Model.getConstraintTerms()
 
     // initialize model:
     var numIndividuals = 1;
@@ -210,33 +210,18 @@ function Model(modelfinder, numIndividuals, numWorlds) {
     this.isModal = numWorlds > 0;
     log('Model domain '+this.domain+', worlds '+this.worlds);
 
-    // initialize interpretation function:
-
+    // initialize interpretation:
     this.denotations = {}; // term extensions, e.g. 'a' => 0, '[f,a]' => 2
     this.extensions = []; // predicate extensions, e.g. [0] => ['G','a',true]
     
     // replace universal variables in modelfinder.clauses by domain elements:
     this.constraints = this.getConstraints();
-    // See modelfinder.nextStep() for the purpose of the following attributes.
+
+    // see modelfinder.nextStep() for the purpose of the following attributes
     this.constraintTerms = this.getConstraintTerms();
     this.constraintPosition = 0;
     this.prevConstraintPosition = -1;
     
-    // The following dictionaries will come in handy:
-    // modelfinder.predicates.map(function(x){ this[x]=true; }, this.isPredicate={});
-    // modelfinder.constants.map(function(x){ this[x]=true; }, this.isConstant={});
-    // this.maxValue = [];
-    // for (var i=0; i<modelfinder.predicates.length; i++) {
-    //     this.maxValue[modelfinder.predicates[i]] = 1; // true
-    // }
-    // for (var i=0; i<modelfinder.constants.length; i++) {
-    //     this.maxValue[modelfinder.constants[i]] = this.domain.length-1;
-    // }
-    // if (this.isModal) {
-    //     // The only world-denoting constant in initFormulas is 'w'; variables
-    //     // have been replaced by numbers already (see getConstraints).
-    //     this.maxValue[this.parser.w] = this.worlds.length-1;
-    // }
 }
 
 Model.prototype.getConstraints = function() {
@@ -301,33 +286,9 @@ Model.prototype.getVariableAssignments = function(variables) {
     return res;
 }
 
-Model.listTuples = function(domain, n) {
-    // list all n-tuples from <domain>, e.g. [[0,0],[0,1],[1,0],[1,1]] for
-    // domain=[0,1] and n=2
-    var res = [];
-    var maxValue = domain.length-1;
-    var tuple = Array.getArrayOfZeroes(arity);
-    res.push(tuple.copy());
-    while (Model.iterateTuple(tuple, maxValue)) { // optimise?
-        res.push(tuple.copy());
-    }
-    // log(res.toString());
-    return res;
-}
-
-Model.crossProduct = function(tuples, set) {
-    var res = [];
-    for (var i=0; i<tuples.length; i++) {
-        for (var j=0; j<set.length; j++) {
-            res.push(tuples[i].concat([set[j]]));
-        }
-    }
-    return res;
-}
-
-Model.iterateTuple = function(tuple, maxValues) { // xxx should be array property?
-    // changes tuple to the next tuple in the list of the cartesian powers of
-    // {0..maxValue}, with power <tuple>.length.
+Model.iterateTuple = function(tuple, maxValues) {
+    // changes tuple to the next tuple in the list of all tuples of the same
+    // length whose i-the element is one of {0..maxValues[i]}
     for (var i=tuple.length-1; i>=0; i--) {
         if (tuple[i] < maxValues[i]) {
             tuple[i]++;
@@ -336,28 +297,9 @@ Model.iterateTuple = function(tuple, maxValues) { // xxx should be array propert
         tuple[i] = 0;
     }
     return false;
-    // Example 1: tuple = 011, maxValue = 2.
+    // Example 1: tuple = 011, all maxValues 2.
     //   at i=2, tuple -> 012, return true
-    // Example 2: tuple = 011, maxValue = 1.
-    //   at i=2, tuple -> 010
-    //   at i=1, tuple -> 000
-    //   at i=0, tuple -> 100, return true
-}
-
-Model.OLDiterateTuple = function(tuple, maxValue) { // xxx should be array property?
-    // changes tuple to the next tuple in the list of the cartesian powers of
-    // {0..maxValue}, with power <tuple>.length.
-    for (var i=tuple.length-1; i>=0; i--) {
-        if (tuple[i] < maxValue) {
-            tuple[i]++;
-            return true;
-        }
-        tuple[i] = 0;
-    }
-    return false;
-    // Example 1: tuple = 011, maxValue = 2.
-    //   at i=2, tuple -> 012, return true
-    // Example 2: tuple = 011, maxValue = 1.
+    // Example 2: tuple = 011, maxValues 1.
     //   at i=2, tuple -> 010
     //   at i=1, tuple -> 000
     //   at i=0, tuple -> 100, return true
@@ -366,8 +308,10 @@ Model.OLDiterateTuple = function(tuple, maxValue) { // xxx should be array prope
 Model.prototype.getConstraintTerms = function() {
     // returns list of new terms for each constraint (as strings); i.e.,
     // position 2 in the list is a list of terms that first occur in the second
-    // constraint. Terms include subterms; see this.denotationsAreconsistent()
-    // for why.
+    // constraint. Terms include subterms; see this.denotationsAreConsistent()
+    // for why. As a side-effect, we define modelfinder.isWorldTerm as a dict
+    // that's true for terms denoting worlds. (Must be done here because a world
+    // term might look like this: 'f(3)'.)
     var res = [];
     var termIsOld = {};
     for (var i=0; i<this.constraints.length; i++) {
@@ -376,6 +320,16 @@ Model.prototype.getConstraintTerms = function() {
         for (var j=0; j<clause.length; j++) {
             var atom = clause[j].sub || clause[j];
             var terms = atom.terms.copy();
+            if (this.parser.isModal) {
+                if (atom.predicate == this.parser.R) {
+                    this.modelfinder.isWorldTerm[terms[0].toString()] = true;
+                    this.modelfinder.isWorldTerm[terms[1].toString()] = true;
+                }
+                else {
+                    var lastTerm = terms[terms.length-1].toString();
+                    this.modelfinder.isWorldTerm[lastTerm] = true;
+                }
+            }
             for (var k=0; k<terms.length; k++) {
                 if (typeof terms[k] == 'number') continue;
                 // terms[k] is something like 'a' or ['f', 'b']
@@ -386,6 +340,10 @@ Model.prototype.getConstraintTerms = function() {
                 if (terms[k].isArray) {
                     for (var l=1; l<terms[k].length; l++) {
                         terms.push(terms[k][l]);
+                        if (this.modelfinder.isWorldTerm[term]) {
+                            // subterms of world terms are world terms
+                            this.modelfinder.isWorldTerm[terms[k][l].toString()] = true;
+                        }
                     }
                 }
             }
@@ -405,10 +363,16 @@ Model.prototype.iterateDenotations = function(terms) {
 
     for (var i=terms.length-1; i>=0; i--) {
         var term = terms[i];
-        var maxValue = this.domain.length-1; // xxx distinguish world terms
-        if (terms[0] == '[') {
-            var termIndex = this.modelfinder.terms.indexOf(term);
-            maxValue = Math.min(maxValue, termIndex);
+        var maxValue = this.modelfinder.isWorldTerm[term] ?
+            this.worlds.length-1 : this.domain.length-1;
+        if (term[0] != '[') { // name
+            var termIndex = this.modelfinder.names.indexOf(term);
+            if (termIndex == -1) {
+                termIndex = this.modelfinder.worldNames.indexOf(term);
+            }
+            if (termIndex != -1) {
+                maxValue = Math.min(maxValue, termIndex);
+            }
         }
         if (this.denotations[term] < maxValue) {
             this.denotations[term]++;

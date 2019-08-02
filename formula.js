@@ -857,7 +857,7 @@ function Parser() {
     // store signature info so that we can parse multiple formulas and check if
     // they make sense together (e.g. matching arities for same predicate); free
     // variables and skolem terms used in tableau construction are not
-    // registered here.
+    // registered here, but skolem terms used for CNF conversion are. 
     this.symbols = [];
     this.expressionType = {};
     this.arities = {};
@@ -882,6 +882,16 @@ Parser.prototype.registerExpression = function(ex, exType, arity) {
     this.expressionType[ex] = exType;
     this.arities[ex] = arity;
     // xxx del if (ex == this.freeVariable) this.freeVariable = 'ξ';
+}
+
+Parser.prototype.getSymbols = function(expressionType) {
+    // return all registered symbols of given type
+    var res = [];
+    for (var i=0; i<this.symbols.length; i++) {
+        var s = this.symbols[i];
+        if (this.expressionType[s] == expressionType) res.push(s);
+    }
+    return res;
 }
 
 Parser.prototype.getNewSymbol = function(candidates, expressionType, arity) {
@@ -1046,7 +1056,7 @@ Parser.prototype.parseFormula = function(str) {
         // atomic
         log("   string is atomic (predicate = '"+reTest[0]+"'); ");
         var predicate = reTest[0];
-        var termstr = str.substr(reTest.length); // empty for propositional constants
+        var termstr = str.substr(predicate.length); // empty for propositional constants
         var terms = this.parseTerms(termstr, boundVars) || [];
         var predicateType = terms ? terms.length+"-ary predicate" : "proposition letter (0-ary predicate)";
         this.registerExpression(predicate, predicateType, terms.length);

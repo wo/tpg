@@ -42,6 +42,14 @@ tests = {
         assert(f.equals(f2));
     },
 
+    parseF1: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('F1');
+        assertEqual(f.type, 'literal');
+        assertEqual(f.predicate, 'F1');
+        assertEqual(f.terms.length, 0);
+    },
+    
     parseAxFxandNegate: function() {
         var parser = new Parser();
         var f = parser.parseFormula('∀xFx');

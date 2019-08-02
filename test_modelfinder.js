@@ -4,7 +4,6 @@ tests = {
     setup: function() {
         var parser = new Parser();
         var mf = new ModelFinder([parser.parseFormula('p'), parser.parseFormula('Ff(a,a)')]);
-        assert(mf.constants.equals(['f','a']));
         assert(mf.predicates.equals(['p','F']));
         assertEqual(mf.terms.toString(), '[[f,a,a]]');
         assertEqual(mf.model.domain.length, 1);
@@ -43,7 +42,6 @@ tests = {
         assertEqual(m.constraints.toString(), '[[G0f(0)]]');
         m = new Model(mf, 2, 0);
         assertEqual(m.constraints.toString(), '[[G0f(0)],[G1f(1)]]');
-        assertEqual(mf.constants.toString(), '[f]');
         assertEqual(mf.origConstants.toString(), '[]');
     },
 
@@ -103,9 +101,9 @@ tests = {
         for (var i=0; i<100; i++) {
             if (mf.nextStep()) break;
         }
-        assert(mf.model.toString().indexOf('f: { (1,0),(0,1) }')>0);
-        assert(mf.model.toString().indexOf('a: 1')>0);
-        assert(mf.model.toString().indexOf('F: { 0 }')>0);
+        assert(mf.model.toString().indexOf('f: { (0,1),(1,0) }')>0);
+        assert(mf.model.toString().indexOf('a: 0')>0);
+        assert(mf.model.toString().indexOf('F: { 1 }')>0);
     },
 
     countermodel5: function() {
