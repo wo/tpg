@@ -78,12 +78,12 @@ tests = {
 
     countermodel2: function() {
         var parser = new Parser();
-        var mf = new ModelFinder([parser.parseFormula('p'), parser.parseFormula('q')]);
+        var mf = new ModelFinder([parser.parseFormula('p'), parser.parseFormula('¬q')]);
         var res = mf.nextStep();
         assertEqual(res, false);
         res = mf.nextStep();
         assertEqual(res, true);
-        assertEqual(mf.model.toString().trim(), 'p: true\nq: true');
+        assertEqual(mf.model.toString().trim(), 'p: true\nq: false');
     },
 
     countermodel3: function() {
@@ -185,16 +185,16 @@ tests = {
 
     countermodel_modal3: function() {
         var parser = new Parser();
-        var fs = [parser.parseFormula('□p').translateModal(),
-                  parser.parseFormula('∀v∃u(vRu)')];
+        var fs = [parser.parseFormula('□p').translateModal().normalize(),
+                  parser.parseAccessibilityFormula('∀v∃u(Rvu)')];
         var mf = new ModelFinder(fs);
         for (var i=0; i<100; i++) {
             if (mf.nextStep()) break;
         }
-        assertEqual(mf.model.worlds.length, 2);
+        assertEqual(mf.model.worlds.length, 1);
         assert(mf.model.toString().indexOf('w: 0') > 0);
-        assert(mf.model.toString().indexOf('R: { (0,1) }') > 0);
-        assert(mf.model.toString().indexOf('p: { 1 }') > 0);
+        assert(mf.model.toString().indexOf('R: { (0,0) }') > 0);
+        assert(mf.model.toString().indexOf('p: { 0 }') > 0);
     },
 
     

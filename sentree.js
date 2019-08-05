@@ -41,13 +41,13 @@ function SenTree(fvTree) {
     this.collectVariables();
     this.markEndNodesClosed();
     this.transferNodes();
-    log(this);
+    log(this.toString());
     this.replaceFreeVariables();
-    log(this);
+    log(this.toString());
     this.replaceSkolemTerms();
-    log(this);
+    log(this.toString());
     this.removeUnusedNodes();
-    log(this);
+    log(this.toString());
 }
 
 SenTree.prototype.collectVariables = function() {
@@ -633,49 +633,61 @@ SenTree.prototype.getCounterModel = function() {
         break;
     }
     if (!endNode) return null;
+    
     log("creating counterModel from endNode " + endNode);
-    var modelFinder = new ModelFinder(this.initFormulasNormalized);
-    var model = modelFinder.model;
-    model.initInterpretation(1);
+    var model = new Model(this.fvTree.prover.modelfinder, 0, 0);
    
-    // set up the domain and map every term to a number in the domain; remember
-    // that f(a) may denote an individual that is not denoted by any individual
-    // constant.
+    // Next we set up the domain and map every term to a number in the
+    // domain. Remember that f(a) may denote an individual that is not denoted
+    // by any individual constant. A standard canonical model assigns to an
+    // n-ary function term f a function F such that for all (t1...tn) for which
+    // f(t1...tn) occurs on the branch, F(T1...Tn) = "f(t1...tn)", where Ti is
+    // the intepretation of ti (i.e. the string "ti"). For all other arguments
+    // not occuring on the branch as arguments of f, the value of F is
+    // arbitrary. If we find f(t1...tn) on a branch, we simply set
+    // model.denotations["f(t1...tn)"] to a new element of the domain.  (Note
+    // that in a complete canonical tableau, GAMMA formulas are expanded for all
+    // terms on the branch. So if ∀x¬Gf(x) & Ga is on the branch, then so are
+    // ¬Gf(a), ¬Gf(f(a)), etc.  All open branches on a complete canonical
+    // tableaux containing functional terms are thus infinite. The current tree
+    // will never be infinite, so it's always by luck if it finds a model in
+    // this case.)
+
     var numIndividuals = 0;
-    var terms2individuals = {};
     var node = endNode;
     do {
         var fla = node.formula;
-        while (fla.operator == '¬') fla = fla.sub; // note that there may be unexpanded DN atoms on the branch
-        if (!fla.predicate) continue; 
-        var terms = fla.terms.copy();
+        // remove double negations:
+        while (fla.operator == '¬' && fla.sub.operator == '¬') {
+            fla = fla.sub.sub;
+        }
+        var atom = (fla.operator == '¬') ? fla.sub : fla;
+        if (!atom.predicate) continue; 
+        var terms = atom.terms.copy();
         for (var t=0; t<terms.length; t++) {
-            if (terms2individuals[terms[t].toString()]) continue;
-            log("adding element for "+terms[t]);
+            if (model.denotations[terms[t].toString()]) continue;
+            log("adding individual for "+terms[t]);
             model.domain.push(numIndividuals);
-            terms2individuals[terms[t].toString()] = numIndividuals;
+            model.denotations[terms[t].toString()] = numIndividuals;
             if (terms[t].isArray) {
                 for (var i=1; i<terms[t].length; i++) terms.push(terms[t][i]);
             }
-            else model.values[terms[t]] = numIndividuals; // set up interpretation for constants
             numIndividuals++;
         }
+        if (!model.extendToSatisfy(fla)) {
+            log("!!! model doesn't satisfy "+fla);
+            return null;
+        }
+        log(model.toString());
     } while ((node = node.parent));
+    
     if (numIndividuals == 0) {
         model.domain = [0];
         numIndividuals = 1;
     }
-   
-    // Now interpret function and predicate symbols.
-    // For function terms, a canonical model should assign to f^n a function F such that 
-    // for all (t1...tn) for which f(t1...tn) occurs on the branch, F(T1...Tn) = "f(t1...tn)",
-    // where Ti is the intepretation of ti (i.e. the string "ti"). For all other arguments
-    // not occuring on the branch as arguments of f, the value of F is arbitrary. 
-    // (Note that in a complete canonical tableau, GAMMA formulas are expanded for all terms
-    // on the branch. So if Ax~Gf(x)&Ga is on the branch, then so are ~Gf(a), ~Gf(f(a)), etc.
-    // All open branches on a complete canonical tableaux containing functional terms are thus
-    // infinite. The current tree will never be infinite, so it's always by luck if it finds a 
-    // model in this case.)
+    return model;
+    
+    
     node = endNode;
     do {
         var fla = node.formula;

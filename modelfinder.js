@@ -45,7 +45,7 @@
 
 function ModelFinder(initFormulas, accessibilityConstraints) {
     // initFormulas = list of demodalized formulas in NNF for which we try to
-    //                find a model;
+    //                find a model
     // accessibilityConstraints = another such list, for modal models
     log("creating ModelFinder");
 
@@ -285,7 +285,6 @@ Model.prototype.getVariableAssignments = function(variables) {
     while (Model.iterateTuple(tuple, maxValues)) { // optimise?
         res.push(tuple.copy());
     }
-    // log(res.toString());
     return res;
 }
 
@@ -521,6 +520,18 @@ Model.prototype.denotationsAreConsistent = function() {
     return true;
 }
 
+Model.prototype.extendToSatisfy = function(formula) {
+    // This function is not used in the modelfinder, but to read
+    // off countermodels from open trees, in sentree.js. Here the
+    // domain has been fixed by the terms on the tree and we need
+    // to find a suitable interpretation of the predicates. The
+    // matter is not entirely trivial because this.extensions is
+    // indexed by constraintPositions. Hence this wrapper function
+    // to satisfy().
+    if (!this.satisfy([formula])) return false;
+    this.constraintPosition++;
+    return true;
+}
 
 Model.prototype.toHTML = function() {
     var str = "<table>";
@@ -655,7 +666,8 @@ Model.prototype.getPredicateExtensions = function() {
         // predicates list of individuals, other predicates lists of lists of
         // individuals.
         var pred = this.modelfinder.predicates[i];
-        result[pred] = [];
+        result[pred] = (this.parser.arities[pred] == 0) ? false : [];
+        // NB: modal proposition letters have arity 1 
         for (var j=0; j<this.extensions.length; j++) {
             if (!this.extensions[j] || this.extensions[j][0] != pred) continue;
             var argsStr = this.extensions[j][1]; // e.g. '[0]' or '[0,2]'

@@ -122,7 +122,7 @@ function Prover(initFormulas) {
     this.steps = 0;
     this.alternatives = [];
     this.tree = new Tree(this);
-    this.modelFinder = new ModelFinder(this.initFormulasNormalized);
+    this.modelfinder = new ModelFinder(this.initFormulasNormalized);
     this.counterModel = null;
     this.pauseLength = 2; // ms
 
@@ -186,7 +186,7 @@ Prover.prototype.nextStep = function() {
     }
     
     // search for a countermodel:
-    var counterModel = this.modelFinder.nextStep();
+    var counterModel = this.modelfinder.nextStep();
     if (counterModel) {
         this.counterModel = counterModel;
         return this.onfinished(0);

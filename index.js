@@ -134,7 +134,7 @@ onload = function(e) {
                 if (this.counterModel) {
                     document.getElementById("model").style.display = "block";
                     document.getElementById("model").innerHTML = "<b>Countermodel:</b><br>" + this.counterModel;
-                    return; // shouldn't display tree because if the model was found by the modelFinder, the tree is unfinished
+                    return; // shouldn't display tree because if the model was found by the modelfinder, the tree is unfinished
                 }
             }
             // Start painting the tree:
