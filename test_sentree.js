@@ -83,6 +83,31 @@ tests = {
         var m = sentenceTree.getCounterModel();
         assert(m.toString().indexOf('p: false') >= 0);
         assert(m.toString().indexOf('q: true') >= 0);
-    }
+    },
     
+    getcountermodel5: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('□p').negate();
+        var prover = new Prover([f]);
+        prover.pauseLength = 0;
+        prover.start();
+        var sentenceTree = new SenTree(prover.tree);
+        var m = sentenceTree.getCounterModel();
+        assertEqual(m.worlds.length, 2)
+        assert(m.toString().indexOf('R: { (0,1) }') >= 0);
+        assert(m.toString().indexOf('p: {  }') >= 0);
+    },
+    
+    getcountermodel6: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('◇p').negate();
+        var prover = new Prover([f]);
+        prover.pauseLength = 0;
+        prover.start();
+        var sentenceTree = new SenTree(prover.tree);
+        var m = sentenceTree.getCounterModel();
+        assertEqual(m.worlds.length, 1)
+        assert(m.toString().indexOf('R: {  }') >= 0);
+        assert(m.toString().indexOf('p: {  }') >= 0);
+    }
 }

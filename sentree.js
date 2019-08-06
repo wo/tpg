@@ -1,31 +1,11 @@
 //
-// A SenTree is a tableau in the familiar sentence format (without
-// free variables). The SenTree constructor takes a Tree object (a
-// free-variable tableau) as argument.
+// A SenTree is a tableau in the familiar sentence format (without free
+// variables). The SenTree constructor takes a Tree object (a free-variable
+// tableau) as argument.
 //
-// Unlike Tree objects, SenTrees have their nodes really stored in
-// tree form:
-//
-//    root
-//
-// is the root node,
-//
-//    node.children
-//
-// is an array of a nodes children,
-//
-//    node.parent
-//
-// the node's parent. Other than that, the nodes are the same Node
-// objects as on Tree Branches.
-//
-// The only interesting method of SenTree, besides its constructor, is
-//
-//    getCounterModel
-//
-// which creates a ModelFinder and reads off a counterModel from an
-// open tableau.
-//
+// Unlike Tree objects, SenTrees have their nodes really stored in tree form,
+// with a root node and children/parent attributes.  Other than that, the nodes
+// are the same Node objects as on Tree Branches.
 
 function SenTree(fvTree) {
     this.nodes = [];
@@ -36,7 +16,6 @@ function SenTree(fvTree) {
     this.parser = this.initFormulas[0].parser;
     this.fvTree = fvTree;
     this.freeVariables = [];
-    //this.constants = []; xxx del
     
     this.collectVariables();
     this.markEndNodesClosed();
@@ -425,6 +404,7 @@ SenTree.prototype.modalize = function() {
     //
     // Example: □p is translated into ∀v(wRv → pv), expanded by modalGamma to pu.
 
+    log("modalizing tree");
     var removeNodes = [];
     for (var i=0; i<this.nodes.length; i++) {
         
@@ -624,7 +604,12 @@ SenTree.prototype.getExpansion = function(node) {
 }
 
 SenTree.prototype.getCounterModel = function() {
-    // Read off a (canonical) countermodel from an open branch.
+    // Read off a (canonical) countermodel from an open branch. At this point,
+    // the tree is an ordinary, textbook, non-modal tableau, without free
+    // variables and normalized formulas. (Modalization is best postponed, so
+    // that the countermodel for a tree with a 'pw' node (modalized, 'p')
+    // assigns to 'p' a set of worlds rather than a truth-value.)
+
     // First, find an open branch:
     var endNode = null;
     for (var i=0; i<this.nodes.length; i++) {
@@ -653,8 +638,12 @@ SenTree.prototype.getCounterModel = function() {
     // will never be infinite, so it's always by luck if it finds a model in
     // this case.)
 
-    var numIndividuals = 0;
     var node = endNode;
+    if (this.parser.isModal) {
+        // make sure 'w' is assigned world 0:
+        model.worlds = [0];
+        model.denotations['w'] = 0;
+    }
     do {
         var fla = node.formula;
         // remove double negations:
@@ -665,14 +654,16 @@ SenTree.prototype.getCounterModel = function() {
         if (!atom.predicate) continue; 
         var terms = atom.terms.copy();
         for (var t=0; t<terms.length; t++) {
-            if (model.denotations[terms[t].toString()]) continue;
-            log("adding individual for "+terms[t]);
-            model.domain.push(numIndividuals);
-            model.denotations[terms[t].toString()] = numIndividuals;
+            var term = terms[t].toString();
+            if (term in model.denotations) continue;
+            var domain = this.parser.expressionType[term].indexOf('world') > -1 ?
+                model.worlds : model.domain;
+            log("adding "+domain.length+" to domain for "+term);
+            domain.push(domain.length);
+            model.denotations[term] = domain.length-1;
             if (terms[t].isArray) {
                 for (var i=1; i<terms[t].length; i++) terms.push(terms[t][i]);
             }
-            numIndividuals++;
         }
         if (!model.extendToSatisfy(fla)) {
             log("!!! model doesn't satisfy "+fla);
@@ -681,9 +672,8 @@ SenTree.prototype.getCounterModel = function() {
         log(model.toString());
     } while ((node = node.parent));
     
-    if (numIndividuals == 0) {
+    if (model.domain.length == 0) {
         model.domain = [0];
-        numIndividuals = 1;
     }
     return model;
     

@@ -49,6 +49,17 @@ tests = {
         assertEqual(f.predicate, 'F1');
         assertEqual(f.terms.length, 0);
     },
+
+    parseNonWff: function() {
+        var parser = new Parser();
+        try {
+            parser.parseFormula('□(∀x(¬Fx∧Fy) ↔ ∃xFx → □◇Fa');
+            assert(false);
+        }
+        catch {
+            assert(true);
+        }
+    },
     
     parseAxFxandNegate: function() {
         var parser = new Parser();

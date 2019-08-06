@@ -1,13 +1,17 @@
 
 // This file deals with the user interface of index.html.
 
+var flaFieldValue = '';
 function updateInput() {
-    // replaces LaTeX commands for logical symbols by what is set in translator.logSymbols
     var ostr = document.forms[0].flaField.value;
+    if (ostr == flaFieldValue) {
+        // e.g. curser moved to highlight part of formula
+        return true;
+    }
     cposition = this.selectionStart;
-    str = renderSymbols(ostr);  
-    var diff = ostr.length - str.length
-    document.forms[0].flaField.value = str;
+    flaFieldValue = renderSymbols(ostr);  
+    var diff = ostr.length - flaFieldValue.length
+    document.forms[0].flaField.value = flaFieldValue;
     this.selectionEnd = cposition - diff;
 }
 
@@ -125,9 +129,6 @@ onload = function(e) {
             prover.status("");
             // Translate the free-variable tableau into a sentence tableau:
             var sentenceTree = new SenTree(this.tree);
-            if (parser.isModal) {
-                sentenceTree.modalize();
-            }
             if (!treeClosed) {
                 // Tree is open. Display a countermodel if one is known:
                 if (!this.counterModel) this.counterModel = sentenceTree.getCounterModel();
@@ -136,6 +137,9 @@ onload = function(e) {
                     document.getElementById("model").innerHTML = "<b>Countermodel:</b><br>" + this.counterModel;
                     return; // shouldn't display tree because if the model was found by the modelfinder, the tree is unfinished
                 }
+            }
+            if (parser.isModal) {
+                sentenceTree.modalize();
             }
             // Start painting the tree:
             document.getElementById("rootAnchor").style.display = "block";
