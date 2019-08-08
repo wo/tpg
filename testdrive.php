@@ -13,7 +13,7 @@
 </style>
 
 <?php
-$scripts = array("formula", "prover", "sentree", "painter");
+$scripts = array("array", "formula", "parser", "prover", "modelfinder", "sentree", "painter");
 if ($_GET['debug'] || $_GET['comments']) {
 	$flag = $_GET['debug'] ? "debug" : "comments";
 	foreach ($scripts as $script) {

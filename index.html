@@ -22,7 +22,7 @@
 <div id="titlebar">
   <a id="helplink" href="info.html">Q&amp;A</a>
   <h2 id="title"><a id="titlelink" href=".">Tree Proof Generator</a></h2>
-  <a id="loglink" href="changelog.txt"><?=fgets(fopen("changelog.txt", "r"), 128)?></a>
+  <a id="githublink" href="https://www.github.com/wo/tgp">Last update: <?=date('d M Y', filemtime('.git/logs/HEAD'))?></a>
 </div>
 
 <form id="inputForm" action="." method="get" onsubmit="return false">

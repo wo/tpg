@@ -1,14 +1,4 @@
 //
-// This is where a free-variable tableaux are created.
-//
-// The 'prover' object has the following methods:
-//
-//    start(formula)         initiates the search
-//    stop()                 halts the search
-//    status(str)            takes status messages (to be overwritten)
-//    finished(treeClosed)   is called when search is over (to be overwritten)
-//    nextStep()             continues the search
-//
 // When building free-variable tableaux, one sometimes faces the
 // choice of either closing a branch by unifying terms or expanding
 // another formula. There is no effective rule for which choice is
@@ -20,81 +10,6 @@
 // initiated when the tableau has reached a certain degree of
 // complexity (determined by the number of free variables and nodes on
 // the current branch).
-//
-// The tableaux created by the prover are instances of
-//
-//    Tree(rootFormula)
-//
-// with methods
-//
-//    closeBranch(branch, n1, n2)   clean up when a branch is closed
-//    copy()                        make a deep copy to store for backtracking
-//    applySubstitution(s)                 substitute terms (for unification) on the tree
-//
-// and properties
-//
-//    rootFormula       the formula on the root node
-//    rootNode          the root node (see below)
-//    openBranches      array of open branches
-//    closedBranches    array of closed branches
-//
-// A branch is an instance of
-//
-//    Branch(tree, nodes, unexpanded, literals, freeVariables, constants)
-//
-// with properties (also optional constructor arguments)
-//
-//    nodes             array of nodes on the branch (see below)
-//    unexpanded        array of unexpanded nodes, serves as todo list
-//    literals          array of literal nodes (atomic formulas or negated atoms)
-//    freeVariables     array of free variable on the branch
-//    constants         array of constants on the branch
-//
-// and methods
-//
-//    expand()      expand the next formula on the branch
-//    copy()        copies the branch (for BETA expansions)
-//    merge()       deletes other branches if they are subsumed by this branch
-//
-// Finally, nodes are instances of
-//
-//    Node(formula, developedFrom)
-//
-// with properties
-//
-//    formula           the formula on the node
-//    developedFrom     the node from which this one was developed
-//
-// and method
-//
-//    getSubNode(subIndex)
-//
-// which returns ALPHA_subIndex for ALPHA nodes or BETA_subindex for
-// BETA nodes.
-//
-// While searching for a free variable tableaux, the prover also
-// searches for a countermodel to the given formula. This is done by
-// an instance of
-//
-//    ModelFinder(formula)
-//
-// which works independently of the tableau process by stupidly trying
-// out all possible interpretations on the formula, starting with
-// 1-element domains and adding more elements when all possible
-// interpretations have been checked. (Realistically, it hardly ever
-// gets to check interpretations with more than 5 or 6 individuals.)
-//
-// Methods:
-//
-//               (formula is handed to the constructor) 
-//
-//    search(n)  checks the next n models
-//
-// Property:
-//
-//    model    an object representing the currently tried model.
-//             Its toString() method returns a HTML table showing the model
-
 
 function Prover(initFormulas, accessibilityConstraints) {
 
@@ -168,6 +83,21 @@ function Prover(initFormulas, accessibilityConstraints) {
 }
 
 Prover.prototype.nextStep = function() {
+
+    // if (this.tree.closedBranches.length >= 6) {
+    //     var branch = this.tree.closedBranches[5]
+    //     var lastNode = branch.nodes[branch.nodes.length-1];
+    //     var prevNode = branch.nodes[branch.nodes.length-2];
+    //     if (lastNode.fromRule == Prover.alpha &&
+    //         lastNode.fromNodes != prevNode.fromNodes) {
+    //         log(lastNode.formula.string);
+    //         log(prevNode.formula.string);
+    //         log(lastNode.fromNodes[0].formula.string);
+    //         log(prevNode.fromNodes[0].formula.string);
+    //     }
+    // }
+
+    
     // expands the next node on the present tree; then initializes backtracking
     // if limit is reached and occasionally searches for a countermodel; calls
     // itself again unless proof is complete.
@@ -412,7 +342,7 @@ Prover.delta = function(branch, nodeList) {
     var node = nodeList[0];
     var fla = node.formula;
     // don't need skolem terms for diamond formulas ∃v(wRv ∧ Av):
-    if (fla.matrix.sub1 && fla.matrix.sub1.predicate == fla.parser.R) {
+    if (fla.matrix.sub1 && fla.matrix.sub1.isAccessibilityFormula) {
         var skolemTerm = branch.newWorldName();
     }
     else {
@@ -594,16 +524,18 @@ Tree.prototype.closeBranch = function(branch, complementary1, complementary2) {
     this.markUsedNodes(branch, complementary1, complementary2);
     log(this);
     this.pruneBranch(branch, complementary1, complementary2);
-    this.pruneAlternatives();
     this.openBranches.remove(branch);
     this.closedBranches.push(branch);
+    this.pruneAlternatives();
 }
 
 Tree.prototype.pruneAlternatives = function() {
     // discard all alternatives whose open branches are a superset of
     // this.openBranches; otherwise a lot of time is spent in complex proofs
     // exploring alternatives that reopen already closed branches without making
-    // progress on open ones.
+    // progress on open ones.  xxx doesn't work: see step 138 in ∀x∃y(Fx ↔ Gy) ↔
+    // ∃y∀x(Fx → Gy)∧∃y∀x(Gy → Fx): here all branches emerging from one disjunct
+    // are closed, but we still reopen the disjunct. The problem
     var alternatives = this.prover.alternatives.copy();
     ALTLOOP:
     for (var i=0; i<alternatives.length; i++) {
@@ -688,7 +620,7 @@ Tree.prototype.pruneBranch = function(branch, complementary1, complementary2) {
         for (var j=0; j<obranches.length; j++) {
             if (obranches[j].nodes[i] &&
                 obranches[j].nodes[i] != branch.nodes[i] &&
-                obranches[j].nodes[i].fromNodes == branch.nodes[i].fromNodes) {
+                obranches[j].nodes[i].expansionStep == branch.nodes[i].expansionStep) {
                 // branch.nodes[i] is the result of a branching step;
                 // obranches[j].nodes[i] is one if its siblings.
                 if (branch.nodes[i].used) {
@@ -784,22 +716,6 @@ Tree.prototype.copy = function() {
     }
     return ntree;
     
-    function copyNode(orig) {
-        if (nodemap[orig.id]) return nodemap[orig.id];
-        var n = new Node();
-        n.formula = orig.formula;
-        n.fromRule = orig.fromRule;
-        n.fromNodes = [];
-        for (var i=0; i<orig.fromNodes.length; i++) {
-            n.fromNodes.push(nodemap[orig.fromNodes[i].id]);
-        }
-        n.type = orig.type;
-        n.used = orig.used;
-        n.id = orig.id;
-        n.instanceTerm = orig.instanceTerm;
-        nodemap[orig.id] = n;
-        return n;
-    }
     function copyBranch(orig) {
         var nodes = [];
         var literals = [];
@@ -822,7 +738,25 @@ Tree.prototype.copy = function() {
         b.id = orig.id;
         return b;
     }
-    return ntree;
+    
+    function copyNode(orig) {
+        if (nodemap[orig.id]) return nodemap[orig.id];
+        var n = new Node();
+        n.formula = orig.formula;
+        n.fromRule = orig.fromRule;
+        n.fromNodes = [];
+        for (var i=0; i<orig.fromNodes.length; i++) {
+            n.fromNodes.push(nodemap[orig.fromNodes[i].id]);
+        }
+        n.type = orig.type;
+        n.expansionStep = orig.expansionStep;
+        n.used = orig.used;
+        n.id = orig.id;
+        n.instanceTerm = orig.instanceTerm;
+        nodemap[orig.id] = n;
+        return n;
+    }
+    
 }
 
 Tree.prototype.genericcopy = function() { // xxx remove
@@ -1067,20 +1001,28 @@ Branch.prototype.copy = function() {
 
 
 Branch.prototype.addNode = function(node) {
+    var doExpand = true;
     if (this.containsFormula(node.formula)) {
-        // don't add node if same formula is already on branch xxx except if the
-        // node comes from an alpha or beta expansion, in which case we just
-        // shouldn't expandTodolist?
-        return null;
+        // don't add node if same formula is already on branch, except if the
+        // node comes from an alpha or beta expansion, in which case we
+        // shouldn't call expandTodolist.
+        if (node.fromRule == Prover.alpha || node.fromRule == Prover.beta) {
+            doExpand = false;
+        }
+        else {
+            return null;
+        }
     }
     this.nodes.push(node);
     this.tree.numNodes++;
     if (node.type == 'literal') {
         this.literals.push(node);
     }
-    if (!this.closed) {
+    if (!this.closed && doExpand) {
         this.expandTodoList(node);
     }
+    // so that we can later find nodes added in the same step:
+    node.expansionStep = this.tree.prover.steps;
     return node;
 }
 
@@ -1117,7 +1059,7 @@ Branch.prototype.expandTodoList = function(node) {
             // add accessibility rules for initial world:
             this.addAccessibilityRuleApplications();
         }
-        else if (node.formula.predicate == node.formula.parser.R) {
+        else if (node.formula.isAccessibilityFormula) {
             // node has form vRu; check that world u is new:
             // var worldName = node.formula.terms[1];
             // for (var i=0; i<this.nodes.length-1; i++) {

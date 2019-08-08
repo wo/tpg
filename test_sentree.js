@@ -36,7 +36,7 @@ tests = {
         prover.pauseLength = 0;
         prover.start();
         var sentree = new SenTree(prover.tree);
-        assertEqual(sentree.nodes.length, 8);
+        assertEqual(sentree.nodes.length, 9);
     },
     
     bicondAndDn: function() {

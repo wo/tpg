@@ -16,7 +16,7 @@ function SenTree(fvTree) {
     this.parser = this.initFormulas[0].parser;
     this.fvTree = fvTree;
     this.freeVariables = [];
-    
+
     this.collectVariables();
     this.markEndNodesClosed();
     this.transferNodes();
@@ -28,6 +28,7 @@ function SenTree(fvTree) {
     this.removeUnusedNodes();
     log(this.toString());
 }
+
 
 SenTree.prototype.collectVariables = function() {
     // collect free variables from the fvtree and put them into arrays
@@ -105,7 +106,7 @@ SenTree.prototype.transferNodes = function() {
                 continue;
             }
             // <node> not yet collected, <par> is its (already collected) parent
-            log(this);
+            log(this.toString());
             par = this.transferNode(node, par);
         }
     }
@@ -153,7 +154,6 @@ SenTree.prototype.transferNode = function(node, par) {
         // if <from> is the result of a biconditional application, reset
         // fromNodes[0] to the biconditional (A<->B is expanded to A&B | ~A&~B):
         if (from.biconditionalExpansion) {
-            // all nodes added in an expansion must have identical .fromNodes!
             node.fromNodes = from.fromNodes;
         }
         
@@ -279,7 +279,7 @@ SenTree.prototype.expandDoubleNegation = function(node) {
     // if <node> is first result of alpha expansion, dne node must be inserted
     // after second result:
     var dnePar = node;
-    if (node.children[0] && node.children[0].fromNodes == node.fromNodes) {
+    if (node.children[0] && node.children[0].fromNodes[0] == node.fromNodes[0]) {
         dnePar = node.children[0];
     }
     newNode.parent = dnePar;
@@ -603,25 +603,21 @@ SenTree.prototype.reverse = function(node1, node2) {
 
 SenTree.prototype.getExpansion = function(node) {
     // returns all nodes that were added to the tree in the same expansion step
-    // as the given node.
-
-    // Here we exploit the fact that when a rule creates several nodes, these
-    // have the strictly same array as fromNodes.
-
-    if (node.fromNodes.length == 0) return [node];
-
+    // as <node>. Here we use Node.expansionStep, which is set by
+    // Branch.addNode().
+    
     var res = [node];
 
     // get ancestors from same rule application:
     var par = node.parent;
-    while (par && par.fromNodes == node.fromNodes) {
+    while (par && par.expansionStep == node.expansionStep) {
         res.unshift(par);
         par = par.parent;
     }
     
     // get descendants from same rule application:
     var ch = node.children[0];
-    while (ch && ch.fromNodes == node.fromNodes) {
+    while (ch && ch.expansionStep == node.expansionStep) {
         res.push(ch);
         ch = ch.children[0];
     }
@@ -630,7 +626,7 @@ SenTree.prototype.getExpansion = function(node) {
     if (par) {
         for (var i=0; i<par.children.length; i++) {
             var sib = par.children[i];
-            while (sib && sib.fromNodes == node.fromNodes) {
+            while (sib && sib.expansionStep == node.expansionStep) {
                 if (!res.includes(sib)) res.push(sib);
                 sib = sib.children[0];
             }

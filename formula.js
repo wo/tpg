@@ -580,6 +580,7 @@ function AtomicFormula(predicate, terms) {
     this.predicates = [predicate];
     this.constants = []; // includes function symbols
     this.variables = [];
+    this.isAccessibilityFormula = (predicate == this.parser.R);
     // classify atomic terms into variables and constants:
     var list = terms;
     for (var i=0; i<list.length; i++) {
