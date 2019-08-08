@@ -47,7 +47,7 @@ function ModelFinder(initFormulas, accessibilityConstraints) {
     // initFormulas = list of demodalized formulas in NNF for which we try to
     //                find a model
     // accessibilityConstraints = another such list, for modal models
-    log("creating ModelFinder");
+    log("*** creating ModelFinder");
 
     // break down initFormulas and accessibilityConstraints into clauses:
     initFormulas = initFormulas.concat(accessibilityConstraints || []);
@@ -110,6 +110,7 @@ ModelFinder.prototype.nextStep = function() {
     // increase the domain if there are no earlier constraints; if there is a
     // new assignment of terms, we go through (2) as above.
 
+    log("*** modelfinder"); 
     var model = this.model;
     var curConstraint = model.constraints[model.constraintPosition];
     var newTerms = model.constraintTerms[model.constraintPosition];
@@ -575,7 +576,7 @@ Model.prototype.toHTML = function() {
         // extensions[sym] is something like [[0,1],[1,1]]
             val = '{ '+ext.map(function(tuple) {
                 return '('+tuple.join(',')+')';
-            }).join(',')+' }';
+            }).join(', ')+' }';
         }
         str += "<tr><td align='right' class='formula'>" + sym + ": </td><td align='left'>" + val + "</td></tr>\n";
     }
@@ -599,7 +600,7 @@ Model.prototype.toHTML = function() {
             // ext is something like [[0,1],[1,1]]
             val = '{ '+ext.map(function(tuple) {
                 return '('+tuple.join(',')+')';
-            }).join(',')+' }';
+            }).join(', ')+' }';
         }
         str += "<tr><td align='right' class='formula'>" + sym + ": </td><td align='left'>" + val + "</td></tr>\n";
     }

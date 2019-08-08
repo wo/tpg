@@ -13,6 +13,16 @@ function updateInput() {
     var diff = ostr.length - flaFieldValue.length
     document.forms[0].flaField.value = flaFieldValue;
     this.selectionEnd = cposition - diff;
+    toggleAccessibilityRow();
+}
+
+function toggleAccessibilityRow() {
+    if (/[□◇]/.test(document.forms[0].flaField.value)) {
+        document.getElementById('accessibilitySpan').style.display = 'inline-block';
+    }
+    else {
+        document.getElementById('accessibilitySpan').style.display = 'none';
+    }
 }
 
 function renderSymbols(str) {
@@ -82,19 +92,39 @@ onload = function(e) {
     var symButtons = ['¬','∧','∨','→','↔','∀','∃','□','◇'];
     for (var i=0; i<symButtons.length; i++) {
         var div = document.createElement("div");
-        div.className = "symbutton";
+        div.className = "symbutton button formula";
         div.innerHTML = symButtons[i];
-        div.onmousedown = function(e) { this.style.borderStyle = "inset"; }
-        div.onmouseup = div.onmouseout = function(e) { this.style.borderStyle = "outset"; }
         div.onclick = symButtonClick;
-        document.getElementById("symboltd").appendChild(div);
+        document.getElementById("symbolButtons").appendChild(div);
     }
-    
+
     function symButtonClick(e) {
         var field = document.forms[0].flaField;
         var command = this.innerHTML;
         field.insertAtCaret(command);
+        toggleAccessibilityRow();
     }
+
+    // make example formulas clickable:
+    var ul = document.getElementById('exampleList');
+    for (var i=0; i<ul.childNodes.length; i++) {
+        ul.childNodes[i].onclick = function(e) {
+            document.forms[0].flaField.value = this.innerHTML;
+            document.forms[0].onsubmit();
+            return false;
+        }
+    }
+
+    // document.getElementById('premiseButton').onclick = function() {
+    //     return false;
+    // }
+        
+    
+    document.querySelectorAll('.accCheckbox').forEach(function(el) {
+        el.addEventListener('change', function(e) {
+            //
+        });
+    });
     
     document.forms[0].onsubmit = function(e) {
         // The action begins...
@@ -113,11 +143,19 @@ onload = function(e) {
         document.getElementById("statusHeader").innerHTML = "Proving...";
         document.getElementById("statusStop").style.display = "inline";
         document.getElementById("statusStop").firstChild.nodeValue = 'stop';
-        document.getElementById("paintStop").firstChild.nodeValue = 'stop';
         // Now a free-variable tableau is created. When the proof is
         // finished, prover.finished() is called.
         var initFormulas = [formula.negate()];
-        var prover = new Prover(initFormulas);
+        var accessibilityConstraints = [];
+        if (parser.isModal) {
+            document.querySelectorAll('.accCheckbox').forEach(function(el) {
+                if (el.checked) {
+                    // accFla = parser.parseAccessibilityFormula(el.value);
+                    accessibilityConstraints.push(el.id);
+                }
+            });
+        }
+        var prover = new Prover(initFormulas, accessibilityConstraints);
         prover.status = function(str) {
             // The prover dumps status messages to this function. 
             document.getElementById("status").innerHTML = str;
@@ -134,7 +172,8 @@ onload = function(e) {
                 if (!this.counterModel) this.counterModel = sentenceTree.getCounterModel();
                 if (this.counterModel) {
                     document.getElementById("model").style.display = "block";
-                    document.getElementById("model").innerHTML = "<b>Countermodel:</b><br>" + this.counterModel;
+                    document.getElementById("model").innerHTML = "<b>Countermodel:</b><br>" +
+                        this.counterModel.toHTML();
                     return; // shouldn't display tree because if the model was found by the modelfinder, the tree is unfinished
                 }
             }
@@ -143,11 +182,7 @@ onload = function(e) {
             }
             // Start painting the tree:
             document.getElementById("rootAnchor").style.display = "block";
-            document.getElementById("paintBar").style.display = "block";
             self.painter = new TreePainter(sentenceTree, document.getElementById("rootAnchor"));
-            self.painter.finished = function() {
-                document.getElementById("paintBar").style.display = "none";
-            }
             self.painter.paintTree();
         }
         setTimeout(function(){
@@ -168,26 +203,26 @@ onload = function(e) {
         prover.nextStep();
     }
     
-    document.getElementById("paintStop").onclick = function(e) {
-        if (this.firstChild.nodeValue == 'stop') {
-            painter.stop();
-            this.firstChild.nodeValue = 'continue';
-            return;
-        } 
-        this.firstChild.nodeValue = 'stop';
-        painter.paintTree();
-    }
+    // document.getElementById("paintStop").onclick = function(e) {
+    //     if (this.firstChild.nodeValue == 'stop') {
+    //         painter.stop();
+    //         this.firstChild.nodeValue = 'continue';
+    //         return;
+    //     } 
+    //     this.firstChild.nodeValue = 'stop';
+    //     painter.paintTree();
+    // }
     
-    document.getElementById("paintFaster").onclick = function(e) {
-        if (this.firstChild.nodeValue == 'faster') {
-            painter.oldInterval = painter.paintInterval;
-            painter.paintInterval = 100;
-            this.firstChild.nodeValue = 'slower';
-            return;
-        }
-        painter.paintInterval = painter.oldInterval;
-        this.firstChild.nodeValue = 'faster';
-    }
+    // document.getElementById("paintFaster").onclick = function(e) {
+    //     if (this.firstChild.nodeValue == 'faster') {
+    //         painter.oldInterval = painter.paintInterval;
+    //         painter.paintInterval = 100;
+    //         this.firstChild.nodeValue = 'slower';
+    //         return;
+    //     }
+    //     painter.paintInterval = painter.oldInterval;
+    //     this.firstChild.nodeValue = 'faster';
+    // }
     
     // prove formula submitted via URL:
     if (location.search.match(/\?f=/)) {

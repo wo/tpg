@@ -1,7 +1,8 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<!doctype html>
 <html lang="en">
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Tree Proof Generator</title>
   <!--link href="https://fonts.googleapis.com/css?family=Gothic+A1&display=swap" rel="stylesheet"-->
   <link href="https://fonts.googleapis.com/css?family=M+PLUS+1p:400,500&display=swap" rel="stylesheet">
@@ -16,40 +17,44 @@
 </head>
 <body>
 
+<div id="main">
+  
 <div id="titlebar">
-	<a id="helplink" href="info.html">Help/Background</a>
-	<h2 id="title"><a id="titlelink" href=".">Tree Proof Generator</a></h2>
-	<a id="loglink" href="changelog.txt"><?=fgets(fopen("changelog.txt", "r"), 128)?></a>
+  <a id="helplink" href="info.html">Q&amp;A</a>
+  <h2 id="title"><a id="titlelink" href=".">Tree Proof Generator</a></h2>
+  <a id="loglink" href="changelog.txt"><?=fgets(fopen("changelog.txt", "r"), 128)?></a>
 </div>
 
-<form action="." method="get" onsubmit="return false">
-<table id="formtable">
-	<tr>
-	<td></td>
-	<td id="symboltd"></td>
-	</tr>
-	<tr>
-	<td id="submittd"><input type="submit" value="Prove" class="orangeButton"></td>
-	<td><input type="text" size="60" name="flaField" id="flaField" class="formula"></td>
-	</tr>
-	<tr>
-	<td>&nbsp;</td><td id="renderedFla" class="formula"></td></tr>
-</table>
+<form id="inputForm" action="." method="get" onsubmit="return false">
+  <div id="symbolButtonRow">
+    insert symbol: <span id="symbolButtons"></span>
+    or type: <span id="typeExamples" class="formula">~, &, v, -&gt;, (Ax), (Ex), [], &lt;&gt;, \exists</span>, ...</div>
+  <div id="proveRow">
+    <input type="submit" value="Prove" id="proveButton" class="button">
+    <input type="text" size="60" name="flaField" id="flaField" class="formula">
+  </div>
+  <div id="accessibilityRow">
+    <!--button class="button" id="premiseButton">add premise</button-->
+    <span id="accessibilitySpan">
+    Accessibility is
+    <label><input type="checkbox" class="accCheckbox" id="reflexivity" value="∀vRvv"> reflexive</label>
+    <label><input type="checkbox" class="accCheckbox" id="symmetry" value="∀v∀u(Rvu→Ruv)"> symmetric</label>
+    <label><input type="checkbox" class="accCheckbox" id="transitivity" value="∀v∀u∀t(Rvu→(Rut→Rvt))"> transitive</label>
+    <label><input type="checkbox" class="accCheckbox" id="euclidity" value="∀v∀u∀t(Rvu→(Rvt→Rut))"> euclidean</label>
+    <label><input type="checkbox" class="accCheckbox" id="seriality" value="∀v∃uRvu"> serial</label>
+    </span>
+  </div>
+  
 </form>
 
 <div id="statusBox">
-	<div id="statusHeader"> </div>
-	<div id="status"> </div>
-	<button id="statusStop" class="orangeButton">stop</button>
+  <div id="statusHeader"> </div>
+  <div id="status"> </div>
+  <button id="statusStop" class="orangeButton">stop</button>
 </div>
 
 <div id="model"> </div>
 <div id="rootAnchor"> </div>
-
-<div id="paintBar">
-	<button id="paintStop" class="orangeButton">stop</button>
-	<button id="paintFaster" class="orangeButton">faster</button>
-</div>
 
 <?php
 $scripts = array("array", "formula", "parser", "prover", "modelfinder", "sentree", "painter", "index");
@@ -66,25 +71,23 @@ else {
 ?>
 
 <div id="intro">
-	<p>Enter a formula of propositional or predicate logic (without identity). 
-	Use LaTeX commands or the buttons on top of the text field to insert logical symbols.</p>
-	<p>Examples (click to see the proof):</p>
-	<script type="text/javascript">
-	var examples = [
-		"(p\\lor (q\\land r))\\to ((p\\lor q)\\land (p\\lor r))",
-		"((A\\to B)\\to A)\\to A",
-		"\\exists y\\forall x(Fy\\to Fx)",
-		"\\exists y\\exists z\\forall x((Fx\\to Gy)\\land (Gz\\to Fx))\\to\\forall x\\exists y(Fx\\leftrightarrow Gy)",
-		"N(0) \\land \\forall i (N(i) \\to N(s(i))) \\to N(s(s(s(0))))",
-		"\\forally\\existsx Fxy \\to \\existsx\\forally Fxy"
-	];
-	document.write("<ul>\n");
-	for (var i=0; i<examples.length; i++) {
-		document.write("<li><a class='formula' href='./?f=" + examples[i] + "' onclick='with (document.forms[0]) { flaField.value=\"" + examples[i].replace(/\\/g, "\\\\") + "\"; onsubmit(); }; return false'>" + renderSymbols(examples[i]) + "</a></li>\n");
-	}
-	document.write("</ul>\n");
-	</script>
-	<p>More detailed <a href="info.html">instructions and explanations are available here</a>.
+  <p>Enter a formula of standard propositional or predicate or modal logic into
+    the text field and click 'Prove'. The page will then try to find either a
+    countermodel or a tree proof (a.k.a. semantic tableau). </p>
+
+  <p>Examples (click!):</p>
+  <ul id="exampleList">
+    <li>(p∨(q∧r))→((p∨q)∧(p∨r))</li>
+    <li>((A→B)→A)→A</li>
+    <li>∃y∀x(Fy→Fx)</li>
+    <li>∃y∃z∀x((Fx→Gy)∧(Gz→Fx))→∀x∃y(Fx↔Gy)</li>
+    <li>N(0)∧∀i(N(i)→N(s(i)))→N(s(s(s(0))))</li>
+    <li>∀y∃xFxy→∃x∀yFxy</li>
+  </ul>
+  
+  <p>More detailed <a href="info.html">instructions and explanations are available here</a>.
+</div>
+
 </div>
 
 </body>

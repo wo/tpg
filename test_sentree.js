@@ -30,6 +30,15 @@ tests = {
         assertEqual(sentree.nodes[0].children.length, 1);
     },
     
+    dne2: function() {
+        var f = new Parser().parseFormula('¬∀x(Fx∧∃y¬Fy)').negate();
+        var prover = new Prover([f]);
+        prover.pauseLength = 0;
+        prover.start();
+        var sentree = new SenTree(prover.tree);
+        assertEqual(sentree.nodes.length, 8);
+    },
+    
     bicondAndDn: function() {
         var f = new Parser().parseFormula('¬(A↔¬A)').negate();
         var prover = new Prover([f]);
@@ -39,7 +48,7 @@ tests = {
         assertEqual(sentree.nodes.length, 6);
         assertEqual(sentree.nodes[1].children[0].formula.string, 'A');
     },
-    
+
     getcountermodel: function() {
         var f = new Parser().parseFormula('Fa').negate();
         var prover = new Prover([f]);

@@ -96,18 +96,21 @@
 //             Its toString() method returns a HTML table showing the model
 
 
-function Prover(initFormulas) {
-////////////////////////////////////////// xxx don't add nodes twice!!!
+function Prover(initFormulas, accessibilityConstraints) {
 
     this.depthLimit = 1; // depth = number of free variables on Tree
     this.nodeLimitFactor = 4;
     // depthLimit * nodeLimitFactor is the upper bound for number of
     // nodes on a branch before backtracking; value empirically chosen
+    this.pauseLength = 2; // ms
+    this.maxStepDuration = 0; // ms before setTimeout
     
     log("initializing prover");
 
+    // normalize initFormulas
     this.initFormulas = initFormulas; // formulas as entered, with conclusion negated
-    if (initFormulas[0].parser.isModal) {
+    var parser = initFormulas[0].parser;
+    if (parser.isModal) {
         this.initFormulasNonModal = initFormulas.map(function(f){
             return f.translateModal();
         });
@@ -118,13 +121,31 @@ function Prover(initFormulas) {
     this.initFormulasNormalized = this.initFormulasNonModal.map(function(f){
         return f.normalize();
     });
+
+    // init accessibility rules:
+    this.accessibilityRules = (accessibilityConstraints || []).map(function(s) {
+        return Prover[s];
+    });
     
+    // init prover:
     this.steps = 0;
     this.alternatives = [];
     this.tree = new Tree(this);
-    this.modelfinder = new ModelFinder(this.initFormulasNormalized);
+    var accessibilityConstraintFormulas = (accessibilityConstraints || []).map(function(s) {
+        var name2fla = {
+            "reflexivity": "∀vRvv",
+            "symmetry": "∀v∀u(Rvu→Ruv)",
+            "transitivity": "∀v∀u∀t(Rvu→(Rut→Rvt))",
+            "euclidity": "∀v∀u∀t(Rvu→(Rvt→Rut))",
+            "seriality": "∀v∃uRvu"
+        };
+        return parser.parseAccessibilityFormula(name2fla[s]).normalize();
+    });
+    this.modelfinder = new ModelFinder(this.initFormulasNormalized,
+                                       accessibilityConstraintFormulas);
+     
     this.counterModel = null;
-    this.pauseLength = 2; // ms
+    this.stepStartTime = performance.now();
 
     this.start = function() {
         this.nextStep();
@@ -151,7 +172,7 @@ Prover.prototype.nextStep = function() {
     // if limit is reached and occasionally searches for a countermodel; calls
     // itself again unless proof is complete.
     this.steps++;
-    log('step '+this.steps);
+    log('*** prover step '+this.steps);
     
     // status msg: xxx tidy up
     var numBranches = this.tree.openBranches.length + this.tree.closedBranches.length;
@@ -161,6 +182,7 @@ Prover.prototype.nextStep = function() {
                 this.depthLimit);
 
     // expand leftmost open branch on tree:
+    // (todoList items look like this: [Prover.alpha, nodes[0]])
     var todo = this.tree.openBranches[0].todoList.shift();
     if (!todo) { // xxx can this ever happen?
         log('tree open and complete');
@@ -206,15 +228,17 @@ Prover.prototype.nextStep = function() {
             this.depthLimit--;
         }
     }
-    
+
     if (this.stopTimeout) {
         // proof manually interrupted
         this.stopTimeout = false;
     }
-    else if (this.pauseLength) {
+    else if (this.pauseLength &&
+             performance.now() - this.stepStartTime > this.maxStepDuration) {
         // continue with next step after short break to display status message
         // and not get killed by browsers
         setTimeout(function(){
+            this.stepStartTime = performance.now();
             this.nextStep();
         }.bind(this), this.pauseLength*this.tree.numNodes/2);
     }
@@ -344,8 +368,6 @@ Prover.modalGamma = function(branch, nodeList) {
     // effect with the textbook □A rule: allow expansion only if some wRv occurs
     // on the branch; in that case add Av to the branch.
     //
-    // TODO: see how we could make real use of the free variables idea for
-    // world variables.
     log('modalGamma '+nodeList[0]);
     var node = nodeList[0];
     // add application back onto todoList:
@@ -388,22 +410,28 @@ Prover.modalGamma.priority = 9;
 Prover.delta = function(branch, nodeList) {
     log('delta '+nodeList[0]);
     var node = nodeList[0];
-    // find skolem term (newTerm):
-    var funcSymbol = branch.newFunctionSymbol();
-    branch.constants.push(funcSymbol);
-    // It suffices to skolemize on variables contained in this formula.
-    // This makes some proofs much faster by making some gamma applications
-    // redundant. However, translation into sentence tableau then becomes almost
-    // impossible, because here we need the missing gamma applications.
-    // Consider Ax(Fx & Ey~Fy).
-    
-    // xxx TODO can we use only variables of the right sort (world vs indiv)
-    // in QML?
-    if (branch.freeVariables.length > 0) {
-        var skolemTerm = branch.freeVariables.copy();
-        skolemTerm.unshift(funcSymbol);
+    var fla = node.formula;
+    // don't need skolem terms for diamond formulas ∃v(wRv ∧ Av):
+    if (fla.matrix.sub1 && fla.matrix.sub1.predicate == fla.parser.R) {
+        var skolemTerm = branch.newWorldName();
     }
-    else skolemTerm = funcSymbol;
+    else {
+        // find skolem term (newTerm):
+        var funcSymbol = branch.newFunctionSymbol();
+        // It suffices to skolemize on variables contained in this formula.
+        // This makes some proofs much faster by making some gamma applications
+        // redundant. However, translation into sentence tableau then becomes
+        // almost impossible, because here we need the missing gamma
+        // applications.  Consider Ax(Fx & Ey~Fy).
+    
+        if (branch.freeVariables.length > 0) {
+            var skolemTerm = branch.freeVariables.copy();
+            skolemTerm.unshift(funcSymbol);
+        }
+        else {
+            var skolemTerm = funcSymbol;
+        }
+    }
     var newFormula = node.formula.matrix.substitute(node.formula.variable, skolemTerm);
     var newNode = new Node(newFormula, Prover.delta, nodeList);
     newNode.instanceTerm = skolemTerm;
@@ -411,6 +439,139 @@ Prover.delta = function(branch, nodeList) {
     branch.tryClose(newNode);
 }
 Prover.delta.priority = 2;
+
+Prover.reflexivity = function(branch, nodeList) {
+    log('applying reflexivity rule');
+    // nodeList is either empty or contains a node of form wRv
+    // wherein v might have been newly introduced
+    if (nodeList.length==0) {
+        // applied to initial world w:
+        var worldName = branch.nodes[0].formula.parser.w;
+    }
+    else {
+        var worldName = nodeList[0].formula.terms[1];
+    }
+    var R = branch.nodes[0].formula.parser.R;
+    var formula = new AtomicFormula(R, [worldName, worldName]);
+    log('adding '+formula);
+    var newNode = new Node(formula, Prover.reflexivity, nodeList || []);
+    branch.addNode(newNode);
+    branch.tryClose(newNode);
+}
+Prover.reflexivity.priority = 3;
+
+Prover.symmetry = function(branch, nodeList) {
+    log('applying symmetry rule');
+    // nodeList is either empty or contains a node of form wRv.
+    if (nodeList.length == 0) {
+        // applied to initial world w; nothing to do.
+        return;
+    }
+    var nodeFormula = nodeList[0].formula;
+    var R = branch.nodes[0].formula.parser.R;
+    var formula = new AtomicFormula(R, [nodeFormula.terms[1], nodeFormula.terms[0]]);
+    log('adding '+formula);
+    var newNode = new Node(formula, Prover.symmetry, nodeList);
+    if (branch.addNode(newNode)) {
+        branch.tryClose(newNode);
+    }
+}
+Prover.symmetry.priority = 3;
+
+Prover.transitivity = function(branch, nodeList) {
+    log('applying transitivity rule');
+    // nodeList is either empty or contains a newly added node of form wRv.
+    if (nodeList.length == 0) {
+        // applied to initial world w; nothing to do.
+        return;
+    }
+    var R = branch.nodes[0].formula.parser.R;
+    var node = nodeList[0];
+    var nodeFla = node.formula;
+    // see if we can apply transitivity:
+    for (var i=0; i<branch.nodes.length-1; i++) {
+        var earlierFla = branch.nodes[i].formula;
+        if (earlierFla.predicate != R) continue;
+        var newFla = null;
+        if (earlierFla.terms[1] == nodeFla.terms[0]) {
+            // earlierFla uRw, nodeFla wRv
+            newFla = new AtomicFormula(R, [earlierFla.terms[0], nodeFla.terms[1]]);
+        }
+        else if (earlierFla.terms[0] == nodeFla.terms[1]) {
+            // earlierFla vRu, nodeFla wRv
+            newFla = new AtomicFormula(R, [nodeFla.terms[0], earlierFla.terms[1]]);
+        }
+        if (newFla) {
+            log('adding '+newFla);
+            var newNode = new Node(newFla, Prover.transitivity, [branch.nodes[i], node]);
+            if (branch.addNode(newNode)) {
+                branch.tryClose(newNode);
+            }
+        }
+    }
+}
+Prover.transitivity.priority = 3;
+
+Prover.euclidity = function(branch, nodeList) {
+    log('applying euclidity rule');
+    // nodeList is either empty or contains a newly added node of form wRv.
+    if (nodeList.length == 0) {
+        // applied to initial world w; nothing to do.
+        return;
+    }
+    var R = branch.nodes[0].formula.parser.R;
+    var node = nodeList[0];
+    var nodeFla = node.formula;
+    // see if we can apply euclidity:
+    for (var i=0; i<branch.nodes.length-1; i++) {
+        var earlierFla = branch.nodes[i].formula;
+        if (earlierFla.predicate != R) continue;
+        if (earlierFla.terms[0] == nodeFla.terms[0]) {
+            // earlierFla wRu, nodeFla wRv
+            var newFlas = [
+                new AtomicFormula(R, [earlierFla.terms[1], nodeFla.terms[1]]),
+                new AtomicFormula(R, [nodeFla.terms[1], earlierFla.terms[1]])
+            ];
+            for (var j=0; j<newFlas.length; j++) {
+                log('adding '+newFlas[j]);
+                var newNode = new Node(newFlas[j], Prover.euclidity, [branch.nodes[i], node]);
+                if (branch.addNode(newNode)) {
+                    branch.tryClose(newNode);
+                }
+            }
+        }
+    }
+}
+Prover.euclidity.priority = 3;
+
+Prover.seriality = function(branch, nodeList) {
+    log('applying seriality rule');
+    // nodeList is either empty or contains a newly added node of form wRv.
+    var R = branch.nodes[0].formula.parser.R;
+    if (nodeList.length == 0) {
+        // applied to initial world w.
+        var oldWorld = branch.nodes[0].formula.parser.w;
+    }
+    else {
+        var oldWorld = nodeList[0].formula.terms[1];
+        // check if oldWorld can already see a world:
+        for (var i=0; i<branch.nodes.length-1; i++) {
+            var earlierFla = branch.nodes[i].formula;
+            if (earlierFla.predicate == R && earlierFla.terms[0] == oldWorld) {
+                log(oldWorld+' can already see a world');
+                return;
+            }
+        }
+    }
+    var newWorld = branch.newWorldName();
+    var newFla = new AtomicFormula(R, [oldWorld, newWorld]);
+    log('adding '+newFla);
+    var newNode = new Node(newFla, Prover.seriality, []);
+    if (branch.addNode(newNode)) {
+        branch.tryClose(newNode);
+    }
+}
+Prover.seriality.priority = 10;
 
 function Tree(prover) {
     if (!prover) return; // for copy() function
@@ -772,25 +933,22 @@ Branch.prototype.newVariable = function() {
     return 'ξ'+(lastvar.substr(1)*1+1);
 }
 
-Branch.prototype.newWorldVariable = function() {
-    // return new variable for gamma expansion
-    if (this.freeVariables.length == 0) {
-        return 'ω1';
+Branch.prototype.newFunctionSymbol = function(isWorldTerm) {
+    // return new function symbol for delta expansion
+    var sym = isWorldTerm ? 'ω' : 'φ';
+    var res = sym+'1';
+    for (var i=this.constants.length-1; i>=0; i--) {
+        if (this.constants[i][0] == sym) {
+            res = sym+(this.constants[i].substr(1)*1+1);
+            break;
+        }
     }
-    var lastvar = this.freeVariables[this.freeVariables.length-1]
-    return 'ω'+(lastvar.substr(1)*1+1);
+    this.constants.push(res);
+    return res;
 }
 
-Branch.prototype.newFunctionSymbol = function() {
-    // return new function symbol for delta expansion
-    if (this.constants.length == 0) {
-        return 'φ1';
-    }
-    // xxx optimise!
-    for (var i=this.constants.length-1; i>=0; i--) {
-        if (this.constants[i][0] == 'φ') return 'φ'+(this.constants[i].substr(1)*1+1);
-    }
-    return 'φ1';
+Branch.prototype.newWorldName = function() {
+    return this.newFunctionSymbol(true);
 }
 
 Branch.prototype.tryClose = function(node) {
@@ -909,19 +1067,39 @@ Branch.prototype.copy = function() {
 
 
 Branch.prototype.addNode = function(node) {
-    // xxx check if node is already on branch?
+    if (this.containsFormula(node.formula)) {
+        // don't add node if same formula is already on branch xxx except if the
+        // node comes from an alpha or beta expansion, in which case we just
+        // shouldn't expandTodolist?
+        return null;
+    }
     this.nodes.push(node);
     this.tree.numNodes++;
     if (node.type == 'literal') {
         this.literals.push(node);
     }
-    if (!this.closed && node.type != 'literal') {
-        // insert node expansion into todoList:
+    if (!this.closed) {
+        this.expandTodoList(node);
+    }
+    return node;
+}
+
+Branch.prototype.containsFormula = function(formula) {
+    for (var i=0; i<this.nodes.length; i++) {
+        if (this.nodes[i].formula.string == formula.string) return true;
+    }
+    return false;
+}
+
+
+Branch.prototype.expandTodoList = function(node) {
+    // insert node expansion into branch's todoList
+    if (node.type != 'literal') {
         //
         // (We could use more clever heuristics about the order in which nodes
-	// are expanded, e.g. look-ahead heuristics for beta expansions.
-	// Turns out that most of these don't have any consistent effect; they
-	// usually speed up some proofs and slow down others.)
+	// are expanded, e.g. look-ahead heuristics for beta expansions.  Turns
+	// out that most of these don't have any consistent effect; they usually
+	// speed up some proofs and slow down others.)
         //
         var expansionRule = node.getExpansionRule();
 	for (var i=0; i<this.todoList.length; i++) {
@@ -930,8 +1108,44 @@ Branch.prototype.addNode = function(node) {
 	}
 	this.todoList.insert([expansionRule, node], i);
     }
-    return node;
+    if (node.formula.parser.isModal) {
+        // Whenever a new world is first mentioned on a branch, rules like
+        // seriality, transitivity etc. can potentially be applied with that
+        // world. So we add these rules to todoList. 
+        // symmetry can also be applied if vRu is first added for old worlds!
+        if (this.nodes.length == 1) {
+            // add accessibility rules for initial world:
+            this.addAccessibilityRuleApplications();
+        }
+        else if (node.formula.predicate == node.formula.parser.R) {
+            // node has form vRu; check that world u is new:
+            // var worldName = node.formula.terms[1];
+            // for (var i=0; i<this.nodes.length-1; i++) {
+            //     if (node.formula.constants.includes(worldName)) {
+            //         // xxx check that worldName is always a constant, not a
+            //         // genuine skolem function
+            //         return;
+            //     }
+            // }
+            this.addAccessibilityRuleApplications(node);
+        }
+    }
 }
+
+Branch.prototype.addAccessibilityRuleApplications = function(node) {
+    // Whenever a new world is first mentioned on a branch, rules like
+    // seriality, transitivity etc. can potentially be applied with that
+    // world. So we add these rules to todoList.
+    for (var i=0; i<this.tree.prover.accessibilityRules.length; i++) {
+        var rule = this.tree.prover.accessibilityRules[i];
+	for (var j=0; j<this.todoList.length; j++) {
+	    if (rule.priority <= this.todoList[j][0].priority) break;
+	}
+        if (node) this.todoList.insert([rule, node], j);
+        else this.todoList.insert([rule], j);
+    }
+}
+
 
 Branch.prototype.merge = function() { // xxx remove?
     // If (the set of formulas on) a branch A is a subset of a branch B, then

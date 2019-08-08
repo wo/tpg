@@ -219,16 +219,16 @@ TreePainter.prototype.keepTreeInView = function() {
 
 TreePainter.prototype.highlight = function(children, fromNodes) {
     while (this.highlighted.length) {
-        this.highlighted.shift().div.style.backgroundColor = '#fff';
+        this.highlighted.shift().div.style.backgroundColor = 'unset';
     }
     for (var i=0; i<children.length; i++) {
         // children[i].div.className = 'treeNodeHiChild';
-        children[i].div.style.backgroundColor = '#fff7d9';
+        children[i].div.style.backgroundColor = '#00708333';
 
     }
     for (var i=0; i<fromNodes.length; i++) {
         // fromNodes[i].div.className = 'treeNodeHiParent';
-        fromNodes[i].div.style.backgroundColor = '#fd9';
+        fromNodes[i].div.style.backgroundColor = '#00708366';
     }
     this.highlighted = children.concat(fromNodes);
 }
@@ -248,7 +248,7 @@ TreePainter.prototype.drawLine = function(el, x1, y1, x2, y2) {
     var y = (y1 + y2) / 2;
     var angle = Math.PI - Math.atan2(-b, a);
     var line = document.createElement("div");
-    var styles = 'border: 1px solid #a88; '
+    var styles = 'border: 1px solid #678; '
                + 'width: ' + length + 'px; '
                + 'height: 0px; '
                + '-moz-transform: rotate(' + angle + 'rad); '

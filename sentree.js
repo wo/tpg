@@ -265,12 +265,13 @@ SenTree.prototype.addInitNodes = function() {
                                              // (normalized) formula -- don't need
                                              // it anymore.
         if (i==0) this.nodes.push(node);
-        else this.appendChild(nodes[i-1], node);
+        else this.appendChild(this.nodes[i-1], node);
     }
 }
 
 SenTree.prototype.expandDoubleNegation = function(node) {
     // expand doublenegation node <node> on current tree
+    if (node.dneTo) return;
     log("expanding double negation "+node);
     var newNode = new Node(node.formula.sub.sub, null, [node]);
     this.makeNode(newNode);
@@ -338,7 +339,6 @@ SenTree.prototype.replaceSkolemTerms = function() {
             if (!translations[termstr]) {
                 log(termstr + " is skolem term");
                 translations[termstr] = this.parser.getNewConstant();
-                // this.constants.push(translations[termstr]); // xxx do I need this.constants?
             }
             this.nodes[n].formula = this.nodes[n].formula.substitute(
                 indivTerms[c], translations[termstr], true
@@ -355,9 +355,12 @@ SenTree.prototype.replaceSkolemTerms = function() {
             );
         }
     }
+    
     function getSkolemTerms(formula) {
-        if (formula.string.indexOf('φ') == -1) return [[],[]];
-        var indivTerms = [], worldTerms = [];
+        // skolem terms for worlds are all constants beginning with 'ω'.
+        var worldTerms = formula.string.match(/ω\d+/g) || [];
+        if (formula.string.indexOf('φ') == -1) return [[],worldTerms];
+        var indivTerms = [];
         var flas = [formula];
         var fla;
         while ((fla = flas.shift())) {
@@ -373,18 +376,11 @@ SenTree.prototype.replaceSkolemTerms = function() {
             }
             else {
                 for (var i=0; i<fla.terms.length; i++) {
-                    var skterm = null;
-                    // xxx todo tidy up the next few lines
                     if (fla.terms[i].isArray) {
-                        if (fla.terms[i][0][0] == 'φ') skterm = fla.terms[i];
+                        if (fla.terms[i][0][0] == 'φ') indivTerms.push(fla.terms[i]);
                     }
-                    else if (fla.terms[i][0] == 'φ') skterm = fla.terms[i];
-                    if (skterm) {
-                        if (formula.parser.isModal && i == fla.terms.length-1) {
-                            // final term denotes a world
-                            worldTerms.push(skterm);
-                        }
-                        else indivTerms.push(skterm);
+                    else {
+                        if (fla.terms[i][0] == 'φ') indivTerms.push(fla.terms[i]);
                     }
                 }
             }
@@ -412,11 +408,6 @@ SenTree.prototype.modalize = function() {
         var formula = node.formula;
         log('modalising '+formula);
 
-        if (formula.predicate == this.parser.R) {
-            // wRv nodes
-            formula.string = formula.terms[0] + formula.predicate + formula.terms[1];
-        }
-        
         // catch modal expansions: ◇A => (Rxy∧A), ¬□A => ¬(Rxy→A), □A =>
         // (Rxy→A), ¬◇A => ¬(Rxy∧A). xxx update comment
         if ((formula.sub1 && formula.sub1.predicate == this.parser.R) ||
@@ -468,8 +459,54 @@ SenTree.prototype.modalize = function() {
         this.remove(removeNodes[i]);
     }
     
-    log(this);
+    this.relabelWorlds();
+    log(this.toString());
 }
+
+SenTree.prototype.relabelWorlds = function() {
+    // During proof construction, we have often used nice world names like 'v',
+    // 'u', etc. e.g. in accessibility formulas or for skolemizing in cnfs etc.;
+    // these symbols may also occur as overt variables for individuals. We still
+    // want to use them as world names.
+    if (!this.parser.isModal) return; 
+    log("relabeling worlds");
+    var nameMap = { 'w' : 'w' };
+    for (var i=0; i<this.nodes.length; i++) {
+        var node = this.nodes[i];
+        if (node.formula.predicate == this.parser.R) {
+            // relabel worlds in wRv:
+            var newWorld = node.formula.terms[1];
+            if (!nameMap[newWorld]) {
+                nameMap[newWorld] = this.getNewWorldName();
+            }
+            var newTerms = node.formula.terms.map(function(w){return nameMap[w]});
+            log('replacing terms in '+node.formula+' by '+newTerms);
+            node.formula = new AtomicFormula(this.parser.R, newTerms);
+            // also adjust 'Rwv' => 'wRv':
+            node.formula.string = newTerms[0] + 'R' + newTerms[1];
+        }
+        else {
+            var oldName = node.formula.world;
+            node.formula.world = nameMap[oldName];
+            log('replacing '+oldName+' with '+node.formula.world);
+        }
+    }
+}
+
+SenTree.prototype.getNewWorldName = function() {
+    var candidates = 'vutsrqponmlkjihgfedcbazyx'.split('');
+    if (!this.usedWorldNames) this.usedWorldNames = ['w'];
+    for (var i=0; i<candidates.length; i++) {
+        var sym = candidates[i];
+        if (!this.usedWorldNames.includes(sym)) {
+            this.usedWorldNames.push(sym);
+            return sym;
+        }
+        // after we've gone through <candidates>, add indices to first element:
+        candidates.push('w'+(i+2));
+    }
+}
+
 
 
 SenTree.prototype.makeNode = function(node) {
