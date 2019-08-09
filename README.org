@@ -172,9 +172,9 @@ In outline, this works as follows.
    to complete terms like f(a,g(b)) and to their parts.) For each of these
    assignments, we try to satisfy the constraint by extending the
    interpretation of the predicates. (For example, if we need to satisfy F0,
-   we check if |F| is already defined for 0; if not, we set |F|(0)=true; if
-   |F| is defined and |F|(0)=true, we continue; if |F|(0)=false, we give up.)
-   Whenever the constraint is satisfied, we move on to the next
+   we check if |F| is already defined for 0; if not, we set |F|(0)=true; 
+   if |F| is defined and |F|(0)=true, we continue; if |F|(0)=false, we give 
+   up.) Whenever the constraint is satisfied, we move on to the next
    constraint. If satisfaction is impossible, we backtrack and try another
    interpretation of the individuals.
 
