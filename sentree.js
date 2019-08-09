@@ -15,37 +15,23 @@ function SenTree(fvTree) {
     this.initFormulasNormalized = fvTree.prover.initFormulasNormalized;
     this.parser = this.initFormulas[0].parser;
     this.fvTree = fvTree;
+    this.constants = [];
     this.freeVariables = [];
 
-    this.collectVariables();
     this.markEndNodesClosed();
     this.transferNodes();
     log(this.toString());
+    this.removeUnusedNodes();
+    log(this.toString());
+    this.collectVariablesAndConstants();
     this.replaceFreeVariables();
     log(this.toString());
     this.replaceSkolemTerms();
     log(this.toString());
-    this.removeUnusedNodes();
-    log(this.toString());
 }
 
 
-SenTree.prototype.collectVariables = function() {
-    // collect free variables from the fvtree and put them into arrays
-    // if (this.parser.isModal) {
-    //     // free world variables all originate from expanding □/gamma
-    //     // formulas ∀v(wRv→..) into (wRξ7→..); so we can find the world
-    //     // variables by looking through wRξ7 type nodes.
-    //     for (var i=0; i<this.nodes.length; i++) {
-    //         var fla = this.nodes[i].formula;
-    //         if (fla.predicate == this.parser.R &&
-    //             fla.terms[1][0] == 'ξ' &&
-    //             !this.freeWorldVariables.includes(fla.terms[1])) {
-    //             this.freeWorldVariables.push(fla.terms[1]);
-    //         }
-    //     }
-    // }
-    
+SenTree.prototype.collectVariablesAndConstants = function() {
     var branches = this.fvTree.closedBranches.concat(this.fvTree.openBranches);
     for (var b=0; b<branches.length; b++) {
         var branch = branches[b];
@@ -54,11 +40,11 @@ SenTree.prototype.collectVariables = function() {
                 this.freeVariables.push(branch.freeVariables[i]);
             }
         }
-        // for (var i=0; i<branch.constants.length; i++) {
-        //     if (!this.constants.includes(branch.constants[i])) {
-        //         this.constants.push(branch.constants[i]);
-        //     }
-        // }
+        for (var i=0; i<branch.constants.length; i++) {
+            if (!this.constants.includes(branch.constants[i])) {
+                this.constants.push(branch.constants[i]);
+            }
+        }
     }
 }
 
@@ -295,8 +281,44 @@ SenTree.prototype.expandDoubleNegation = function(node) {
 
 SenTree.prototype.replaceFreeVariables = function() {
     log("replacing free variables by new constants");
-    for (var i=0; i<this.freeVariables.length; i++) {
-        this.substitute(this.freeVariables[i], this.parser.getNewConstant());
+    // can't use fvtree.freevariables because that includes variables only
+    // occurring on removed nodes; so we'd skip e.g. the letter 'a'.
+    var varMap = {};
+    for (var i=0; i<this.nodes.length; i++) {
+        // free variables all look like 'ξ1', 'ξ2', etc.
+        var matches = this.nodes[i].formula.string.match(/ξ\d+/g);
+        if (!matches) continue;
+        for (var j=0; j<matches.length; j++) {
+            if (!varMap[matches[j]]) {
+                varMap[matches[j]] = this.getNewConstant();
+            }
+            log("replacing "+matches[j]+" by "+varMap[matches[j]]);
+            this.nodes[i].formula = this.nodes[i].formula.substitute(
+                matches[j], varMap[matches[j]]
+            );
+        }
+    }
+}
+
+SenTree.prototype.getNewConstant = function() {
+    // We want to reuse constants that have been used by the clauses in
+    // modelfinde, so we don't call this.parser.getNewConstant().
+    var candidates = 'abcdefghijklmno';
+    for (var i=0; i<candidates.length; i++) {
+        var sym = candidates[i];
+        if (this.constants.includes(sym)) continue;
+        if (this.parser.expressionType[sym]) {
+            if (this.parser.expressionType[sym]  != 'individual constant') {
+                continue;
+            }
+        }
+        else {
+            this.parser.registerExpression(sym, 'individual constant', 0);
+        }
+        this.constants.push(sym);
+        return sym;
+        // after we've gone through <candidates>, add indices to first element:
+        candidates.push(candidates[0]+(i+2));
     }
 }
 
@@ -339,7 +361,7 @@ SenTree.prototype.replaceSkolemTerms = function() {
             var termstr = indivTerms[c].toString();
             if (!translations[termstr]) {
                 log(termstr + " is skolem term");
-                translations[termstr] = this.parser.getNewConstant();
+                translations[termstr] = this.getNewConstant();
             }
             this.nodes[n].formula = this.nodes[n].formula.substitute(
                 indivTerms[c], translations[termstr], true
