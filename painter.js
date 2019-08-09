@@ -204,18 +204,36 @@ TreePainter.prototype.getOverlap = function(par) {
 }
 
 TreePainter.prototype.keepTreeInView = function() {
-    // get absolute x-position of leftmost container (relative to rootAnchor):
+    var mainContainer = this.rootAnchor.firstChild;
+    // check if tree fits horizontal display width:
+    if (mainContainer.getBoundingClientRect) {
+        var midPoint = Math.round(mainContainer.getBoundingClientRect()['left']);
+        var winTreeRatio = window.innerWidth*1.0/(midPoint*2);
+        if (winTreeRatio < 1.1) {
+            log("tree doesn't fit into visible area");
+            this.scale = Math.max(winTreeRatio, 0.8);
+            document.getElementById('rootAnchor').style.transform="scale("+this.scale+")";
+        }
+    }
+    var minX = this.getMinX();
+    if (minX < this.minX) {
+        log("minX " + minX + ": tree out of left document border by " + (this.minX - minX));
+        mainContainer.style.left = mainContainer.__x + (this.minX - minX) + "px";
+    }
+}
+
+TreePainter.prototype.getMinX = function() {
+    // get x-position of leftmost container (relative to rootAnchor)
     var minX = 0;
     var con, cons = [this.rootAnchor.firstChild];
     while ((con = cons.shift())) {
         con.__x = (con.parentNode.__x || 0) + parseInt(con.style.left);
-        if (con.__x - con.w < minX) minX = con.__x - con.w/2;
+        if (con.__x - con.w/2 < minX) {
+            minX = con.__x - con.w/2;
+        }
         cons = cons.concat(con.subContainers);
     }
-    if (minX < this.minX) {
-        log("minX " + minX + ": tree out of left document border by " + (this.minX - minX));
-        this.rootAnchor.firstChild.style.left = this.rootAnchor.firstChild.__x + (this.minX - minX) + "px";
-    }
+    return minX;
 }
 
 TreePainter.prototype.highlight = function(children, fromNodes) {

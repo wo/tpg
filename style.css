@@ -31,10 +31,11 @@ a { color:#007083; }
 #rootAnchor { position:absolute; left:0; right:0; margin:15px auto; width:0; }
 .treeNode, .treeNodeHiParent, .treeNodeHiChild { position:absolute; white-space:nowrap; text-align:center; }
 .treeNode span { display:inline-block; vertical-align: top; }
-.treeNode formula { margin:0 5px; text-align: center; }
-.nodenumber { color: #566; width: 3em; padding-top:1px; text-align: right; }
-.fromnumbers { color: #566; width: 3em; padding-top:1px; text-align: left; }
-.worldlabel { color: #742; width: 2em; text-align: center; }
+.nodenumber { color: #566; width: 1.5em; padding-top:1px; text-align: right; }
+.fromnumbers { color: #566; width: 2.5em; padding-top:1px; text-align: left; }
+.worldlabel { color: #742; width: 1em; text-align: center; }
+
+
 
 #model { margin:20px; padding:3px 20px; text-align:center; display:none; }
 #model b { font-weight:500; color:#023; }
@@ -46,9 +47,11 @@ a { color:#007083; }
 }
 @media (max-width:450px) {
   .hideOnPhone { display:none; }
+  .formula { font-size:0.9em; }
   #proveButton { width:55px; }
   #symbolButtonRow { margin-left:61px; font-size:0.9em; }
   .symbutton { display:inline-block; font-size:0.9em; width:16px; height:16px; }
   #flaField { width:calc(100% - 77px); }
+  #rootAnchor { transform:scale(0.9); }
 }
 
