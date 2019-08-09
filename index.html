@@ -7,13 +7,6 @@
   <!--link href="https://fonts.googleapis.com/css?family=Gothic+A1&display=swap" rel="stylesheet"-->
   <link href="https://fonts.googleapis.com/css?family=M+PLUS+1p:400,500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" type="text/css">
-     <script>
-     // xxx
-     debug = function(str) { if (!self.debugWin) debugPopup(); debugWin.document.write("<pre>"+str+"</pre>"); }
-     debugPopup = function() { debugWin = self.open("about:blank","debugWin"); if (!self.debugWin) alert("unblock popups!"); }
-     debug("hello, this is the debugging window");
-     function log(str) { debug(str); }
-     </script>
 </head>
 <body>
 
@@ -22,7 +15,7 @@
 <div id="titlebar">
   <a id="helplink" href="info.html">Q&amp;A</a>
   <h2 id="title"><a id="titlelink" href=".">Tree Proof Generator</a></h2>
-  <a id="githublink" href="https://www.github.com/wo/tgp">Last update: <?=date('d M Y', filemtime('.git/logs/HEAD'))?></a>
+  <a id="githublink" href="https://www.github.com/wo/tgp">Last update: <?=date('d M Y', filemtime('.git/refs/heads/master'))?></a>
 </div>
 
 <form id="inputForm" action="." method="get" onsubmit="return false">
@@ -58,15 +51,27 @@
 
 <?php
 $scripts = array("array", "formula", "parser", "prover", "modelfinder", "sentree", "painter", "index");
-if (isset($_GET['debug']) || isset($_GET['comments'])) {
-	$flag = $_GET['debug'] ? "debug" : "comments";
-	foreach ($scripts as $script) {
-		print "<script type='text/javascript' src='$script.$flag.js'></script>\n";
-	}
+if (isset($_GET['debug'])) {
+    foreach ($scripts as $script) {
+        print "<script type='text/javascript' src='$script.debug.js'></script>\n";
+    }
+    ?>
+    <script>
+    function log(str) {
+        if (!self.debugWin) debugPopup();
+        debugWin.document.write("<pre>"+str+"</pre>");
+    }
+    function debugPopup() {
+        self.debugWin = self.open("about:blank","debugWin");
+        if (!self.debugWin) alert("unblock popups!");
+    }
+    log("hello, this is the debugging window");
+    </script>
+    <?php
 }
 else {
-	$allscripts = implode("-", $scripts);
-	print "<script type='text/javascript' src='$allscripts.js'></script>\n";
+    $allscripts = implode("-", $scripts);
+    print "<script type='text/javascript' src='$allscripts.js'></script>\n";
 }
 ?>
 
