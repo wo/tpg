@@ -10,12 +10,12 @@ a { color:#007083; }
 #helplink { float:right; margin-top:0.3em; text-decoration:none; font-size:.9em; font-weight:bold; }
 
 #inputForm { background:#fce9ba; color:#000; margin:5px 0; padding:10px; border:1px solid #ccc; }
-#symbolButtonRow { margin:0 0 5px 86px; font-size:1em; color:#456; }
+#symbolButtonRow { margin:0 0 5px 76px; font-size:1em; color:#456; }
 #symbolButtonRow .formula { color:#444; }
 #typeExamples { font-size:0.85em; }
-#accessibilityRow { margin: 10px 0 0 86px; color:#234; }
-#proveButton { width:80px; font-size:unset; padding:3px; }
-#flaField { width:calc(100% - 105px); }
+#accessibilityRow { margin: 10px 0 0 76px; color:#234; }
+#proveButton { width:70px; font-size:0.9em; padding:3px; }
+#flaField { width:calc(100% - 97px); }
 .button { background:#fdf0c9; ; color:#000; border:1px solid #888; cursor:pointer; }
 .button:hover { background-color:#fff6e9; }
 .symbutton { display:inline-block; width:18px; height:18px; color:#333!important; padding:0px 1px 3px 1px; margin-right:2px; text-align:center; }
@@ -39,3 +39,16 @@ a { color:#007083; }
 #model { margin:20px; padding:3px 20px; text-align:center; display:none; }
 #model b { font-weight:500; color:#023; }
 #model table { margin:auto; border:1px solid #999; }
+
+@media (max-width:840px) {
+  #main { width:94%; }
+ .hideOnTablet { display:none; }
+}
+@media (max-width:450px) {
+  .hideOnPhone { display:none; }
+  #proveButton { width:55px; }
+  #symbolButtonRow { margin-left:61px; font-size:0.9em; }
+  .symbutton { display:inline-block; font-size:0.9em; width:16px; height:16px; }
+  #flaField { width:calc(100% - 77px); }
+}
+

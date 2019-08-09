@@ -15,13 +15,16 @@
 <div id="titlebar">
   <a id="helplink" href="info.html">Q&amp;A</a>
   <h2 id="title"><a id="titlelink" href=".">Tree Proof Generator</a></h2>
-  <a id="githublink" href="https://www.github.com/wo/tgp">Last update: <?=date('d M Y', filemtime('.git/refs/heads/master'))?></a>
+  <a id="githublink" class="hideOnPhone" href="https://www.github.com/wo/tgp">Last update: <?=date('d M Y', filemtime('.git/refs/heads/master'))?></a>
 </div>
 
 <form id="inputForm" action="." method="get" onsubmit="return false">
   <div id="symbolButtonRow">
-    insert symbol: <span id="symbolButtons"></span>
-    or type: <span id="typeExamples" class="formula">~, &, v, -&gt;, (Ax), (Ex), [], &lt;&gt;, \exists</span>, ...</div>
+    insert <span class="hideOnTablet">symbol:</span> <span id="symbolButtons"></span>
+    <span class="hideOnTablet">or type:
+      <span id="typeExamples" class="formula">~, &, v, -&gt;, (Ax), (Ex), [], &lt;&gt;, \exists, ...</span>
+    </span>
+  </div>
   <div id="proveRow">
     <input type="submit" value="Prove" id="proveButton" class="button">
     <input type="text" size="60" name="flaField" id="flaField" class="formula">
@@ -76,17 +79,17 @@ else {
 ?>
 
 <div id="intro">
-  <p>Enter a formula of standard propositional or predicate or modal logic into
-    the text field and click 'Prove'. The page will then try to find either a
-    countermodel or a tree proof (a.k.a. semantic tableau). </p>
+  <p>Enter a formula of standard propositional, predicate, or modal logic and
+    click 'Prove'. The page will try to find either a countermodel or a tree
+    proof (a.k.a. semantic tableau). </p>
 
   <p>Examples (click!):</p>
   <ul id="exampleList">
     <li>(p∨(q∧r))→((p∨q)∧(p∨r))</li>
     <li>((A→B)→A)→A</li>
     <li>∃y∀x(Fy→Fx)</li>
-    <li>∃y∃z∀x((Fx→Gy)∧(Gz→Fx))→∀x∃y(Fx↔Gy)</li>
-    <li>N(0)∧∀i(N(i)→N(s(i)))→N(s(s(s(0))))</li>
+    <li>∃y∃z∀x((Fx→Gy)∧(Gz→Fx)) →∀x∃y(Fx↔Gy)</li>
+    <li>N(0)∧∀i(N(i)→N(s(i))) →N(s(s(s(0))))</li>
     <li>∀y∃xFxy→∃x∀yFxy</li>
   </ul>
   

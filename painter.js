@@ -13,7 +13,8 @@ function TreePainter(senTree, rootAnchor) {
     // the tree will be written.
     
     this.paintInterval = 200;      // number of ms between paint steps
-    this.branchPadding = 30;       // min margin between tree branches
+    this.branchPadding = window.innerWidth < 500 ? 0 :
+        window.innerWidth < 800 ? 20 : 30; // min margin between tree branches
     this.branchingHeight = 40;     // vertical space used by branching lines
     this.nodeHiParentCSS = "treeNodeHiParent" // CSS class for nodes that are currently expanded
     this.nodeHiChildCSS = "treeNodeHiChild"   // CSS class for nodes that are currently added
