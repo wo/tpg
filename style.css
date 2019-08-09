@@ -1,0 +1,41 @@
+body { background:#F2F0DF66; color:#293040; font-family:Arial,sans-serif; font-weight:500; margin:0; padding:0;}
+a { color:#007083; }
+#main { margin: auto; max-width:800px; }
+.formula { font-family:'M Plus 1p',sans-serif; font-weight:500; font-size:0.95em; color:#334455; text-decoration:none; }
+
+#titlebar { margin:30px 0 0 0; }
+#title { display:inline; font-size:1.2em; }
+#titlelink { text-decoration:none; color:#C01F00; }
+#githublink { text-decoration:none; font-size:.8em; padding-left:1em; }
+#helplink { float:right; margin-top:0.3em; text-decoration:none; font-size:.9em; font-weight:bold; }
+
+#inputForm { background:#fce9ba; color:#000; margin:5px 0; padding:10px; border:1px solid #ccc; }
+#symbolButtonRow { margin:0 0 5px 86px; font-size:1em; color:#456; }
+#symbolButtonRow .formula { color:#444; }
+#typeExamples { font-size:0.85em; }
+#accessibilityRow { margin: 10px 0 0 86px; color:#234; }
+#proveButton { width:80px; font-size:unset; padding:3px; }
+#flaField { width:calc(100% - 105px); }
+.button { background:#fdf0c9; ; color:#000; border:1px solid #888; cursor:pointer; }
+.button:hover { background-color:#fff6e9; }
+.symbutton { display:inline-block; width:18px; height:18px; color:#333!important; padding:0px 1px 3px 1px; margin-right:2px; text-align:center; }
+#accessibilitySpan { display:none; font-size:0.9em; }
+#accessibilityRow input[type=checkbox] { vertical-align: middle; position: relative; bottom: .08em; margin:0 0px 0 5px; }
+
+#intro { margin:30px 0; }
+#exampleList { margin: 0 5px; }
+#exampleList li { padding:0.2em; cursor:pointer; }
+
+#statusBox { margin:0 30px; width:90%; max-width:800px; padding:20px 20px 3px 20px; text-align:center; display:none; }
+
+#rootAnchor { position:absolute; left:0; right:0; margin:15px auto; width:0; }
+.treeNode, .treeNodeHiParent, .treeNodeHiChild { position:absolute; white-space:nowrap; text-align:center; }
+.treeNode span { display:inline-block; vertical-align: top; }
+.treeNode formula { margin:0 5px; text-align: center; }
+.nodenumber { color: #566; width: 3em; padding-top:1px; text-align: right; }
+.fromnumbers { color: #566; width: 3em; padding-top:1px; text-align: left; }
+.worldlabel { color: #742; width: 2em; text-align: center; }
+
+#model { margin:20px; padding:3px 20px; text-align:center; display:none; }
+#model b { font-weight:500; color:#023; }
+#model table { margin:auto; border:1px solid #999; }
