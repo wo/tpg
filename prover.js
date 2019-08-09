@@ -1043,6 +1043,23 @@ Branch.prototype.expandTodoList = function(node) {
 	// out that most of these don't have any consistent effect; they usually
 	// speed up some proofs and slow down others.)
         //
+        // TODO: check if it helps to favour beta applications for which the
+	// complement of beta1 or beta2 is already on the branch (so that one of
+	// the new branches will immediately close).
+        //
+        // TODO: One should never expand a beta node if either beta1 or beta2 is
+        // already on the branch: if the resulting branches
+        //
+        // ... beta ... beta1 ... beta1 ...
+        // ... beta ... beta1 ... beta2 ...
+        //
+        // both close, then so does
+        //
+        // ... beta ... beta1 ... 
+        //
+        // with beta unexpanded. Perhaps this could be handled in the code that
+        // checks if a newly added formula already occurs on the branch.
+        //
         var expansionRule = node.getExpansionRule();
 	for (var i=0; i<this.todoList.length; i++) {
 	    if (expansionRule.priority <= this.todoList[i][0].priority) break;

@@ -124,8 +124,8 @@ SenTree.prototype.transferNode = function(node, par) {
     // the node as ¬(B→C) rather than (B∧¬C), to undo the normalization.
     //
     // So here's what we do: we first re-apply the rule (e.g. alpha) by which
-    // <node> was created to the unnormalized source formula. We then compare
-    // these which of these results, if normalized, equals <node>.formula and
+    // <node> was created to the unnormalized source formula. We then check
+    // which of these results, if normalized, equals <node>.formula and
     // overwrite <node>.formula with the unnormalized matching formula.
     
     var nodeFormula = node.formula;
@@ -155,6 +155,7 @@ SenTree.prototype.transferNode = function(node, par) {
         // fromNodes[0] to the biconditional (A<->B is expanded to A&B | ~A&~B):
         if (from.biconditionalExpansion) {
             node.fromNodes = from.fromNodes;
+            node.expansionStep = from.expansionStep;
         }
         
         // We know that <node> comes from the alpha formula <from>; <f1> and
@@ -607,6 +608,8 @@ SenTree.prototype.getExpansion = function(node) {
     // Branch.addNode().
     
     var res = [node];
+
+    if (!node.expansionStep) return res; // e.g. dne nodes
 
     // get ancestors from same rule application:
     var par = node.parent;
