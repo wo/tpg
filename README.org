@@ -6,14 +6,31 @@ a tableaux prover for classical propositional and predicate logic, as well as
 some modal logics. The prover is written in Javascript and runs entirely in the
 browser.
 
-* Run Locally
+* Development tools
 
-The index.html file that serves the prover contains a few lines of php to turn
-debugging features on/off. To run it locally, use 
+** Run locally
+
+The index.html file that serves the prover contains a few lines of php for
+turning debugging features on/off. To run the page locally, use
 
 #+BEGIN_SRC bash
 php -S localhost:1234 router.php
 #+END_SRC
+
+then go to localhost:1234.
+
+** Debugging information
+
+Add ?debug=1 to the URL to get a detailed log of what the script is doing.
+
+** Tests
+
+A few tests can be called in the browser at tests.html.
+
+There's also testdrive.php, which registers how fast the prover is at processing
+a sample of (valid and invalid) input formulas. This is useful for checking if a
+change leads to a significant speedup or slowdown or even to inaccurate
+classifications as valid or invalid.
 
 * Overview
 
