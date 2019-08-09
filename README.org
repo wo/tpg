@@ -1,0 +1,175 @@
+
+* Introduction
+
+This is the source code for [[https://www.umsu.de/trees]], a website that implements
+a tableaux prover for classical propositional and predicate logic, as well as
+some modal logics. The prover is written in Javascript and runs entirely in the
+browser.
+
+* Run Locally
+
+The index.html file that serves the prover contains a few lines of php to turn
+debugging features on/off. To run it locally, use 
+
+#+BEGIN_SRC bash
+php -S localhost:1234 router.php
+#+END_SRC
+
+* Overview
+
+Textbook tableaux rules are a little inefficient for automated proving. Behind
+the scenes, we therefore use somewhat different rules. Once a closed tableaux is
+found, we translate it back into the textbook rules to display on the page.
+
+** Free variables, unification, and run-time skolemization
+
+A major problem for automated proving is to figure out which term to use when
+instantiating "gamma" formulas (of type ∀xA or ¬∃xA). Blindly trying all
+possibilities is inefficient. A useful trick is to use "free-variable" tableaux
+in which gamma formulas are initially expanded with dummy variables.
+
+For example, in a free-variable tableaux, we would expand ∀xFx as Fy, with y
+free. Whenever a new formula is added, we then check if some substitution of
+terms for the free variables (= some *unification*) would close the branch. For
+example, if the branch contains ¬Fc, we can substitute c for y and close the
+branch. (Even in a free-variable tableaux, gamma nodes may need to be expanded
+more than once.)
+
+A problem now arises for the expansion of "delta" nodes (∃xA or ¬∀xA). Suppose
+we've expanded Gamma(x) to Gamma(y). When expanding Delta(x), we want the
+instance term to be new, no matter what we later substitute for y. To secure
+this, we use *run-time skolemization*: we use f(y,...) as the new term for the
+delta expansion, where f is a new function symbol and y,... are all free
+variables on the branch.
+
+(It would actually suffice to use only the free variables in Delta(x), but that
+makes conversion into textbook sentence tableaux hard.)
+
+** Negation normal form
+
+A common trick in automated reasoning with tableaux is to convert the starting
+formulas into some normal form that is easier to work with. [[https://en.wikipedia.org/wiki/Conjunctive_normal_form][Clausal normal form]]
+is a popular choice, but again it makes back-conversion into textbook tableaux
+difficult. We instead use [[https://en.wikipedia.org/wiki/Negation_normal_form][negation normal form]]. That is, the boolean operators
+are reduced to conjunction, disjunction, and negation, and negation is only
+applied to boolean atoms. 
+
+On reflection, I am not sure how much this helps to speed things up. It slightly
+simplifies the behind-the-scenes proof search, because we don't need rules for
+expanding biconditionals etc., but it adds a layer of complexity to the code,
+due to the back-and-forth translation between behind-the-scenes formulas and
+displayed formulas, where we need e.g. the biconditional expansion rule after
+all.
+
+** Translation of modal formulas
+
+Modal input formulas are converted (by the "standard translation") into formulas
+of (two-sorted) predicate logic, so that the behind-the-scenes prover only works
+with predicate logic formulas.
+
+Unfortunately, there are a few complications.
+
+For one, the standard tableaux rules applied to translated modal formulas easily
+create tableaux that are hard to convert back into textbook modal tableaux. For
+example, □A is translated into ∀x(¬wRx v Ax); by the standard free-variable rule
+for gamma expansions, this would be expanded to ¬wRy ∨ Ay, which in turn is
+expanded into two sub-branches. By the textbook rules, however, □A at w can only
+be expanded if we already have another node of form wR*. Moreover, expanding □A
+does not involve any kind of branching. 
+
+We could require that the expansion of ¬wRy ∨ Ay is only allowed if the ¬wRy
+subbranch immediately closes because it can be unified with some wR* node
+earlier on the branch. That would make the resulting tableaux relatively easy to
+convert back into a textbook tableau. But then we might as well use a special
+rule for expanding ∀x(¬wRx v Ax), which mimics the standard rule for □A: expand
+directly to A*, but only if wR* is already on the branch.
+
+This is the rule I currently use. Its downside is that it doesn't make use of
+free variables at all: ∀x(¬wRx v Ax) is instantiated with a term * that already
+occurs in a wR* node; so we immediately unify the instance variable with an
+existing term. (Having no free variables for worlds, we also don't need skolem
+terms for worlds in delta expansions.)
+
+A second complication arises from constraints on the accessibility relation. In
+textbook tableaux, these correspond to special rules for expanding tableaux. We
+could instead translate the constraints into quantified formulas and add them to
+the starting formulas for the tableau construction. But again that would often
+lead to tableau that don't look like textbook tableaux; for example, expanding
+the transitivity node would lead to a two-fold branching. So the
+behind-the-scenes prover now has special accessibility rules mimicking the
+textbook rules.
+
+All this makes it doubtful that much is gained by translating modal formulas
+into predicate-logic formulas. As in the case of negation normal form, the
+translation adds a layer of complexity to the code that should earn its keep.
+
+On the other hand, the translation does simplify the "model finder" (see
+below). I also hope to make better use of the free-variable machinery in the
+future. (A simple example: when applying the seriality rule, we could use a new
+world /variable/.)
+
+[Here's a starting point for making use of free variables: if ∀x(wRx → px) and
+any wR* occurs on a branch, append px. If the branch also contains ¬pv, it can
+be closed. When closing the branch, we must take into account not only that it
+contains px and ¬pv, but also (i) that it contains wRv, and (ii) that px was
+expanded from w. So before we unify px and ¬pv, we would need to check that v is
+a "legitimate value" of x. Legitimate values are any names * for which wR* is on
+the branch. To find the legitimate values, we could note that px is derived
+from ∀x(wRx → px), which figures 'w' in the crucial place, meaning that we need
+substitutions whose value satisfies wR*.)
+
+As it stands, this is too simple. Suppose we have a node ∀y(xRy → py), from an
+expansion of □□p at w, with free x. We also have wRv, vRu, and ¬pu. We want to
+expand ∀y(xRy → py) to py and unify y with u. So the rule for expanding box
+formulas ∀y(xRy → py) must allow expanding to y whenever some ^R* is on the
+tree, where ^ is a legitimate value of x. This needs more thought and/or
+research.]
+
+** The Modelfinder
+
+Often there are simple countermodels that are hard to find through the tableau
+method. We therefore run a separate algorithm to find shortest countermodels.
+
+In outline, this works as follows.
+
+1. We transform the formulas for which we want to find a model into clausal
+   normal form, which gives us literal "constraints" that we're trying to
+   satisfy. For example, Fa ∧ Fb is split into two constraints, Fa and Fb;
+   ∀x∃yRxy is turned into Rxf(x); Fa ∨ Fb is turned into the disjunctive
+   constraint [Fa, Fb].
+
+2. Now we start with a domain of size 1, namely {0}. If no countermodel is
+   found, we increase the domain to {0,1}, and so on. The interpretation of
+   terms and predicates is initially empty. For each domain choice, we do the
+   following:
+
+3. We replace free variables in the constraints by elements of the domain. So if
+   the domain is {0,1}, then a constraint Fx, coming from ∀xFx, is replaced by
+   two constraints, F0 and F1. (Numerals in input formulas are never interpreted
+   as terms, so there can be no clash.)
+
+4. Now we go through all the constraints (which are lists of literals,
+   interpreted disjunctively). If a constraint contains uninterpreted terms,
+   we also go through all ways of assigning to them members of the domain as
+   referents. (We don't assign a full meaning to function symbols here, only
+   to complete terms like f(a,g(b)) and to their parts.) For each of these
+   assignments, we try to satisfy the constraint by extending the
+   interpretation of the predicates. (For example, if we need to satisfy F0,
+   we check if |F| is already defined for 0; if not, we set |F|(0)=true; if
+   |F| is defined and |F|(0)=true, we continue; if |F|(0)=false, we give up.)
+   Whenever the constraint is satisfied, we move on to the next
+   constraint. If satisfaction is impossible, we backtrack and try another
+   interpretation of the individuals.
+
+Models for originally modal formulas have two domains, W and D. The elements of
+W are also natural numbers starting with 0. (That's OK: nothing in the
+definition of a Kripke model requires that the worlds must be distinct from the
+individuals; note that we can still have more worlds than individuals or more
+individuals than worlds.) When breaking down the initial formulas into
+constraints, we take into account which variables quantify over worlds and which
+over individuals. Accessibility conditions like reflexivity are added to the
+formulas for which we want to find a model. In modal models, all predicates take
+a world as their last argument; 'R' takes two worlds, function terms only take
+individuals.
+
+
