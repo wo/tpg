@@ -13,17 +13,13 @@
 <div id="main">
   
 <div id="titlebar">
-  <a id="helplink" href="info.html">Q&amp;A</a>
   <h2 id="title"><a id="titlelink" href=".">Tree Proof Generator</a></h2>
-  <a id="githublink" class="hideOnPhone" href="https://www.github.com/wo/tgp">Last update: <?=date('d M Y', filemtime('.git/refs/heads/master'))?></a>
+  <a id="githublink" class="hideOnPhone" href="https://www.github.com/wo/tpg">Last update: <?=date('d M Y', filemtime('.git/refs/heads/master'))?></a>
 </div>
 
 <form id="inputForm" action="." method="get" onsubmit="return false">
   <div id="symbolButtonRow">
     insert <span class="hideOnTablet">symbol:</span> <span id="symbolButtons"></span>
-    <span class="hideOnTablet">or type:
-      <span id="typeExamples" class="formula">~, &, v, -&gt;, (Ax), (Ex), [], &lt;&gt;, \exists, ...</span>
-    </span>
   </div>
   <div id="proveRow">
     <input type="submit" value="Prove" id="proveButton" class="button">
@@ -79,21 +75,76 @@ else {
 ?>
 
 <div id="intro">
-  <p>Enter a formula of standard propositional, predicate, or modal logic and
-    click 'Prove'. The page will try to find either a countermodel or a tree
-    proof (a.k.a. semantic tableau). </p>
+
+  <noscript><p><b>Enable JavaScript to use this page!.</b></p></noscript>
+      
+  <p>Enter a formula of standard propositional, predicate, or modal logic. The
+    page will try to find either a countermodel or a <a href="https://en.wikipedia.org/wiki/Method_of_analytic_tableau">tree proof (tableau)</a>. </p>
 
   <p>Examples (click!):</p>
   <ul id="exampleList">
-    <li>(p∨(q∧r))→((p∨q)∧(p∨r))</li>
-    <li>((A→B)→A)→A</li>
-    <li>∃y∀x(Fy→Fx)</li>
-    <li>∃y∃z∀x((Fx→Gy)∧(Gz→Fx)) →∀x∃y(Fx↔Gy)</li>
-    <li>N(0)∧∀i(N(i)→N(s(i))) →N(s(s(s(0))))</li>
-    <li>∀y∃xFxy→∃x∀yFxy</li>
+    <li class="formula">(p∨(q∧r))→((p∨q)∧(p∨r))</li>
+    <li class="formula">((A→B)→A)→A</li>
+    <li class="formula">∃y∀x(Fy→Fx)</li>
+    <li class="formula">∃y∃z∀x((Fx→Gy)∧(Gz→Fx)) → ∀x∃y(Fx↔Gy)</li>
+    <li class="formula">N(0) ∧ ∀i(N(i)→N(s(i))) → N(s(s(s(0))))</li>
+    <li class="formula">∀y∃xFxy → ∃x∀yFxy</li>
+    <li class="formula">□(p→q)→□p→□q</li>
+    <li class="formula">∀x□Fx→□∀xFx</li>
   </ul>
+
+  <h3>Entering formulas</h3>
   
-  <p>More detailed <a href="info.html">instructions and explanations are available here</a>.
+  <p>To enter logic symbols, use the buttons above the text field, or
+    type
+    <span class="formula">~</span> for <span class="formula">¬</span>,
+    <span class="formula">&</span> for <span class="formula">∧</span>,
+    <span class="formula">v</span> for <span class="formula">∨</span>,
+    <span class="formula">-&gt;</span> for <span class="formula">→</span>,
+    <span class="formula">&lt;-&gt;</span> for <span class="formula">↔</span>,
+    <span class="formula">(Ax)</span> for <span class="formula">∀x</span>,
+    <span class="formula">(Ex)</span> for <span class="formula">∃x</span>,
+    <span class="formula">[]</span> for <span class="formula">□</span>,
+    <span class="formula"><></span> for <span class="formula">◇</span>. You can
+    also use LaTeX commands.</p>
+
+  <h3>Syntax of formulas</h3>
+  
+  <p>Any alphabetic character is allowed as a propositional constant, predicate,
+    individual constant, or variable. The character may be followed by digits as
+    indices. Predicates and function terms must be in prefix notation. Function
+    terms must have their arguments enclosed in brackets. So
+    <span class="formula">F2x17</span>, <span class="formula">Rab</span>,
+    <span class="formula">R(a,b)</span>, <span class="formula">Raf(b)</span>,
+    <span class="formula">F(+(1,2))</span> are ok, but
+    not <span class="formula">Animal(Fred)</span>, <span class="formula">aRb</span>,
+    or <span class="formula">F(1+2)</span>. (In fact, these are also ok, but
+    they won't be parsed as you might expect.) The order of precedence among
+    connectives is <span class="formula">¬, ∧, ∨, →, ↔</span>. Association is to
+    the right. Multiple quantifiers must not be omitted:
+    write <span class="formula">∀x∀yRxy</span> instead
+    of <span class="formula">∀xyRxy</span>.</p>
+
+  <h3>Supported logics</h3>
+
+  <p>Besides classical propositional logic and first-order predicate logic (with
+  functions, but without identity), a few normal modal logics are supported. If
+  you enter a modal formula, you will see a choice of how the accessibility
+  relation should be constrained. For modal predicate logic, constant domains
+  and rigid terms are assumed.</p>
+  
+  <h3>Source code</h3>
+
+  <p>The full source is <a href="https://www.github.com/wo/tpg">on github</a>.</p>
+  
+  <h3>Contact</h3>
+
+  <p>Comments, bug reports and suggestions are always welcome: 
+    <script language="javascript">
+      document.write(("<a href='mailto:wo%umsu.de'>wo%umsu.de</a>.").replace(/%/g, '@'));
+    </script>
+  </p>
+
 </div>
 
 </div>

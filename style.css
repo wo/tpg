@@ -16,26 +16,27 @@ a { color:#007083; }
 #accessibilityRow { margin: 10px 0 0 76px; color:#234; }
 #proveButton { width:70px; font-size:0.9em; padding:3px; }
 #flaField { width:calc(100% - 97px); }
-.button { background:#fdf0c9; ; color:#000; border:1px solid #888; cursor:pointer; }
+.button { background:#fdf0c9; ; color:#000; border:1px solid #ccc0bb; cursor:pointer; }
 .button:hover { background-color:#fff6e9; }
 .symbutton { display:inline-block; width:18px; height:18px; color:#333!important; padding:0px 1px 3px 1px; margin-right:2px; text-align:center; }
 #accessibilitySpan { display:none; font-size:0.9em; }
 #accessibilityRow input[type=checkbox] { vertical-align: middle; position: relative; bottom: .08em; margin:0 0px 0 5px; }
 
 #intro { margin:30px 0; }
-#exampleList { margin: 0 5px; }
-#exampleList li { padding:0.2em; cursor:pointer; }
+#intro p { margin:8px 0; line-height:1.5em; }
+#exampleList { list-style-type:none; margin:0 30px 20px; padding:0; }
+#exampleList li { padding:0.1em; cursor:pointer; }
+#intro .formula { color:#742; }
+#intro h3 { font-size:1.1em; font-weight:600; color:#456; margin:20px 0 5px;}
 
 #statusBox { margin:0 30px; width:90%; max-width:800px; padding:20px 20px 3px 20px; text-align:center; display:none; }
 
 #rootAnchor { position:absolute; left:0; right:0; margin:15px auto; width:0; }
-.treeNode, .treeNodeHiParent, .treeNodeHiChild { position:absolute; white-space:nowrap; text-align:center; }
+.treeNode, .treeNodeHiParent, .treeNodeHiChild { position:absolute; white-space:nowrap; text-align:center; margin-left:10px;  }
 .treeNode span { display:inline-block; vertical-align: top; }
 .nodenumber { color: #566; width: 1.5em; padding-top:1px; text-align: right; }
 .fromnumbers { color: #566; width: 2.5em; padding-top:1px; text-align: left; }
-.worldlabel { color: #742; width: 1em; text-align: center; }
-
-
+.worldlabel { color: #742; width: 2em; text-align: center; }
 
 #model { margin:20px; padding:3px 20px; text-align:center; display:none; }
 #model b { font-weight:500; color:#023; }
