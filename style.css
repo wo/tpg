@@ -21,6 +21,8 @@ a { color:#007083; }
 .symbutton { display:inline-block; width:18px; height:18px; color:#333!important; padding:0px 1px 3px 1px; margin-right:2px; text-align:center; }
 #accessibilitySpan { display:none; font-size:0.9em; }
 #accessibilityRow input[type=checkbox] { vertical-align: middle; position: relative; bottom: .08em; margin:0 0px 0 5px; }
+#backtostartpage { float:right; display:none; }
+#backtostartpage a { text-decoration:none; }
 
 #intro { margin:30px 0; }
 #intro p { margin:8px 0; line-height:1.5em; }
@@ -29,14 +31,15 @@ a { color:#007083; }
 #intro .formula { color:#742; }
 #intro h3 { font-size:1.1em; font-weight:600; color:#456; margin:20px 0 5px;}
 
-#statusBox { margin:0 30px; width:90%; max-width:800px; padding:20px 20px 3px 20px; text-align:center; display:none; }
+#statusBox { margin:30px 0 10px; padding:10px; text-align:center; display:none; }
 
 #rootAnchor { position:absolute; left:0; right:0; margin:15px auto; width:0; }
 .treeNode, .treeNodeHiParent, .treeNodeHiChild { position:absolute; white-space:nowrap; text-align:center; margin-left:10px;  }
 .treeNode span { display:inline-block; vertical-align: top; }
+.treeNode .formula { margin:0 3px; }
 .nodenumber { color: #566; width: 1.5em; padding-top:1px; text-align: right; }
 .fromnumbers { color: #566; width: 2.5em; padding-top:1px; text-align: left; }
-.worldlabel { color: #742; width: 2em; text-align: center; }
+.worldlabel { color: #742; width: 1.5em; padding-top:1px; margin-right:0.5em; text-align: center; }
 
 #model { margin:20px; padding:3px 20px; text-align:center; display:none; }
 #model b { font-weight:500; color:#023; }

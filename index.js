@@ -115,17 +115,6 @@ onload = function(e) {
         }
     }
 
-    // document.getElementById('premiseButton').onclick = function() {
-    //     return false;
-    // }
-        
-    
-    document.querySelectorAll('.accCheckbox').forEach(function(el) {
-        el.addEventListener('change', function(e) {
-            //
-        });
-    });
-    
     document.forms[0].onsubmit = function(e) {
         // The action begins...
         var parser = new Parser();
@@ -139,12 +128,14 @@ onload = function(e) {
         document.getElementById("intro").style.display = "none";
         document.getElementById("model").style.display = "none";
         document.getElementById("rootAnchor").style.display = "none";
+        document.getElementById("backtostartpage").style.display = "block";
         document.getElementById("statusBox").style.display = "block";
         document.getElementById("statusHeader").innerHTML = "Proving...";
         document.getElementById("statusStop").style.display = "inline";
         document.getElementById("statusStop").firstChild.nodeValue = 'stop';
-        // Now a free-variable tableau is created. When the proof is
-        // finished, prover.finished() is called.
+
+        // Now a free-variable tableau is created. When the proof is finished,
+        // prover.finished() is called.
         var initFormulas = [formula.negate()];
         var accessibilityConstraints = [];
         if (parser.isModal) {
@@ -162,7 +153,8 @@ onload = function(e) {
         }
         prover.onfinished = function(treeClosed) {
             // The prover has finished.
-            document.getElementById("statusHeader").innerHTML = "<span class='formula'>" + formula + "</span> is " + (treeClosed ? "valid." : "invalid.");
+            document.getElementById("statusHeader").innerHTML =
+                "<span class='formula'>" + formula + "</span> is " + (treeClosed ? "valid." : "invalid.");
             document.getElementById("statusStop").style.display = "none";
             prover.status("");
             // Translate the free-variable tableau into a sentence tableau:

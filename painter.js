@@ -168,8 +168,7 @@ TreePainter.prototype.repositionBranches = function(node) {
                     par.removeChild(par.branchLines[i]);
                 }
             }
-            // hack to make branching lines look more centred:
-            var centre = this.isModal ? -25 : -5;
+            var centre = this.isModal ? -8 : 0; // hack to make branching lines look more centred
             var line1 = this.drawLine(par, centre, par.h, x1+centre, par.h + this.branchingHeight-2);
             var line2 = this.drawLine(par, centre, par.h, x2+centre, par.h + this.branchingHeight-2);
             par.branchLines = [line1, line2];
