@@ -130,7 +130,7 @@ onload = function(e) {
         document.getElementById("rootAnchor").style.display = "none";
         document.getElementById("backtostartpage").style.display = "block";
         document.getElementById("statusBox").style.display = "block";
-        document.getElementById("statusHeader").innerHTML = "Proving...";
+        document.getElementById("statusHeader").innerHTML = "<div id='waitSymbol'></div>";
         document.getElementById("statusStop").style.display = "inline";
         document.getElementById("statusStop").firstChild.nodeValue = 'stop';
 

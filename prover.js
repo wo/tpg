@@ -106,10 +106,10 @@ Prover.prototype.nextStep = function() {
     
     // status msg: xxx tidy up
     var numBranches = this.tree.openBranches.length + this.tree.closedBranches.length;
-    this.status("step " + this.steps + ": " + numBranches + " branches, " +
-                this.tree.numNodes + " nodes, " +
-                this.alternatives.length + " alternatives, search depth " +
-                this.depthLimit);
+    // this.status("step " + this.steps + ": " + numBranches + " branches, " +
+    //             this.tree.numNodes + " nodes, " +
+    //             this.alternatives.length + " alternatives, search depth " +
+    //             this.depthLimit);
 
     // expand leftmost open branch on tree:
     // (todoList items look like this: [Prover.alpha, nodes[0]])
