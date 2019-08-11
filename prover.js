@@ -22,13 +22,23 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
     
     log("initializing prover");
 
-    // normalize initFormulas
+    // normalize initFormulas, translate modal formulas, and set up
+    // accessibility rules:
     this.initFormulas = initFormulas; // formulas as entered, with conclusion negated
     this.parser = parser;
+    this.accessibilityRules = [];
     if (parser.isModal) {
         this.initFormulasNonModal = initFormulas.map(function(f){
-            return parser.translateFromModal(f);
+            return parser.translateFromModal(f, null);
         });
+        if (accessibilityConstraints) {
+            this.s5 = accessibilityConstraints.includes('universality');
+            if (!this.s5) {
+                this.accessibilityRules = accessibilityConstraints.map(function(s) {
+                    return Prover[s];
+                });
+            }
+        }
     }
     else {
         this.initFormulasNonModal = initFormulas;
@@ -36,28 +46,32 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
     this.initFormulasNormalized = this.initFormulasNonModal.map(function(f){
         return f.normalize();
     });
-
-    // init accessibility rules:
-    this.accessibilityRules = (accessibilityConstraints || []).map(function(s) {
-        return Prover[s];
-    });
     
     // init prover:
     this.step = 0;
     this.alternatives = [];
     this.tree = new Tree(this);
+
+    // init modelfinder:
     var mfParser = parser.copy();
     if (accessibilityConstraints) {
-        var name2fla = {
-            "reflexivity": "∀vRvv",
-            "symmetry": "∀v∀u(Rvu→Ruv)",
-            "transitivity": "∀v∀u∀t(Rvu→(Rut→Rvt))",
-            "euclidity": "∀v∀u∀t(Rvu→(Rvt→Rut))",
-            "seriality": "∀v∃uRvu"
-        };
-        var accessibilityFormulas = accessibilityConstraints.map(function(s) {
-            return mfParser.parseAccessibilityFormula(name2fla[s]).normalize();
-        });
+        if (this.s5) {
+            // xxx todo: remove Rwv clauses from formulas instead!
+            accessibilityFormulas = mfParser.parseAccessibilityFormula("∀v∀uRvu").normalize();
+        }
+        else {
+            var name2fla = {
+                "reflexivity": "∀vRvv",
+                "symmetry": "∀v∀u(Rvu→Ruv)",
+                "transitivity": "∀v∀u∀t(Rvu→(Rut→Rvt))",
+                "euclidity": "∀v∀u∀t(Rvu→(Rvt→Rut))",
+                "seriality": "∀v∃uRvu"
+            };
+            var accessibilityFormulas = accessibilityConstraints.map(function(s) {
+                return mfParser.parseAccessibilityFormula(name2fla[s]).normalize();
+            });
+            // todo: strip redundant constraints
+        }
         this.modelfinder = new ModelFinder(this.initFormulasNormalized,
                                            mfParser,
                                            accessibilityFormulas);
@@ -65,10 +79,10 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
     else {
         this.modelfinder = new ModelFinder(this.initFormulasNormalized, mfParser);
     }
-    
     this.counterModel = null;
-    this.stepStartTime = performance.now();
 
+    this.stepStartTime = performance.now();
+    
     this.start = function() {
         this.nextStep();
     };
@@ -242,7 +256,9 @@ Prover.beta = function(branch, nodeList) {
 }
 Prover.beta.priority = 10;
 
-Prover.gamma = function(branch, nodeList) {
+Prover.gamma = function(branch, nodeList, matrix) {
+    // <matrix> is set when this is called from modalGamma for S5 trees, see
+    // modalGamma() below.
     log('gamma '+nodeList[0]);
     var node = nodeList[0];
     if (branch.freeVariables.length == this.depthLimit) {
@@ -251,7 +267,9 @@ Prover.gamma = function(branch, nodeList) {
         return null;
     }
     // add application back onto todoList:
-    branch.todoList.push([Prover.gamma, node]);
+    if (!matrix) {
+        branch.todoList.push([Prover.gamma, node]);
+    }
     
     // The following lines would incorporate the Herbrand restriction on sentence tableau: 
     // do not expand a gamma node more often than there are constants on the branch.
@@ -274,11 +292,12 @@ Prover.gamma = function(branch, nodeList) {
     //     var newVariable = branch.newWorldVariable(); 
     // } xxx remove, along with newWorldvariable...
     // else {
-    var newVariable = branch.newVariable();
+    var newVariable = branch.newVariable(matrix);
     // } 
     branch.freeVariables.push(newVariable);
-    var newFormula = node.formula.matrix.substitute(node.formula.variable, newVariable);
-    var newNode = new Node(newFormula, Prover.gamma, nodeList);
+    var matrix = matrix || node.formula.matrix;
+    var newFormula = matrix.substitute(node.formula.variable, newVariable);
+    var newNode = new Node(newFormula, Prover.gamma, nodeList); // xxx note that this sets fromRule to gamma even for s5 modal gamma nodes. is that ok?
     newNode.instanceTerm = newVariable; // used in sentree
     branch.addNode(newNode);
     branch.tryClose(newNode);
@@ -304,25 +323,38 @@ Prover.modalGamma = function(branch, nodeList) {
     // the expansion (effectively) adds Av to the branch. We can reach the same
     // effect with the textbook □A rule: allow expansion only if some wRv occurs
     // on the branch; in that case add Av to the branch.
-    //
+
     log('modalGamma '+nodeList[0]);
     var node = nodeList[0];
     // add application back onto todoList:
     branch.todoList.push([Prover.modalGamma, node]);
+    
+    if (branch.tree.prover.s5) {
+        // In S5, we still translate □A into ∀x(¬wRxvAx) rather than the simpler
+        // ∀xAx. That's because the latter doesn't tell us at which world the
+        // formula is evaluated ('w'), which makes it hard to translate back
+        // into textbook tableaux. (Think about the tableau for ◇□A→□A.) But
+        // when we expand the □A node, we ignore the accessibility
+        // clause. Instead, we expand ∀x(¬wRx∨Ax) to Aξ1 and use the
+        // free-variable machinery.
+        return Prover.gamma(branch, nodeList, node.formula.matrix.sub2);
+    }
 
     var wRx = node.formula.matrix.sub1.sub;
     var w = wRx.terms[0];
+    var wR = wRx.predicate + w;
     log('wRx: '+wRx+', w: '+w);
     // find wR* node for □A expansion:
     OUTERLOOP:
     for (var i=0; i<branch.literals.length; i++) {
         log('lit '+branch.literals[i]);
-        if (branch.literals[i].formula.terms && branch.literals[i].formula.terms[0] == w) {
+        if (branch.literals[i].formula.string.indexOf(wR) == 0) {
+            var wRy = branch.literals[i];
             // check if <node> has already been expanded with this wR* node:
             for (var j=0; j<branch.nodes.length; j++) {
                 if (branch.nodes[j].fromRule == Prover.modalGamma &&
                     branch.nodes[j].fromNodes[0] == node &&
-                    branch.nodes[j].fromNodes[1] == branch.literals[i]) {
+                    branch.nodes[j].fromNodes[1] == wRy) {
                     log('already used');
                     continue OUTERLOOP;
                 }
@@ -330,11 +362,11 @@ Prover.modalGamma = function(branch, nodeList) {
             log('expanding!');
             // expand <node> with found wR*:
             var modalMatrix = node.formula.matrix.sub2;
-            var v = branch.literals[i].formula.terms[1];
+            var v = wRy.formula.terms[1];
             log(modalMatrix);
             var newFormula = modalMatrix.substitute(node.formula.variable, v);
             log(newFormula);
-            var newNode = new Node(newFormula, Prover.modalGamma, [node, branch.literals[i]]);
+            var newNode = new Node(newFormula, Prover.modalGamma, [node, wRy]);
             newNode.instanceTerm = v;
             branch.addNode(newNode);
             branch.tryClose(newNode);
@@ -344,25 +376,36 @@ Prover.modalGamma = function(branch, nodeList) {
 }
 Prover.modalGamma.priority = 9;
     
-Prover.delta = function(branch, nodeList) {
+Prover.delta = function(branch, nodeList, matrix) {
+    // <matrix> is set when this is called from modalDelta for S5 trees, see
+    // modalDelta() below. 
     log('delta '+nodeList[0]);
     var node = nodeList[0];
     var fla = node.formula;
     // find skolem term (newTerm):
-    var funcSymbol = branch.newFunctionSymbol();
+    var funcSymbol = branch.newFunctionSymbol(matrix);
     // It suffices to skolemize on variables contained in this formula.
     // This makes some proofs much faster by making some gamma applications
     // redundant. However, translation into sentence tableau then becomes
     // almost impossible, because here we need the missing gamma
     // applications.  Consider Ax(Fx & Ey~Fy).
     if (branch.freeVariables.length > 0) {
-        var skolemTerm = branch.freeVariables.copy();
+        if (branch.tree.prover.s5) {
+            // branch.freeVariables contains world and individual variables
+            var skolemTerm = branch.freeVariables.filter(function(v) {
+                return v[0] == (matrix ? 'ζ' : 'ξ');
+            });
+        }
+        else {
+            var skolemTerm = branch.freeVariables.copy();
+        }
         skolemTerm.unshift(funcSymbol);
     }
     else {
         var skolemTerm = funcSymbol;
     }
-    var newFormula = node.formula.matrix.substitute(node.formula.variable, skolemTerm);
+    var matrix = matrix || node.formula.matrix;
+    var newFormula = matrix.substitute(node.formula.variable, skolemTerm);
     var newNode = new Node(newFormula, Prover.delta, nodeList);
     newNode.instanceTerm = skolemTerm;
     branch.addNode(newNode);
@@ -373,10 +416,21 @@ Prover.delta.priority = 2;
 Prover.modalDelta = function(branch, nodeList) {
     log('modalDelta '+nodeList[0]);
     var node = nodeList[0];
+    if (branch.tree.prover.s5) {
+        // In S5, we still translate ◇A into ∃x(wRx∧Ax) rather than the simpler
+        // ∃xAx. That's because the latter doesn't tell us at which world the
+        // formula is evaluated ('w'), which makes it hard to translate back
+        // into textbook tableaux. (Think about the tableau for ◇□A→□A.) But
+        // when we expand the ◇A node, we ignore the accessibility
+        // clause. Instead, we expand ∃x(wRx∧Ax) to Aφ, where φ is a suitable
+        // skolem term, just like for ordinary existential formulas.
+        return Prover.delta(branch, nodeList, node.formula.matrix.sub2);
+    }
     var fla = node.formula;
     // don't need skolem terms for diamond formulas ∃v(wRv ∧ Av):
     var newWorldName = branch.newWorldName();
     var newFormula = node.formula.matrix.substitute(node.formula.variable, newWorldName);
+    // xxx might as well expand the conjunction, then I don't need to remove it in sentree!
     var newNode = new Node(newFormula, Prover.delta, nodeList);
     newNode.instanceTerm = newWorldName;
     branch.addNode(newNode);
@@ -747,7 +801,9 @@ Tree.prototype.copy = function() {
             }
             todoList.push(todo);
         } 
-        var b = new Branch(ntree, nodes, literals, orig.freeVariables.copy(), orig.skolemSymbols,
+        var b = new Branch(ntree, nodes, literals,
+                           orig.freeVariables.copy(),
+                           orig.skolemSymbols.copy(),
                            todoList, orig.closed);
         b.id = orig.id;
         return b;
@@ -872,13 +928,18 @@ function Branch(tree, nodes, literals, freeVariables, skolemSymbols, todoList, c
 }
 Branch.counter = 0;
 
-Branch.prototype.newVariable = function() {
+Branch.prototype.newVariable = function(isWorldTerm) {
     // return new variable for gamma expansion
-    if (this.freeVariables.length == 0) {
-        return 'ξ1';
+    var sym = isWorldTerm ? 'ζ' : 'ξ';
+    var res = sym+'1';
+    for (var i=this.freeVariables.length-1; i>=0; i--) {
+        if (this.freeVariables[i][0] == sym) {
+            res = sym+(this.freeVariables[i].substr(1)*1+1);
+            break;
+        }
     }
-    var lastvar = this.freeVariables[this.freeVariables.length-1]
-    return 'ξ'+(lastvar.substr(1)*1+1);
+    this.freeVariables.push(res);
+    return res;
 }
 
 Branch.prototype.newFunctionSymbol = function(isWorldTerm) {
@@ -1111,9 +1172,9 @@ Branch.prototype.addAccessibilityRuleApplications = function(node) {
     // world. So we add these rules to todoList.
     for (var i=0; i<this.tree.prover.accessibilityRules.length; i++) {
         var rule = this.tree.prover.accessibilityRules[i];
-	for (var j=0; j<this.todoList.length; j++) {
-	    if (rule.priority <= this.todoList[j][0].priority) break;
-	}
+        for (var j=0; j<this.todoList.length; j++) {
+            if (rule.priority <= this.todoList[j][0].priority) break;
+        }
         if (node) this.todoList.insert([rule, node], j);
         else this.todoList.insert([rule], j);
     }

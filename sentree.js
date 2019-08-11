@@ -18,35 +18,16 @@ function SenTree(fvTree, parser) {
     this.fvTree = fvTree;
     this.parser = parser;
     this.constants = [];
-    this.freeVariables = [];
 
     this.markEndNodesClosed();
     this.transferNodes();
     log(this.toString());
     this.removeUnusedNodes();
     log(this.toString());
-    // this.collectVariablesAndConstants();
     this.replaceFreeVariables();
     log(this.toString());
     this.replaceSkolemTerms();
     log(this.toString());
-}
-
-SenTree.prototype.collectVariablesAndConstants = function() {
-    var branches = this.fvTree.closedBranches.concat(this.fvTree.openBranches);
-    for (var b=0; b<branches.length; b++) {
-        var branch = branches[b];
-        for (var i=0; i<branch.freeVariables.length; i++) {
-            if (!this.freeVariables.includes(branch.freeVariables[i])) {
-                this.freeVariables.push(branch.freeVariables[i]);
-            }
-        }
-        for (var i=0; i<branch.constants.length; i++) {
-            if (!this.constants.includes(branch.constants[i])) {
-                this.constants.push(branch.constants[i]);
-            }
-        }
-    }
 }
 
 SenTree.prototype.markEndNodesClosed = function() {
@@ -285,12 +266,14 @@ SenTree.prototype.replaceFreeVariables = function() {
     // nodes.
     var varMap = {};
     for (var i=0; i<this.nodes.length; i++) {
-        // free variables all look like 'ξ1', 'ξ2', etc.
-        var matches = this.nodes[i].formula.string.match(/ξ\d+/g);
+        // Free variables all begin with 'ζ' (worlds) or 'ξ' (individuals).
+        var matches = this.nodes[i].formula.string.match(/ξζ\d+/g);
         if (!matches) continue;
         for (var j=0; j<matches.length; j++) {
             if (!varMap[matches[j]]) {
-                varMap[matches[j]] = this.parser.getNewConstant();
+                var sym = (matches[j][0] == 'ζ') ?
+                    this.parser.getNewWorldName() : this.parser.getNewConstant();
+                varMap[matches[j]] = sym;
             }
             log("replacing "+matches[j]+" by "+varMap[matches[j]]);
             this.nodes[i].formula = this.nodes[i].formula.substitute(
@@ -302,7 +285,7 @@ SenTree.prototype.replaceFreeVariables = function() {
 
 SenTree.prototype.getNewConstant = function() {
     // We want to reuse constants that have been used by the clauses in
-    // modelfinder, so we don't call this.parser.getNewConstant().
+    // modelfinder, so we don't call this.parser.getNewConstant(). xxx update, and del this.constants
     var candidates = 'abcdefghijklmno';
     for (var i=0; i<candidates.length; i++) {
         var sym = candidates[i];
@@ -349,10 +332,11 @@ SenTree.prototype.removeUnusedNodes = function() {
 
 SenTree.prototype.replaceSkolemTerms = function() {
     log("replacing skolem terms");
-    // skolem terms all look like 'φ1', 'φ1(𝛏1,𝛏2..)'; after unification
-    // they can also be nested: '𝛗1(𝛏1,𝛗2(𝛏1)..)'. Note that a skolem term
-    // can occur inside an ordinary function term. xxx Need to check if this
-    // should be accounted for; substitution is shallow...
+    // skolem terms all look like 'φ1', 'φ1(𝛏1,𝛏2..)' (individuals) or 'ω1'
+    // etc. (worlds); after unification they can also be nested:
+    // '𝛗1(𝛏1,𝛗2(𝛏1)..)'. Note that a skolem term can occur inside an ordinary
+    // function term. xxx Need to check if this should be accounted for;
+    // substitution is shallow...
     var translations = {};
     for (var n=0; n<this.nodes.length; n++) {
         var skterms = getSkolemTerms(this.nodes[n].formula);
@@ -380,9 +364,9 @@ SenTree.prototype.replaceSkolemTerms = function() {
     }
     
     function getSkolemTerms(formula) {
-        // skolem terms for worlds are all constants beginning with 'ω'.
-        var worldTerms = formula.string.match(/ω\d+/g) || [];
-        if (formula.string.indexOf('φ') == -1) return [[],worldTerms];
+        // skolem terms for worlds begin with 'ω'. xxx this does not look for
+        // skolem terms inside other terms!
+        var worldTerms = [];
         var indivTerms = [];
         var flas = [formula];
         var fla;
@@ -401,9 +385,11 @@ SenTree.prototype.replaceSkolemTerms = function() {
                 for (var i=0; i<fla.terms.length; i++) {
                     if (fla.terms[i].isArray) {
                         if (fla.terms[i][0][0] == 'φ') indivTerms.push(fla.terms[i]);
+                        else if (fla.terms[i][0][0] == 'ω') worldTerms.push(fla.terms[i]);
                     }
                     else {
                         if (fla.terms[i][0] == 'φ') indivTerms.push(fla.terms[i]);
+                        else if (fla.terms[i][0] == 'ω') worldTerms.push(fla.terms[i]);
                     }
                 }
             }
@@ -422,6 +408,8 @@ SenTree.prototype.modalize = function() {
     // into (p → q) with world label u.
     //
     // Example: □p is translated into ∀v(wRv → pv), expanded by modalGamma to pu.
+
+    // xxx update 
 
     log("modalizing tree");
     var removeNodes = [];
@@ -473,7 +461,7 @@ SenTree.prototype.modalize = function() {
             log('adjusting fromNodes of '+formula+' to '+node.fromNodes);
         }
         
-        node.formula = formula.translateToModal();
+        node.formula = this.parser.translateToModal(formula);
         // log(formula+' => '+node.formula);
         // log('w: '+node.formula.world);
     }
@@ -490,7 +478,7 @@ SenTree.prototype.relabelWorlds = function() {
     // During proof construction, we have often used nice world names like 'v',
     // 'u', etc. e.g. in accessibility formulas or for skolemizing in cnfs etc.;
     // these symbols may also occur as overt variables for individuals. We still
-    // want to use them as world names.
+    // want to use them as world names. xxx update
     if (!this.parser.isModal) return; 
     log("relabeling worlds");
     var nameMap = { 'w' : 'w' };

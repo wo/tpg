@@ -154,20 +154,22 @@ Parser.prototype.translateFromModal = function(formula, worldVariable) {
         var newWorldVariable = this.getNewWorldVariable();
         var wRv = new AtomicFormula(this.R, [worldVariable, newWorldVariable])
         var nsub = this.translateFromModal(formula.sub, newWorldVariable);
-        return new QuantifiedFormula('∀', newWorldVariable, new BinaryFormula('→', wRv, nsub), true)
+        var nmatrix = new BinaryFormula('→', wRv, nsub);
+        return new QuantifiedFormula('∀', newWorldVariable, nmatrix, true);
     }
     if (formula.operator == '◇') {
         var newWorldVariable = this.getNewWorldVariable();
         var wRv = new AtomicFormula(this.R, [worldVariable, newWorldVariable])
         var nsub = this.translateFromModal(formula.sub, newWorldVariable);
-        return new QuantifiedFormula('∃', newWorldVariable, new BinaryFormula('∧', wRv, nsub), true)
+        var nmatrix = new BinaryFormula('∧', wRv, nsub);
+        return new QuantifiedFormula('∃', newWorldVariable, nmatrix, true)
     }
 }
 
 Parser.prototype.translateToModal = function(formula) {
     // translate back from first-order formula into modal formula, with extra
-    // .world label: pv => p (v); ∀u(vRu→pu) => □p (v). 
-    // formulas of the form 'wRv' remain untranslated.
+    // .world label: pv => p (v); ∀u(vRu→pu) => □p (v). Formulas of type 'wRv'
+    // remain untranslated.
     log("translating "+formula+" into modal formula");
     if (formula.terms && formula.predicate == this.R) {
         return formula;
@@ -179,14 +181,11 @@ Parser.prototype.translateToModal = function(formula) {
         var res = new AtomicFormula(formula.predicate, nterms);
         res.world = worldlabel;
     }
-    else if (formula.quantifier &&
-             this.expressionType[formula.variable] == 'world variable') {
-        if (formula.quantifier == '∃') { // (Ev)(wRv & Av) => <>A
-            var res = new ModalFormula('◇', this.translateToModal(formula.matrix.sub2));
-        }
-        else {
-            var res = new ModalFormula('□', this.translateToModal(formula.matrix.sub2));
-        }
+    else if (formula.quantifier && this.expressionType[formula.variable] == 'world variable') {
+        // (Ev)(wRv & Av) => <>A
+        var prejacent = formula.matrix.sub2;
+        var op = formula.quantifier == '∃' ? '◇' : '□';
+        var res = new ModalFormula(op, this.translateToModal(prejacent));
         res.world = formula.matrix.sub1.terms[0];
     }
     else if (formula.quantifier) {
