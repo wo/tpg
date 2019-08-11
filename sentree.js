@@ -7,14 +7,16 @@
 // with a root node and children/parent attributes.  Other than that, the nodes
 // are the same Node objects as on Tree Branches.
 
-function SenTree(fvTree) {
+function SenTree(fvTree, parser) {
+    // turns fvTree into a textbook tableau, but does not translate back into
+    // modal logic; call this.modalize() for that.
     this.nodes = [];
     this.isClosed = (fvTree.openBranches.length == 0);
     this.initFormulas = fvTree.prover.initFormulas;
     this.initFormulasNonModal = fvTree.prover.initFormulasNonModal;
     this.initFormulasNormalized = fvTree.prover.initFormulasNormalized;
-    this.parser = this.initFormulas[0].parser;
     this.fvTree = fvTree;
+    this.parser = parser;
     this.constants = [];
     this.freeVariables = [];
 
@@ -23,13 +25,12 @@ function SenTree(fvTree) {
     log(this.toString());
     this.removeUnusedNodes();
     log(this.toString());
-    this.collectVariablesAndConstants();
+    // this.collectVariablesAndConstants();
     this.replaceFreeVariables();
     log(this.toString());
     this.replaceSkolemTerms();
     log(this.toString());
 }
-
 
 SenTree.prototype.collectVariablesAndConstants = function() {
     var branches = this.fvTree.closedBranches.concat(this.fvTree.openBranches);
@@ -201,7 +202,7 @@ SenTree.prototype.transferNode = function(node, par) {
         return node;
     }
         
-    case Prover.gamma: case Prover.delta: {
+    case Prover.gamma: case Prover.delta: case Prover.modalDelta: {
         // <node> is the result of expanding a (possibly negated)
         // quantified formula.
         var from = node.fromNodes[0];
@@ -240,8 +241,7 @@ SenTree.prototype.transferNode = function(node, par) {
 }
 
 SenTree.prototype.addInitNodes = function() {
-    // add initNodes to tree with their original formula (de-normalized) xxx add
-    // world label to modal fla?
+    // add initNodes to tree with their original, but demodalized formula
     var branch = this.fvTree.closedBranches.length > 0 ?
         this.fvTree.closedBranches[0] : this.fvTree.openBranches[0];
     
@@ -249,8 +249,8 @@ SenTree.prototype.addInitNodes = function() {
         log('adding init node '+branch.nodes[i]);
         var node = this.makeNode(branch.nodes[i]);
         node.formula = this.initFormulasNonModal[i]; // yes, we overwrite the node's original
-                                             // (normalized) formula -- don't need
-                                             // it anymore.
+                                                     // (normalized) formula -- don't need
+                                                     // it anymore.
         if (i==0) this.nodes.push(node);
         else this.appendChild(this.nodes[i-1], node);
     }
@@ -281,8 +281,8 @@ SenTree.prototype.expandDoubleNegation = function(node) {
 
 SenTree.prototype.replaceFreeVariables = function() {
     log("replacing free variables by new constants");
-    // can't use fvtree.freevariables because that includes variables only
-    // occurring on removed nodes; so we'd skip e.g. the letter 'a'.
+    // We need to make sure we don't include variables only occurring on removed
+    // nodes.
     var varMap = {};
     for (var i=0; i<this.nodes.length; i++) {
         // free variables all look like 'ξ1', 'ξ2', etc.
@@ -290,7 +290,7 @@ SenTree.prototype.replaceFreeVariables = function() {
         if (!matches) continue;
         for (var j=0; j<matches.length; j++) {
             if (!varMap[matches[j]]) {
-                varMap[matches[j]] = this.getNewConstant();
+                varMap[matches[j]] = this.parser.getNewConstant();
             }
             log("replacing "+matches[j]+" by "+varMap[matches[j]]);
             this.nodes[i].formula = this.nodes[i].formula.substitute(
@@ -302,7 +302,7 @@ SenTree.prototype.replaceFreeVariables = function() {
 
 SenTree.prototype.getNewConstant = function() {
     // We want to reuse constants that have been used by the clauses in
-    // modelfinde, so we don't call this.parser.getNewConstant().
+    // modelfinder, so we don't call this.parser.getNewConstant().
     var candidates = 'abcdefghijklmno';
     for (var i=0; i<candidates.length; i++) {
         var sym = candidates[i];
@@ -361,7 +361,7 @@ SenTree.prototype.replaceSkolemTerms = function() {
             var termstr = indivTerms[c].toString();
             if (!translations[termstr]) {
                 log(termstr + " is skolem term");
-                translations[termstr] = this.getNewConstant();
+                translations[termstr] = this.parser.getNewConstant();
             }
             this.nodes[n].formula = this.nodes[n].formula.substitute(
                 indivTerms[c], translations[termstr], true
@@ -663,7 +663,7 @@ SenTree.prototype.getExpansion = function(node) {
 
 SenTree.prototype.getCounterModel = function() {
     // Read off a (canonical) countermodel from an open branch. At this point,
-    // the tree is an ordinary, textbook, non-modal tableau, without free
+    // the tree is an ordinary, textbook (but non-modal) tableau, without free
     // variables and normalized formulas. (Modalization is best postponed, so
     // that the countermodel for a tree with a 'pw' node (modalized, 'p')
     // assigns to 'p' a set of worlds rather than a truth-value.)
@@ -714,7 +714,8 @@ SenTree.prototype.getCounterModel = function() {
         for (var t=0; t<terms.length; t++) {
             var term = terms[t].toString();
             if (term in model.denotations) continue;
-            var domain = this.parser.expressionType[term].indexOf('world') > -1 ?
+            var domain = this.parser.expressionType[term] &&
+                this.parser.expressionType[term].indexOf('world') > -1 ?
                 model.worlds : model.domain;
             log("adding "+domain.length+" to domain for "+term);
             domain.push(domain.length);

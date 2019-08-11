@@ -146,7 +146,7 @@ onload = function(e) {
                 }
             });
         }
-        var prover = new Prover(initFormulas, accessibilityConstraints);
+        var prover = new Prover(initFormulas, parser, accessibilityConstraints);
         prover.status = function(str) {
             // The prover dumps status messages to this function. 
             document.getElementById("status").innerHTML = str;
@@ -158,10 +158,10 @@ onload = function(e) {
             document.getElementById("statusStop").style.display = "none";
             prover.status("");
             // Translate the free-variable tableau into a sentence tableau:
-            var sentenceTree = new SenTree(this.tree);
+            var sentree = new SenTree(this.tree, parser);
             if (!treeClosed) {
                 // Tree is open. Display a countermodel if one is known:
-                if (!this.counterModel) this.counterModel = sentenceTree.getCounterModel();
+                if (!this.counterModel) this.counterModel = sentree.getCounterModel();
                 if (this.counterModel) {
                     document.getElementById("model").style.display = "block";
                     document.getElementById("model").innerHTML = "<b>Countermodel:</b><br>" +
@@ -170,11 +170,11 @@ onload = function(e) {
                 }
             }
             if (parser.isModal) {
-                sentenceTree.modalize();
+                sentree.modalize();
             }
             // Start painting the tree:
             document.getElementById("rootAnchor").style.display = "block";
-            self.painter = new TreePainter(sentenceTree, document.getElementById("rootAnchor"));
+            self.painter = new TreePainter(sentree, document.getElementById("rootAnchor"));
             self.painter.paintTree();
         }
         setTimeout(function(){

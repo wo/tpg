@@ -43,33 +43,30 @@
 // take a world as their last argument; 'R' takes two worlds, function terms
 // only take individuals.
 
-function ModelFinder(initFormulas, accessibilityConstraints) {
+function ModelFinder(initFormulas, parser, accessibilityConstraints) {
     // initFormulas = list of demodalized formulas in NNF for which we try to
     //                find a model
     // accessibilityConstraints = another such list, for modal models
     log("*** creating ModelFinder");
 
+    this.parser = parser;
+    
+    // collect expressions that need to be interpreted:
+    this.predicates = parser.getSymbols('predicate');
+    this.constants = parser.getSymbols('individual constant');
+    this.funcSymbols = parser.getSymbols('function symbol');
+    if (parser.isModal) {
+        log('adding w');
+        this.constants.unshift(parser.w);
+    }
+    
     // break down initFormulas and accessibilityConstraints into clauses:
     initFormulas = initFormulas.concat(accessibilityConstraints || []);
     this.clauses = this.getClauses(initFormulas);
-    
-    // collect expressions that need to be interpreted:
-    this.parser = initFormulas[0].parser;
-    this.predicates = [];
-    this.origConstants = []; // excludes skolem symbols
-    for (var i=0; i<this.clauses.length; i++) {
-        for (var j=0; j<this.clauses[i].length; j++) {
-            var atom = this.clauses[i][j].sub || this.clauses[i][j];
-            this.predicates.pushNoDuplicates(atom.predicate);
-        }
-    }
-    for (var i=0; i<initFormulas.length; i++) {
-        this.origConstants = this.origConstants.concatNoDuplicates(initFormulas[i].constants);
-    }
 
     // needed in Model.iterateDenotations():
-    this.names = this.parser.getSymbols('individual constant');
-    this.worldNames = this.parser.getSymbols('world constant');
+    this.names = parser.getSymbols('individual constant'); // now includes skolem constants 
+    this.worldNames = parser.getSymbols('world constant');
     this.isWorldTerm = {}; // set by Model.getConstraintTerms()
 
     // initialize model:
@@ -82,11 +79,12 @@ ModelFinder.prototype.getClauses = function(formulas) {
     // convert <formulas> into clausal normal form and return combined list of
     // clauses
     var res = [];
-    formulas.forEach(function(formula) {
+    for (var i=0; i<formulas.length; i++) {
+        var formula = formulas[i]; 
         log('getting clauses from '+formula);
-        var clauses = formula.clausalNormalForm();
+        var clauses = this.parser.clausalNormalForm(formula);
         res = res.concatNoDuplicates(clauses);
-    });
+    }
     log('all clauses: '+res);
     // xxx TODO: simplify clauses! xxx that function should also be called
     // within clausalnormalform to return a simpler list.
@@ -241,9 +239,9 @@ Model.prototype.getConstraints = function() {
         log('  clause '+clause);
         // collect all variables in the clause:
         var variables = [];
-        clause.forEach(function(formula) {
-            variables = variables.concatNoDuplicates(formula.variables);
-        });
+        for (var i=0; i<clause.length; i++) {
+            variables = variables.concatNoDuplicates(this.parser.getVariables(clause[i]));
+        }
         if (variables.length == 0) {
             // log('    adding clause to constraint');
             res.push(clause);
@@ -552,29 +550,30 @@ Model.prototype.toHTML = function() {
         str += " }</td></tr>\n";
     }
 
-    var termExtensions = this.getTermExtensions();
-    var predicateExtensions = this.getPredicateExtensions();
-
-    // xxx DRI in what follows
-    
     // display constants and function symbols:
     // a: 0
     // f: { <0,1>, <1,1> }
-    for (var i=0; i<this.modelfinder.origConstants.length; i++) {
-        var sym = this.modelfinder.origConstants[i];
+    
+    var termExtensions = this.getTermExtensions();
+
+    for (var i=0; i<this.modelfinder.constants.length; i++) {
+        var sym = this.modelfinder.constants[i];
         var ext = termExtensions[sym];
-        var val;
-        if (!ext.isArray) { // zero-ary
-            val = ext;
-        }
+        var val = ext;
+        str += "<tr><td align='right' class='formula'>" + sym + ": </td><td align='left'>" + val + "</td></tr>\n";
+    }
+    
+    for (var i=0; i<this.modelfinder.funcSymbols.length; i++) {
+        var sym = this.modelfinder.funcSymbols[i];
+        var ext = termExtensions[sym];
         // ext is something like [1,2] or [[0,1],[1,1]]
-        else if (ext.length > 0 && !ext[0].isArray) {
+        if (ext.length > 0 && !ext[0].isArray) {
             // extensions[sym] is something like [1,2]
-            val = '{ '+ext.join(',')+' }';
+            var val = '{ '+ext.join(',')+' }';
         }
         else {
-        // extensions[sym] is something like [[0,1],[1,1]]
-            val = '{ '+ext.map(function(tuple) {
+            // extensions[sym] is something like [[0,1],[1,1]]
+            var val = '{ '+ext.map(function(tuple) {
                 return '('+tuple.join(',')+')';
             }).join(', ')+' }';
         }
@@ -585,6 +584,9 @@ Model.prototype.toHTML = function() {
     // p: true/1
     // F: { 0,1 }
     // G: { <0,0>, <1,1> }
+
+    var predicateExtensions = this.getPredicateExtensions();
+    
     for (var i=0; i<this.modelfinder.predicates.length; i++) {
         var sym = this.modelfinder.predicates[i];
         var ext = predicateExtensions[sym];
@@ -616,22 +618,20 @@ Model.prototype.getTermExtensions = function() {
     var result = {};
     var denotations = this.denotations; // 'this' not available in replace function below 
     var interpretedTerms = Object.keys(denotations);
-    for (var i=0; i<this.modelfinder.origConstants.length; i++) {
-        // Zero-ary constants will have individuals as denotations, others lists
-        // of lists of individuals.
-        var cons = this.modelfinder.origConstants[i];
-        if (this.parser.arities[cons] == 0) {
-            result[cons] = denotations[cons] || 0;
-            continue;
-        }
-        // If cons is 'f', we have records in denotations for things like
+    for (var i=0; i<this.modelfinder.constants.length; i++) {
+        var cons = this.modelfinder.constants[i];
+        result[cons] = denotations[cons] || 0;
+    }
+    for (var i=0; i<this.modelfinder.funcSymbols.length; i++) {
+        var fs = this.modelfinder.funcSymbols[i];
+        // If fs is 'f', we have records in denotations for things like
         // '[f,0]' or '[f,a]' or '[f,[f,a]]'. We will then also have
         // records for the subterms.
-        result[cons] = [];
-        // log("constructing extension for "+cons+" (arity "+this.parser.arities[cons]+")");
+        result[fs] = [];
+        // log("constructing extension for "+fs+" (arity "+this.parser.arities[fs]+")");
         for (var j=0; j<interpretedTerms.length; j++) {
             var expr = interpretedTerms[j];
-            if (expr.indexOf('['+cons+',') == 0) { // '[f,a]' or '[f,[f,a]]', etc.
+            if (expr.indexOf('['+fs+',') == 0) { // '[f,a]' or '[f,[f,a]]', etc.
                 // log("   we know that "+expr+" = "+denotations[expr]);
                 // replace complex arguments like '[f,a]' by their denotation: 
                 var expr2 = expr.slice(1,-1).replace(/\[.+?\]/, function(m) {
@@ -648,10 +648,10 @@ Model.prototype.getTermExtensions = function() {
                 }
                 var value = denotations[expr];
                 // log("   adding "+args+" => "+value);
-                result[cons].push(args.concat([value]));
+                result[fs].push(args.concat([value]));
             }
         }
-        log("  "+result[cons]);
+        log("  "+result[fs]);
         // xxx make sure functions are total?
     }
     return result;

@@ -10,13 +10,26 @@ function Parser() {
     // store whether at least one of the parsed formulas is modal or
     // propositional, so that we can build an appropriate tree/countermodel:
     this.isModal = false;
-    this.translatedFromModal = false;
     this.isPropositional = true;
-    // When operating on a formula, it's useful to know what's a predicate or a
-    // variable etc.; the following line makes the information in Parser()
-    // available through formula.parser. Note that this will break if we
-    // simultaneously operate on formulas created from different Parsers.
-    Formula.prototype.parser = this;
+}
+
+Parser.prototype.copy = function() {
+    // returns a copy of the present parser. This allows e.g. introducing 'a' as
+    // a new constant when constructing clausal normal forms, but then
+    // introducing 'a' again when constructing the displayed tree: we don't have
+    // to manually check where 'a' is already used.
+    var nparser = new Parser(true);
+    nparser.symbols = this.symbols.copy();
+    for (var i=0; i<this.symbols.length; i++) {
+        var sym = this.symbols[i];
+        nparser.expressionType[sym] = this.expressionType[sym];
+        nparser.arities[sym] = this.arities[sym];
+    }
+    nparser.isModal = this.isModal;
+    nparser.isPropositional = this.isPropositional;
+    nparser.R = this.R;
+    nparser.w = this.w;
+    return nparser;
 }
 
 Parser.prototype.registerExpression = function(ex, exType, arity) {
@@ -35,7 +48,7 @@ Parser.prototype.getSymbols = function(expressionType) {
     var res = [];
     for (var i=0; i<this.symbols.length; i++) {
         var s = this.symbols[i];
-        if (this.expressionType[s] == expressionType) res.push(s);
+        if (this.expressionType[s].indexOf(expressionType) > -1) res.push(s);
     }
     return res;
 }
@@ -60,23 +73,38 @@ Parser.prototype.getNewConstant = function() {
 }
 
 Parser.prototype.getNewVariable = function() {
-    // for converting to prenex/clausal normal form (for modelfinder)
+    // for converting to clausal normal form (for modelfinder)
     return this.getNewSymbol('xyzwvutsr', 'variable', 0);
 }
 
 Parser.prototype.getNewFunctionSymbol = function(arity) {
-    // for converting to prenex/clausal normal form (for modelfinder) 
+    // for converting to clausal normal form (for modelfinder) 
     return this.getNewSymbol('fghijklmn', arity+"-ary function symbol", arity);
 }
 
 Parser.prototype.getNewWorldVariable = function() {
     // for standard translations: □p => ∀x(wRx ...)
-    return this.getNewSymbol('wvuts', 'world variable', 0);
+    return this.getNewSymbol('wvutsr', 'world variable', 0);
 }
 
 Parser.prototype.getNewWorldName = function() {
     // for □/◇ instances in sentrees and cnf skolemization 
-    return this.getNewSymbol('wvutsrqponmlkjihgfedcba', 'world constant', 0);
+    return this.getNewSymbol('wvutsrqponm', 'world constant', 0);
+}
+
+Parser.prototype.getVariables = function(formula) {
+    // return all variables in <formula>
+    var variables = this.getSymbols('variable');
+    var res = [];
+    var dupe = {};
+    for (var i=0; i<variables.length; i++) {
+        var variable = variables[i];
+        if (formula.string.indexOf(variable) > -1 && !dupe[variable]) {
+            dupe[variable] = true;
+            res.push(variable);
+        }
+    }
+    return res;
 }
 
 Parser.prototype.initModality = function() {
@@ -92,14 +120,226 @@ Parser.prototype.initModality = function() {
     // parsed.
     this.R = this.getNewSymbol('Rrℜ', '2-ary predicate', 2);
     this.w = this.getNewSymbol('wvur', 'world constant', 0);
-    this.translatedFromModal = true;
+    this.registerExpression(this.w, 'world constant', 0);
+}
+
+Parser.prototype.translateFromModal = function(formula, worldVariable) {
+    // return translation of modal formula into first-order formula with
+    // explicit world variables
+    log("translating modal formula "+formula);
+    if (!worldVariable) {
+        if (!this.w) this.initModality();
+        worldVariable = this.w;
+    }
+    if (formula.terms) { // atomic; add world variable to argument list
+        var nterms = formula.terms.copyDeep();
+        nterms.push(worldVariable); // don't need to add world parameters to function terms; think of 0-ary terms
+        return new AtomicFormula(formula.predicate, nterms);
+    }
+    if (formula.quantifier) {
+        var nmatrix = this.translateFromModal(formula.matrix, worldVariable);
+        return new QuantifiedFormula(formula.quantifier, formula.variable, nmatrix);
+        // xxx assumes constant domains
+    }
+    if (formula.sub1) {
+        var nsub1 = this.translateFromModal(formula.sub1, worldVariable);
+        var nsub2 = this.translateFromModal(formula.sub2, worldVariable);
+        return new BinaryFormula(formula.operator, nsub1, nsub2);
+    }
+    if (formula.operator == '¬') {
+        var nsub = this.translateFromModal(formula.sub, worldVariable);
+        return new NegatedFormula(nsub);
+    }
+    if (formula.operator == '□') {
+        var newWorldVariable = this.getNewWorldVariable();
+        var wRv = new AtomicFormula(this.R, [worldVariable, newWorldVariable])
+        var nsub = this.translateFromModal(formula.sub, newWorldVariable);
+        return new QuantifiedFormula('∀', newWorldVariable, new BinaryFormula('→', wRv, nsub), true)
+    }
+    if (formula.operator == '◇') {
+        var newWorldVariable = this.getNewWorldVariable();
+        var wRv = new AtomicFormula(this.R, [worldVariable, newWorldVariable])
+        var nsub = this.translateFromModal(formula.sub, newWorldVariable);
+        return new QuantifiedFormula('∃', newWorldVariable, new BinaryFormula('∧', wRv, nsub), true)
+    }
+}
+
+Parser.prototype.translateToModal = function(formula) {
+    // translate back from first-order formula into modal formula, with extra
+    // .world label: pv => p (v); ∀u(vRu→pu) => □p (v). 
+    // formulas of the form 'wRv' remain untranslated.
+    log("translating "+formula+" into modal formula");
+    if (formula.terms && formula.predicate == this.R) {
+        return formula;
+    }
+    if (formula.terms) {
+        // remove world variable from argument list
+        var nterms = formula.terms.copyDeep();
+        var worldlabel = nterms.pop();
+        var res = new AtomicFormula(formula.predicate, nterms);
+        res.world = worldlabel;
+    }
+    else if (formula.quantifier &&
+             this.expressionType[formula.variable] == 'world variable') {
+        if (formula.quantifier == '∃') { // (Ev)(wRv & Av) => <>A
+            var res = new ModalFormula('◇', this.translateToModal(formula.matrix.sub2));
+        }
+        else {
+            var res = new ModalFormula('□', this.translateToModal(formula.matrix.sub2));
+        }
+        res.world = formula.matrix.sub1.terms[0];
+    }
+    else if (formula.quantifier) {
+        var nmatrix = this.translateToModal(formula.matrix);
+        var res = new QuantifiedFormula(formula.quantifier, formula.variable, nmatrix);
+        res.world = nmatrix.world;
+    }
+    else if (formula.sub1) {
+        var nsub1 = this.translateToModal(formula.sub1);
+        var nsub2 = this.translateToModal(formula.sub2);
+        var res = new BinaryFormula(formula.operator, nsub1, nsub2);
+        res.world = nsub2.world; // sub1 might be 'wRv' which has no world parameter
+    }
+    else if (formula.operator == '¬') {
+        var nsub = this.translateToModal(formula.sub);
+        var res = new NegatedFormula(nsub);
+        res.world = nsub.world;
+    }
+    return res;
+}
+
+Parser.prototype.skolemize = function(formula) {
+    // return formula with existential quantifiers skolemized away; formula
+    // must be in NNF.
+    log('skolemizing '+formula);
+    var boundVars = arguments[1] ? arguments[1].copy() : [];
+    // log(formula.string+' bv: '+boundVars);
+    if (formula.quantifier == '∃') {
+        // skolemize on variables that are bound at this point and that occur in
+        // the matrix (ignoring formula.variable)
+        var skolemVars = [];
+        boundVars.forEach(function(v) {
+            if (formula.matrix.string.indexOf(v) > -1) skolemVars.push(v);
+        });
+        var skolemTerm;
+        if (skolemVars.length > 0) {
+            var funcSymbol = this.getNewFunctionSymbol(skolemVars.length);
+            var skolemTerm = skolemVars;
+            skolemTerm.unshift(funcSymbol);
+        }
+        else skolemTerm = this.expressionType[formula.variable] == 'variable' ?
+            this.getNewConstant() : this.getNewWorldName();
+        var nmatrix = formula.matrix.substitute(formula.variable, skolemTerm); 
+        // nmatrix.constants.push(skolemVars.length > 0 ? funcSymbol : skolemTerm);
+        nmatrix = this.skolemize(nmatrix, boundVars);
+        return nmatrix;
+    }
+    if (formula.quantifier) { // ∀
+        boundVars.push(formula.variable);
+        var nmatrix = this.skolemize(formula.matrix, boundVars);
+        if (nmatrix == formula.matrix) return formula;
+        return new QuantifiedFormula(formula.quantifier, formula.variable, nmatrix,
+                                     formula.overWorlds);
+    }
+    if (formula.sub1) {
+        var nsub1 = this.skolemize(formula.sub1, boundVars);
+        var nsub2 = this.skolemize(formula.sub2, boundVars);
+        if (formula.sub1 == nsub1 && formula.sub2 == nsub2) return formula;
+        return new BinaryFormula(formula.operator, nsub1, nsub2);
+    }
+    // literal:
+    return formula;
+}
+
+
+Parser.prototype.clausalNormalForm = function(formula) {
+    // return clausal normal form of formula (must be normalized); a clausal
+    // normal form is a list (interpreted as conjunction) of "clauses", each of
+    // which is a list (interpreted as disjunction) of literals. Variables are
+    // understood as universal; existential quantifiers are skolemized away.
+
+    // see http://cs.jhu.edu/~jason/tutorials/convert-to-CNF and
+    // http://www8.cs.umu.se/kurser/TDBB08/vt98b/Slides4/norm1_4.pdf
+    // xxx todo use switching variables to keep CNFs short?
+
+    var distinctVars = this.makeVariablesDistinct(formula);
+    var skolemized = this.skolemize(distinctVars);
+    var quantifiersRemoved = skolemized.removeQuantifiers();
+    var cnf = this.cnf(quantifiersRemoved);
+    return cnf;
+}
+
+Parser.prototype.cnf = function(formula) {
+    // see this.clausalNormalForm
+    if (formula.type == 'literal') {
+        return [[formula]];
+    }
+    if (formula.operator == '∧') {
+        // log('∧: concatenating clauses of '+formula.sub1+' and '+formula.sub2);
+        var con1 = this.cnf(formula.sub1);
+        var con2 = this.cnf(formula.sub2);
+        // log('back up at ∧: concatenating clauses of '+formula.sub1+' and '+formula.sub2);
+        // log('which are '+con1+' and '+con2);
+        return con1.concatNoDuplicates(con2);
+    }
+    if (formula.operator == '∨') {
+        // log('∨: combining clauses of '+formula.sub1+' and '+formula.sub2);
+        var res = [];
+        var dis1 = this.cnf(formula.sub1);
+        var dis2 = this.cnf(formula.sub2);
+        // log('back up at ∨: combining clauses of '+formula.sub1+' and '+formula.sub2);
+        // log('which are '+dis1+' and '+dis2);
+        for (var i=0; i<dis1.length; i++) {
+            for (var j=0; j<dis2.length; j++) {
+                // dis1[i] and dis2[j] are clauses, we want to combine them
+                // log('adding '+dis1[i].concat(dis2[j]));
+                res.push(dis1[i].concatNoDuplicates(dis2[j]));
+            }
+        }
+        return res;
+        // xxx TODO: remove redundant elements:
+        // [[p],[p,Fc],[p,Fd],[Fa,p],[Fa,Fc],[Fa,Fd],[Fb,p],[Fb,Fc],[Fb,Fd],[q],[q,Fg],[q,Fh],[Fe,q],[Fe,Fg],[Fe,Fh],[Ff,q],[Ff,Fg],[Ff,Fh]]
+        // can be simplified to
+        // [[p],[Fa,Fc],[Fa,Fd],[Fb,Fc],[Fb,Fd],[q],[Fe,Fg],[Fe,Fh],[Ff,Fg],[Ff,Fh]].
+        // Also, remove duplicates under reorderings, like [[p,q], [q,p]].
+    }
+    throw formula;
+}
+
+Parser.prototype.makeVariablesDistinct = function(formula) {
+    // return formula that doesn't reuse the same variable (for prenex normal
+    // form); formula must be in NNF ("normalise()d").
+    var usedVariables = arguments[1] || [];
+    // log('making variables distinct in '+formula+' (used '+usedVariables+')');
+    if (formula.matrix) {
+        var nmatrix = formula.matrix;
+        var nvar = formula.variable;
+        if (usedVariables.includes(formula.variable)) {
+            // log('need new variable instead of '+formula.variable);
+            nvar = this.expressionType[nvar] == 'world variable' ?
+                this.getNewWorldVariable() : this.getNewVariable();
+            nmatrix = nmatrix.substitute(formula.variable, nvar);
+        }
+        usedVariables.push(nvar);
+        nmatrix = this.makeVariablesDistinct(nmatrix, usedVariables);
+        // log('back at '+formula+': new matrix is '+nmatrix);
+        if (nmatrix == formula.matrix) return formula;
+        return new QuantifiedFormula(formula.quantifier, nvar, nmatrix, formula.overWorlds);
+    }
+    if (formula.sub1) {
+        var nsub1 = this.makeVariablesDistinct(formula.sub1, usedVariables);
+        var nsub2 = this.makeVariablesDistinct(formula.sub2, usedVariables);
+        if (formula.sub1 == nsub1 && formula.sub2 == nsub2) return formula;
+        return new BinaryFormula(formula.operator, nsub1, nsub2);
+    }
+    // literal:
+    return formula;
 }
 
 
 Parser.prototype.parseFormula = function(str) {
     // return Formula for string
-    var isAccessibilityFormula = arguments[1];
-    var boundVars = arguments[2] ? arguments[2].slice() : [];
+    var boundVars = arguments[1] ? arguments[1].slice() : [];
     log("parsing '"+str+"' (boundVars "+boundVars+")");
     str = str.trim();
 
@@ -148,9 +388,9 @@ Parser.prototype.parseFormula = function(str) {
                 throw "argument missing for operator "+op+" in "+str;
             }
             log("   subformulas: "+subFormulas[0]+", "+subFormulas[1]+"; ");
-            var sub1 = this.parseFormula(subFormulas[0], isAccessibilityFormula, boundVars);
-            var sub2 = this.parseFormula(subFormulas[1], isAccessibilityFormula, boundVars);
-            return new BinaryFormula(op, sub1, sub2, this);
+            var sub1 = this.parseFormula(subFormulas[0], boundVars);
+            var sub2 = this.parseFormula(subFormulas[1], boundVars);
+            return new BinaryFormula(op, sub1, sub2);
         }
     }
     
@@ -158,9 +398,10 @@ Parser.prototype.parseFormula = function(str) {
     if (reTest) {
         log("   string is negated or modal; ");
         var op = reTest[1];
-        var sub = this.parseFormula(str.substr(1), isAccessibilityFormula, boundVars);
-        if (op == '¬') return new NegatedFormula(sub, this);
-        else return new ModalFormula(op, sub, this);
+        var sub = this.parseFormula(str.substr(1), boundVars);
+        if (op == '¬') return new NegatedFormula(sub);
+        this.isModal = true;
+        return new ModalFormula(op, sub);
     }
 
     // if we're here the formula should be quantified or atomic
@@ -170,13 +411,16 @@ Parser.prototype.parseFormula = function(str) {
         log("   string is quantified (quantifier = '"+reTest[1]+"'); ");
         var quantifier = reTest[1];
         var variable = reTest[2];
-        if (!isAccessibilityFormula) this.registerExpression(variable, 'variable');
         if (!str.substr(reTest[0].length)) {
             throw "There is nothing in the scope of "+str;
         }
+        if (this.registerExpression[variable] != 'world variable') {
+            this.registerExpression(variable, 'variable', 0);
+        }
         boundVars.push(variable);
-        var sub = this.parseFormula(str.substr(reTest[0].length), isAccessibilityFormula, boundVars);
-        return new QuantifiedFormula(quantifier, variable, sub, this);
+        this.isPropositional = false;
+        var sub = this.parseFormula(str.substr(reTest[0].length), boundVars);
+        return new QuantifiedFormula(quantifier, variable, sub);
     }
 
     // formula should be atomic
@@ -184,26 +428,25 @@ Parser.prototype.parseFormula = function(str) {
     if (reTest && reTest.index == 0) {
         // atomic
         log("   string is atomic (predicate = '"+reTest[0]+"'); ");
-        if (isAccessibilityFormula) {
-            var predicate = this.R;
-            var terms = [str[1], str[2]];
-            this.registerExpression(str[1], 'world variable', 0);
-            this.registerExpression(str[2], 'world variable', 0);
-            return new AtomicFormula(predicate, terms, this);
-        }
         var predicate = reTest[0];
         var termstr = str.substr(predicate.length); // empty for propositional constants
         var terms = this.parseTerms(termstr, boundVars) || [];
-        var predicateType = terms ? terms.length+"-ary predicate" : "proposition letter (0-ary predicate)";
+        if (termstr) {
+            var predicateType = terms.length+"-ary predicate";
+            if (predicate != this.R) this.isPropositional = false;
+        }
+        else {
+            var predicateType = "proposition letter (0-ary predicate)";
+        }
         this.registerExpression(predicate, predicateType, terms.length);
-        return new AtomicFormula(predicate, terms, this);
+        return new AtomicFormula(predicate, terms);
     }
 
     // if the entire formula was enclosed in parens we end up here
     log("   string could not be identified as anything;");
     if (str.match(/^\((.*)\)$/)) {
         log("   trying again without outer parens;");
-        return this.parseFormula(str.replace(/^\((.*)\)$/, "$1"), isAccessibilityFormula, boundVars);
+        return this.parseFormula(str.replace(/^\((.*)\)$/, "$1"), boundVars);
     }
 
     throw "Parse Error.\n'" + str + "' is not a well-formed formula.";
@@ -211,7 +454,23 @@ Parser.prototype.parseFormula = function(str) {
 
 Parser.prototype.parseAccessibilityFormula = function(str) {
     // return Formula for accessibility condition like ∀w∃v(Rwv)
-    return this.parseFormula(str, true);
+
+    // We need to work around clashes if e.g. 'v' is already used as proposition
+    // letter or 'R' as an ordinary predicate.
+    str = str.replace('R', this.R);
+    var matches = str.match(/[∀∃]./g);
+    for (var i=0; i<matches.length; i++) {
+        var v = matches[i][1];
+        if (this.expressionType[v] && this.expressionType[v] != 'world variable') {
+            var re = new RegExp(v, 'g');
+            str = str.replace(re, this.getNewWorldVariable());
+        }
+        else {
+            // also register variables as world variables:
+            this.registerExpression[v] = 'world variable';
+        }
+    }
+    return this.parseFormula(str);
 }
 
 Parser.prototype.parseTerms = function(str, boundVars) {

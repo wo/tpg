@@ -5,8 +5,6 @@ function Formula() {
     // subclasses of Formula insofar as they inherit Formula.prototype.
 }
 
-Formula.prototype.parser = null; // set by new Parser()
-
 Formula.prototype.toString = function() {
     return this.string;
 }
@@ -125,7 +123,8 @@ Formula.prototype.normalize = function() {
     }
     case '∀' : case '∃' : {
         // |(Ax)A| = Ax|A|
-        return new QuantifiedFormula(op, this.variable, this.matrix.normalize());
+        return new QuantifiedFormula(op, this.variable, this.matrix.normalize(),
+                                     this.overWorlds);
     }
     case '□' : case '◇' : {
         // |[]A| = []|A|
@@ -157,7 +156,8 @@ Formula.prototype.normalize = function() {
         case '∀' : case '∃' : {
             // |~(Ax)A| = Ex|~A|
             var sub = this.sub.matrix.negate().normalize();
-            return new QuantifiedFormula(op2=='∀' ? '∃' : '∀', this.sub.variable, sub);
+            return new QuantifiedFormula(op2=='∀' ? '∃' : '∀', this.sub.variable, sub,
+                                         this.sub.overWorlds);
         }
         case '□' : case '◇' : {
             // |~[]A| = []|~A|
@@ -173,135 +173,7 @@ Formula.prototype.normalize = function() {
     }
 }
 
-Formula.prototype.clausalNormalForm = function() {
-    // return clausal normal form of this formula (must be normalized); a
-    // clausal normal form is a list (interpreted as conjunction) of "clauses",
-    // each of which is a list (interpreted as disjunction) of
-    // literals. Variables are understood as universal; existential quantifiers
-    // are skolemized away.
-
-    // see http://cs.jhu.edu/~jason/tutorials/convert-to-CNF and
-    // http://www8.cs.umu.se/kurser/TDBB08/vt98b/Slides4/norm1_4.pdf
-    // xxx todo use switching variables to keep CNFs short?
-
-    var distinctVars = this.makeVariablesDistinct();
-    var skolemized = distinctVars.skolemize();
-    var quantifiersRemoved = skolemized.removeQuantifiers();
-    var cnf = quantifiersRemoved.cnf();
-    return cnf;
-}
-
-Formula.prototype.cnf = function() {
-    if (this.type == 'literal') {
-        return [[this]];
-    }
-    if (this.operator == '∧') {
-        // log('∧: concatenating clauses of '+this.sub1+' and '+this.sub2);
-        var con1 = this.sub1.cnf();
-        var con2 = this.sub2.cnf();
-        // log('back up at ∧: concatenating clauses of '+this.sub1+' and '+this.sub2);
-        // log('which are '+con1+' and '+con2);
-        return con1.concatNoDuplicates(con2);
-    }
-    if (this.operator == '∨') {
-        // log('∨: combining clauses of '+this.sub1+' and '+this.sub2);
-        var res = [];
-        var dis1 = this.sub1.cnf();
-        var dis2 = this.sub2.cnf();
-        // log('back up at ∨: combining clauses of '+this.sub1+' and '+this.sub2);
-        // log('which are '+dis1+' and '+dis2);
-        for (var i=0; i<dis1.length; i++) {
-            for (var j=0; j<dis2.length; j++) {
-                // dis1[i] and dis2[j] are clauses, we want to combine them
-                // log('adding '+dis1[i].concat(dis2[j]));
-                res.push(dis1[i].concatNoDuplicates(dis2[j]));
-            }
-        }
-        return res;
-        // xxx TODO: remove redundant elements:
-        // [[p],[p,Fc],[p,Fd],[Fa,p],[Fa,Fc],[Fa,Fd],[Fb,p],[Fb,Fc],[Fb,Fd],[q],[q,Fg],[q,Fh],[Fe,q],[Fe,Fg],[Fe,Fh],[Ff,q],[Ff,Fg],[Ff,Fh]]
-        // can be simplified to
-        // [[p],[Fa,Fc],[Fa,Fd],[Fb,Fc],[Fb,Fd],[q],[Fe,Fg],[Fe,Fh],[Ff,Fg],[Ff,Fh]].
-        // Also, remove duplicates under reorderings, like [[p,q], [q,p]].
-    }
-    throw this;
-}
-
-Formula.prototype.makeVariablesDistinct = function() {
-    // return formula that doesn't reuse the same variable (for prenex normal
-    // form); formula must be in NNF ("normalise()d").
-    var usedVariables = arguments[0] || [];
-    // log('making variables distinct in '+this+' (used '+usedVariables+')');
-    if (this.matrix) {
-        var nmatrix = this.matrix;
-        var nvar = this.variable;
-        if (usedVariables.includes(this.variable)) {
-            // log('need new variable instead of '+this.variable);
-            nvar = this.parser.expressionType[nvar] == 'world variable' ?
-                this.parser.getNewWorldVariable() : this.parser.getNewVariable();
-            nmatrix = nmatrix.substitute(this.variable, nvar);
-        }
-        usedVariables.push(nvar);
-        nmatrix = nmatrix.makeVariablesDistinct(usedVariables);
-        // log('back at '+this+': new matrix is '+nmatrix);
-        if (nmatrix == this.matrix) return this;
-        return new QuantifiedFormula(this.quantifier, nvar, nmatrix);
-    }
-    if (this.sub1) {
-        var nsub1 = this.sub1.makeVariablesDistinct(usedVariables);
-        var nsub2 = this.sub2.makeVariablesDistinct(usedVariables);
-        if (this.sub1 == nsub1 && this.sub2 == nsub2) return this;
-        return new BinaryFormula(this.operator, nsub1, nsub2);
-    }
-    // literal:
-    return this;
-}
-
-Formula.prototype.skolemize = function() {
-    // return formula with existential quantifiers skolemized away; formula
-    // must be in NNF.
-    var boundVars = arguments[0] ? arguments[0].copy() : [];
-    // log(this.string+' bv: '+boundVars);
-    if (this.quantifier == '∃') {
-        // skolemize on variables that are bound at this point and that occur in
-        // the matrix (ignoring this.variable) [note that this.variables also
-        // contains variables bound further inside this formula, which we don't
-        // want to skolemize on]:
-        var skolemVars = this.variables.copy();
-        this.variables.forEach(function(v) {
-            if (!boundVars.includes(v)) skolemVars.remove(v);
-        });
-        skolemVars.remove(this.variable);
-        var skolemTerm;
-        if (skolemVars.length > 0) {
-            var funcSymbol = this.parser.getNewFunctionSymbol(skolemVars.length);
-            var skolemTerm = skolemVars;
-            skolemTerm.unshift(funcSymbol);
-        }
-        else skolemTerm = this.parser.expressionType[this.variable] == 'variable' ?
-            this.parser.getNewConstant() : this.parser.getNewWorldName();
-        var nmatrix = this.matrix.substitute(this.variable, skolemTerm); 
-        nmatrix.constants.push(skolemVars.length > 0 ? funcSymbol : skolemTerm);
-        nmatrix = nmatrix.skolemize(boundVars);
-        return nmatrix;
-    }
-    if (this.quantifier) { // ∀
-        boundVars.push(this.variable);
-        var nmatrix = this.matrix.skolemize(boundVars);
-        if (nmatrix == this.matrix) return this;
-        return new QuantifiedFormula(this.quantifier, this.variable, nmatrix);
-    }
-    if (this.sub1) {
-        var nsub1 = this.sub1.skolemize(boundVars);
-        var nsub2 = this.sub2.skolemize(boundVars);
-        if (this.sub1 == nsub1 && this.sub2 == nsub2) return this;
-        return new BinaryFormula(this.operator, nsub1, nsub2);
-    }
-    // literal:
-    return this;
-}
-
-Formula.prototype.prenex = function() {
+Formula.prototype.prenex = function() { // xxx unused
     // return formula with universal quantifiers moved to front; formula must be
     // skolemized and in NNF.
     if (this.sub1) { // ∀xP ∧ Q => ∀x(P ∧ Q), Q ∧ ∀xP => ∀x(Q ∧ P)
@@ -320,8 +192,9 @@ Formula.prototype.prenex = function() {
     return this;
 }
 
+
 Formula.prototype.removeQuantifiers = function() {
-    // return formula with all quantifiers remove; formula must be skolemized
+    // return formula with all quantifiers removed; formula must be skolemized
     // and in NNF.
     if (this.matrix) return this.matrix.removeQuantifiers();
     if (this.sub1) {
@@ -336,109 +209,23 @@ Formula.prototype.removeQuantifiers = function() {
     return this;
 }
 
-
-Formula.prototype.translateModal = function(worldVariable) {
-    // return translation of modal formula into first-order formula with
-    // explicit world variables
-    log("translating modal formula "+this);
-    if (!worldVariable) {
-        if (!this.parser.translatedFromModal) this.parser.initModality();
-        worldVariable = this.parser.w;
-    }
-    if (this.terms) { // atomic; add world variable to argument list
-        var nterms = this.terms.copyDeep();
-        nterms.push(worldVariable); // don't need to add world parameters to function terms; think of 0-ary terms
-        return new AtomicFormula(this.predicate, nterms);
-    }
-    if (this.quantifier) {
-        var nmatrix = this.matrix.translateModal(worldVariable);
-        return new QuantifiedFormula(this.quantifier, this.variable, nmatrix);
-        // xxx assumes constant domains
-    }
-    if (this.sub1) {
-        var nsub1 = this.sub1.translateModal(worldVariable);
-        var nsub2 = this.sub2.translateModal(worldVariable);
-        return new BinaryFormula(this.operator, nsub1, nsub2);
-    }
-    if (this.operator == '¬') {
-        var nsub = this.sub.translateModal(worldVariable);
-        return new NegatedFormula(nsub);
-    }
-    if (this.operator == '□') {
-        var newWorldVariable = this.parser.getNewWorldVariable();
-        var wRv = new AtomicFormula(this.parser.R, [worldVariable, newWorldVariable])
-        var nsub = this.sub.translateModal(newWorldVariable);
-        return new QuantifiedFormula('∀', newWorldVariable, new BinaryFormula('→', wRv, nsub))
-    }
-    if (this.operator == '◇') {
-        var newWorldVariable = this.parser.getNewWorldVariable();
-        var wRv = new AtomicFormula(this.parser.R, [worldVariable, newWorldVariable])
-        var nsub = this.sub.translateModal(newWorldVariable);
-        return new QuantifiedFormula('∃', newWorldVariable, new BinaryFormula('∧', wRv, nsub))
-    }
-}
-
-Formula.prototype.translateToModal = function() {
-    // translate back from first-order formula into modal formula, with extra
-    // .world label: pv => p (v); ∀u(vRu→pu) => □p (v). 
-    // formulas of the form 'wRv' remain untranslated.
-    log("translating "+this+" into modal formula");
-    if (this.terms && this.predicate == this.parser.R) {
-        return this;
-    }
-    if (this.terms) {
-        // remove world variable from argument list
-        var nterms = this.terms.copyDeep();
-        var worldlabel = nterms.pop();
-        var res = new AtomicFormula(this.predicate, nterms);
-        res.world = worldlabel;
-    }
-    else if (this.quantifier &&
-             this.parser.expressionType[this.variable] == 'world variable') {
-        if (this.quantifier == '∃') { // (Ev)(wRv & Av) => <>A
-            var res = new ModalFormula('◇', this.matrix.sub2.translateToModal());
-        }
-        else {
-            var res = new ModalFormula('□', this.matrix.sub2.translateToModal());
-        }
-        res.world = this.matrix.sub1.terms[0];
-    }
-    else if (this.quantifier) {
-        var nmatrix = this.matrix.translateToModal();
-        var res = new QuantifiedFormula(this.quantifier, this.variable, nmatrix);
-        res.world = nmatrix.world;
-    }
-    else if (this.sub1) {
-        var nsub1 = this.sub1.translateToModal();
-        var nsub2 = this.sub2.translateToModal();
-        var res = new BinaryFormula(this.operator, nsub1, nsub2);
-        res.world = nsub2.world; // sub1 might be 'wRv' which has no world parameter
-    }
-    else if (this.operator == '¬') {
-        var nsub = this.sub.translateToModal();
-        var res = new NegatedFormula(nsub);
-        res.world = nsub.world;
-    }
-    return res;
-}
-
-Formula.prototype.isModal = function() {
-    var fla, flas = [this];
-    while ((fla = flas.shift())) {
-        if (fla.operator == '□' || fla.operator == '◇') return true;
-        if (fla.matrix) {
-            flas.push(fla.matrix);
-        }
-        else if (fla.sub) {
-            flas.push(fla.sub);
-        }
-        else if (fla.sub1) {
-            flas.push(fla.sub1);
-            flas.push(fla.sub2);
-        }
-    }
-    return false;
-}
+// Formula.prototype.isModal = function() {
+//     var fla, flas = [this];
+//     while ((fla = flas.shift())) {
+//         if (fla.operator == '□' || fla.operator == '◇') return true;
+//         if (fla.matrix) {
+//             flas.push(fla.matrix);
+//         }
+//         else if (fla.sub) {
+//             flas.push(fla.sub);
+//         }
+//         else if (fla.sub1) {
+//             flas.push(fla.sub1);
+//             flas.push(fla.sub2);
+//         }
+//     }
+//     return false;
+// }
 
 // Formula.prototype.getBoundVariables = function() {
 //     // returns all bound variables in the formula (no duplicates)
@@ -578,27 +365,26 @@ function AtomicFormula(predicate, terms) {
     this.terms = terms; // a,b,f(a,g(c),d) => a,b,[f,a,[g,c],d]
     this.string = this.predicate + AtomicFormula.terms2string(this.terms);
     this.predicates = [predicate];
-    this.constants = []; // includes function symbols
+    // this.constants = []; // includes function symbols
     this.variables = [];
-    this.isAccessibilityFormula = (predicate == this.parser.R);
     // classify atomic terms into variables and constants:
-    var list = terms;
-    for (var i=0; i<list.length; i++) {
-        if (list[i].isArray) list = list.concat(list[i]);
-        else {
-            var termType = this.parser.expressionType[list[i]];
-            if (termType == 'variable' || termType == 'world variable') {
-                this.variables.pushNoDuplicates(list[i]);
-            }
-            else this.constants.pushNoDuplicates(list[i]);
-        }
-    }
-    if (this.parser.isPropositional &&
-        this.terms.length > 0 &&
-        (!this.parser.isModal ||
-         (this.predicate != this.parser.R && this.terms.length > 1))) {
-            this.parser.isPropositional = false;
-    }
+    // var list = terms;
+    // for (var i=0; i<list.length; i++) {
+    //     if (list[i].isArray) list = list.concat(list[i]);
+    //     else {
+    //         var termType = this.parser.expressionType[list[i]];
+    //         if (termType == 'variable' || termType == 'world variable') {
+    //             this.variables.pushNoDuplicates(list[i]);
+    //         }
+    //         else this.constants.pushNoDuplicates(list[i]);
+    //     }
+    // }
+    // if (this.parser.isPropositional &&
+    //     this.terms.length > 0 &&
+    //     (!this.parser.isModal ||
+    //      (this.predicate != this.parser.R && this.terms.length > 1))) {
+    //         this.parser.isPropositional = false;
+    // }
     // log(this.constants);
 }
 
@@ -642,15 +428,21 @@ AtomicFormula.substituteInTerm = function(term, origTerm, newTerm, shallow) {
     return term;
 }
 
-function QuantifiedFormula(quantifier, variable, matrix) {
+function QuantifiedFormula(quantifier, variable, matrix, overWorlds) {
     this.quantifier = quantifier;
     this.variable = variable;
     this.matrix = matrix;
-    this.type = quantifier == '∀' ? 'gamma' : 'delta';
+    this.overWorlds = overWorlds;
+    if (overWorlds) {
+        this.type = quantifier == '∀' ? 'modalGamma' : 'modalDelta';
+    }
+    else {
+        this.type = quantifier == '∀' ? 'gamma' : 'delta';
+    }
     this.string = quantifier + variable + matrix;
     this.predicates = matrix.predicates;
-    this.constants = matrix.constants;
-    this.variables = matrix.variables; // if current variable is vacuous we
+    // this.constants = matrix.constants;
+    // this.variables = matrix.variables; // if current variable is vacuous we
                                        // don't care if it's listed under
                                        // variables
     
@@ -668,7 +460,7 @@ QuantifiedFormula.prototype.substitute = function(origTerm, newTerm, shallow) {
     if (this.variable == origTerm) return this;
     var nmatrix = this.matrix.substitute(origTerm, newTerm, shallow);
     if (nmatrix == this.matrix) return this;
-    return new QuantifiedFormula(this.quantifier, this.variable, nmatrix);
+    return new QuantifiedFormula(this.quantifier, this.variable, nmatrix, this.overWorlds);
 }
 
 function BinaryFormula(operator, sub1, sub2) {
@@ -685,20 +477,20 @@ function BinaryFormula(operator, sub1, sub2) {
             this.predicates.push(pred);
         }
     }
-    this.constants = this.sub1.constants.copy();
-    for (var i=0; i<this.sub2.constants.length; i++) {
-        var cons = this.sub2.constants[i];
-        if (!this.constants.includes(cons)) {
-            this.constants.push(cons);
-        }
-    }
-    this.variables = this.sub1.variables.copy();
-    for (var i=0; i<this.sub2.variables.length; i++) {
-        var vari = this.sub2.variables[i];
-        if (!this.variables.includes(vari)) {
-            this.variables.push(vari);
-        }
-    }
+    // this.constants = this.sub1.constants.copy();
+    // for (var i=0; i<this.sub2.constants.length; i++) {
+    //     var cons = this.sub2.constants[i];
+    //     if (!this.constants.includes(cons)) {
+    //         this.constants.push(cons);
+    //     }
+    // }
+    // this.variables = this.sub1.variables.copy();
+    // for (var i=0; i<this.sub2.variables.length; i++) {
+    //     var vari = this.sub2.variables[i];
+    //     if (!this.variables.includes(vari)) {
+    //         this.variables.push(vari);
+    //     }
+    // }
 }
 
 BinaryFormula.prototype = Object.create(Formula.prototype);
@@ -718,9 +510,8 @@ function ModalFormula(operator, sub) {
     this.type = operator == '□' ? 'boxy' : 'diamondy';
     this.string = this.operator + this.sub;
     this.predicates = this.sub.predicates;
-    this.constants = this.sub.constants;
-    this.variables = this.sub.variables;
-    this.parser.isModal = true;
+    // this.constants = this.sub.constants;
+    // this.variables = this.sub.variables;
 }
 
 ModalFormula.prototype = Object.create(Formula.prototype);
@@ -739,8 +530,8 @@ function NegatedFormula(sub) {
     this.type = NegatedFormula.computeType(sub);
     this.string = '¬' + this.sub;
     this.predicates = this.sub.predicates;
-    this.constants = this.sub.constants;
-    this.variables = this.sub.variables;
+    // this.constants = this.sub.constants;
+    // this.variables = this.sub.variables;
 }
 
 NegatedFormula.computeType = function(sub) {

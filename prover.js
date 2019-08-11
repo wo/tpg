@@ -11,7 +11,7 @@
 // complexity (determined by the number of free variables and nodes on
 // the current branch).
 
-function Prover(initFormulas, accessibilityConstraints) {
+function Prover(initFormulas, parser, accessibilityConstraints) {
 
     this.depthLimit = 1; // depth = number of free variables on Tree
     this.nodeLimitFactor = 4;
@@ -24,10 +24,10 @@ function Prover(initFormulas, accessibilityConstraints) {
 
     // normalize initFormulas
     this.initFormulas = initFormulas; // formulas as entered, with conclusion negated
-    var parser = initFormulas[0].parser;
+    this.parser = parser;
     if (parser.isModal) {
         this.initFormulasNonModal = initFormulas.map(function(f){
-            return f.translateModal();
+            return parser.translateFromModal(f);
         });
     }
     else {
@@ -43,10 +43,11 @@ function Prover(initFormulas, accessibilityConstraints) {
     });
     
     // init prover:
-    this.steps = 0;
+    this.step = 0;
     this.alternatives = [];
     this.tree = new Tree(this);
-    var accessibilityConstraintFormulas = (accessibilityConstraints || []).map(function(s) {
+    var mfParser = parser.copy();
+    if (accessibilityConstraints) {
         var name2fla = {
             "reflexivity": "∀vRvv",
             "symmetry": "∀v∀u(Rvu→Ruv)",
@@ -54,11 +55,17 @@ function Prover(initFormulas, accessibilityConstraints) {
             "euclidity": "∀v∀u∀t(Rvu→(Rvt→Rut))",
             "seriality": "∀v∃uRvu"
         };
-        return parser.parseAccessibilityFormula(name2fla[s]).normalize();
-    });
-    this.modelfinder = new ModelFinder(this.initFormulasNormalized,
-                                       accessibilityConstraintFormulas);
-     
+        var accessibilityFormulas = accessibilityConstraints.map(function(s) {
+            return mfParser.parseAccessibilityFormula(name2fla[s]).normalize();
+        });
+        this.modelfinder = new ModelFinder(this.initFormulasNormalized,
+                                           mfParser,
+                                           accessibilityFormulas);
+    }
+    else {
+        this.modelfinder = new ModelFinder(this.initFormulasNormalized, mfParser);
+    }
+    
     this.counterModel = null;
     this.stepStartTime = performance.now();
 
@@ -101,12 +108,12 @@ Prover.prototype.nextStep = function() {
     // expands the next node on the present tree; then initializes backtracking
     // if limit is reached and occasionally searches for a countermodel; calls
     // itself again unless proof is complete.
-    this.steps++;
-    log('*** prover step '+this.steps);
+    this.step++;
+    log('*** prover step '+this.step);
     
     // status msg: xxx tidy up
     var numBranches = this.tree.openBranches.length + this.tree.closedBranches.length;
-    // this.status("step " + this.steps + ": " + numBranches + " branches, " +
+    // this.status("step " + this.step + ": " + numBranches + " branches, " +
     //             this.tree.numNodes + " nodes, " +
     //             this.alternatives.length + " alternatives, search depth " +
     //             this.depthLimit);
@@ -143,17 +150,17 @@ Prover.prototype.nextStep = function() {
         return this.onfinished(0);
     }
     
-    if (this.steps % 20 == 19) {
+    if (this.step % 20 == 19) {
         // Often, there are thousands of trees to check with depth n, and none
         // of them closes, whereas many close for n+1. Changing the depth
         // measure doesn't change this. Instead, once every x steps, we increase
         // the limit for a while and then reset it:
-        if (this.steps % 1000 == 999) {
+        if (this.step % 1000 == 999) {
             log("trying with increased depth for a few steps");
             this.depthLimit++;
-            this.decreaseLimit = this.steps + 200;
+            this.decreaseLimit = this.step + 200;
         }
-        else if (this.steps == this.decreaseLimit) {
+        else if (this.step == this.decreaseLimit) {
             log("resetting depth");
             this.depthLimit--;
         }
@@ -341,26 +348,19 @@ Prover.delta = function(branch, nodeList) {
     log('delta '+nodeList[0]);
     var node = nodeList[0];
     var fla = node.formula;
-    // don't need skolem terms for diamond formulas ∃v(wRv ∧ Av):
-    if (fla.matrix.sub1 && fla.matrix.sub1.isAccessibilityFormula) {
-        var skolemTerm = branch.newWorldName();
+    // find skolem term (newTerm):
+    var funcSymbol = branch.newFunctionSymbol();
+    // It suffices to skolemize on variables contained in this formula.
+    // This makes some proofs much faster by making some gamma applications
+    // redundant. However, translation into sentence tableau then becomes
+    // almost impossible, because here we need the missing gamma
+    // applications.  Consider Ax(Fx & Ey~Fy).
+    if (branch.freeVariables.length > 0) {
+        var skolemTerm = branch.freeVariables.copy();
+        skolemTerm.unshift(funcSymbol);
     }
     else {
-        // find skolem term (newTerm):
-        var funcSymbol = branch.newFunctionSymbol();
-        // It suffices to skolemize on variables contained in this formula.
-        // This makes some proofs much faster by making some gamma applications
-        // redundant. However, translation into sentence tableau then becomes
-        // almost impossible, because here we need the missing gamma
-        // applications.  Consider Ax(Fx & Ey~Fy).
-    
-        if (branch.freeVariables.length > 0) {
-            var skolemTerm = branch.freeVariables.copy();
-            skolemTerm.unshift(funcSymbol);
-        }
-        else {
-            var skolemTerm = funcSymbol;
-        }
+        var skolemTerm = funcSymbol;
     }
     var newFormula = node.formula.matrix.substitute(node.formula.variable, skolemTerm);
     var newNode = new Node(newFormula, Prover.delta, nodeList);
@@ -370,18 +370,32 @@ Prover.delta = function(branch, nodeList) {
 }
 Prover.delta.priority = 2;
 
+Prover.modalDelta = function(branch, nodeList) {
+    log('modalDelta '+nodeList[0]);
+    var node = nodeList[0];
+    var fla = node.formula;
+    // don't need skolem terms for diamond formulas ∃v(wRv ∧ Av):
+    var newWorldName = branch.newWorldName();
+    var newFormula = node.formula.matrix.substitute(node.formula.variable, newWorldName);
+    var newNode = new Node(newFormula, Prover.delta, nodeList);
+    newNode.instanceTerm = newWorldName;
+    branch.addNode(newNode);
+    branch.tryClose(newNode);
+}
+Prover.modalDelta.priority = 2;
+
 Prover.reflexivity = function(branch, nodeList) {
     log('applying reflexivity rule');
     // nodeList is either empty or contains a node of form wRv
     // wherein v might have been newly introduced
     if (nodeList.length==0) {
         // applied to initial world w:
-        var worldName = branch.nodes[0].formula.parser.w;
+        var worldName = branch.tree.parser.w;
     }
     else {
         var worldName = nodeList[0].formula.terms[1];
     }
-    var R = branch.nodes[0].formula.parser.R;
+    var R = branch.tree.parser.R;
     var formula = new AtomicFormula(R, [worldName, worldName]);
     log('adding '+formula);
     var newNode = new Node(formula, Prover.reflexivity, nodeList || []);
@@ -398,7 +412,7 @@ Prover.symmetry = function(branch, nodeList) {
         return;
     }
     var nodeFormula = nodeList[0].formula;
-    var R = branch.nodes[0].formula.parser.R;
+    var R = branch.tree.parser.R;
     var formula = new AtomicFormula(R, [nodeFormula.terms[1], nodeFormula.terms[0]]);
     log('adding '+formula);
     var newNode = new Node(formula, Prover.symmetry, nodeList);
@@ -415,7 +429,7 @@ Prover.transitivity = function(branch, nodeList) {
         // applied to initial world w; nothing to do.
         return;
     }
-    var R = branch.nodes[0].formula.parser.R;
+    var R = branch.tree.parser.R;
     var node = nodeList[0];
     var nodeFla = node.formula;
     // see if we can apply transitivity:
@@ -449,7 +463,7 @@ Prover.euclidity = function(branch, nodeList) {
         // applied to initial world w; nothing to do.
         return;
     }
-    var R = branch.nodes[0].formula.parser.R;
+    var R = branch.tree.parser.R;
     var node = nodeList[0];
     var nodeFla = node.formula;
     // see if we can apply euclidity:
@@ -477,10 +491,10 @@ Prover.euclidity.priority = 3;
 Prover.seriality = function(branch, nodeList) {
     log('applying seriality rule');
     // nodeList is either empty or contains a newly added node of form wRv.
-    var R = branch.nodes[0].formula.parser.R;
+    var R = branch.tree.parser.R;
     if (nodeList.length == 0) {
         // applied to initial world w.
-        var oldWorld = branch.nodes[0].formula.parser.w;
+        var oldWorld = branch.tree.parser.w;
     }
     else {
         var oldWorld = nodeList[0].formula.terms[1];
@@ -506,13 +520,12 @@ Prover.seriality.priority = 10;
 function Tree(prover) {
     if (!prover) return; // for copy() function
     this.prover = prover;
+    this.parser = prover.parser;
     var initBranch = new Branch(this);
     for (var i=0; i<prover.initFormulasNormalized.length; i++) {
         var formula = prover.initFormulasNormalized[i];
         var node = new Node(formula);
         initBranch.addNode(node);
-        // setting initbranch.constants for run-time skolemization
-        initBranch.constants = initBranch.constants.concat(formula.constants); // xxx optimise! (no duplicates)
     }
     this.openBranches = [initBranch];
     this.closedBranches = [];
@@ -704,7 +717,8 @@ Tree.prototype.copy = function() {
     // return a deep copy, including copy of nodes (but not of formulas)
     var ntree = new Tree();
     var nodemap = {} // old node id => copied Node
-    ntree.prover = this.prover
+    ntree.prover = this.prover;
+    ntree.parser = this.parser;
     ntree.numNodes = this.numNodes;
     ntree.openBranches = [];
     for (var i=0; i<this.openBranches.length; i++) {
@@ -733,7 +747,7 @@ Tree.prototype.copy = function() {
             }
             todoList.push(todo);
         } 
-        var b = new Branch(ntree, nodes, literals, orig.freeVariables.copy(), orig.constants,
+        var b = new Branch(ntree, nodes, literals, orig.freeVariables.copy(), orig.skolemSymbols,
                            todoList, orig.closed);
         b.id = orig.id;
         return b;
@@ -845,12 +859,12 @@ Tree.prototype.toString = function() {
     }
 }
 
-function Branch(tree, nodes, literals, freeVariables, constants, todoList, closed) {
+function Branch(tree, nodes, literals, freeVariables, skolemSymbols, todoList, closed) {
     this.tree = tree;
     this.nodes = nodes || [];
     this.literals = literals || [];
     this.freeVariables = freeVariables || [];
-    this.constants = constants || [];
+    this.skolemSymbols = skolemSymbols || [];
     this.todoList = todoList || [];
     // todoList looks like this: [[Prover.alpha, nodes[0]], [Prover.seriality]]
     this.closed = closed || false;
@@ -868,16 +882,16 @@ Branch.prototype.newVariable = function() {
 }
 
 Branch.prototype.newFunctionSymbol = function(isWorldTerm) {
-    // return new function symbol for delta expansion
+    // return new constant/function symbol for delta expansion
     var sym = isWorldTerm ? 'ω' : 'φ';
     var res = sym+'1';
-    for (var i=this.constants.length-1; i>=0; i--) {
-        if (this.constants[i][0] == sym) {
-            res = sym+(this.constants[i].substr(1)*1+1);
+    for (var i=this.skolemSymbols.length-1; i>=0; i--) {
+        if (this.skolemSymbols[i][0] == sym) {
+            res = sym+(this.skolemSymbols[i].substr(1)*1+1);
             break;
         }
     }
-    this.constants.push(res);
+    this.skolemSymbols.push(res);
     return res;
 }
 
@@ -988,7 +1002,7 @@ Branch.prototype.copy = function() {
                         this.nodes.copy(), // Array.copy
                         this.literals.copy(),
                         this.freeVariables.copy(),
-                        this.constants.copy(),
+                        this.skolemSymbols.copy(),
                         this.todoList.copyDeep(), // make copies of the todo items
                         this.closed);
     // disabled Herbrand restriction:
@@ -1022,7 +1036,7 @@ Branch.prototype.addNode = function(node) {
         this.expandTodoList(node);
     }
     // so that we can later find nodes added in the same step:
-    node.expansionStep = this.tree.prover.steps;
+    node.expansionStep = this.tree.prover.step;
     return node;
 }
 
@@ -1067,7 +1081,7 @@ Branch.prototype.expandTodoList = function(node) {
 	}
 	this.todoList.insert([expansionRule, node], i);
     }
-    if (node.formula.parser.isModal) {
+    if (this.tree.parser.isModal) {
         // Whenever a new world is first mentioned on a branch, rules like
         // seriality, transitivity etc. can potentially be applied with that
         // world. So we add these rules to todoList. 
@@ -1076,7 +1090,7 @@ Branch.prototype.expandTodoList = function(node) {
             // add accessibility rules for initial world:
             this.addAccessibilityRuleApplications();
         }
-        else if (node.formula.isAccessibilityFormula) {
+        else if (node.formula.predicate == this.tree.parser.R) {
             // node has form vRu; check that world u is new:
             // var worldName = node.formula.terms[1];
             // for (var i=0; i<this.nodes.length-1; i++) {
@@ -1161,22 +1175,8 @@ Node.counter = 0;
 
 Node.prototype.getExpansionRule = function() {
     // return rule for expanding this node
-    var rule = Node.type2Rule[this.type];
-    if (rule == Prover.gamma &&
-        this.formula.parser.expressionType[this.formula.variable] == 'world variable') {
-        // xxx why not have type == 'modalGamma' anyway?
-        rule = Prover.modalGamma;
-    }
-    return rule;
+    return Prover[this.type];
 }
-
-Node.type2Rule = {
-    'alpha': Prover.alpha,
-    'beta': Prover.beta,
-    'gamma': Prover.gamma,
-    'delta': Prover.delta
-}
-
 
 
 Node.prototype.iterateOverOrigin = function(iterFun) {

@@ -6,70 +6,78 @@
 
 <script>
   
-alltests = [];
+alltests = {};
+testnames = [];
   
 function showtests(filename) {
-  document.write('<h3>'+filename+'<h3>');
-  for (var name in tests) {
-    if (Array.prototype[name]) continue;
-    alltests[name] = tests[name];
-    document.write('<button onclick="run(\''+name+'\')">'+name+'</button><span id="r'+name+'"></span><br>');
-  }
+    document.write('<h3>'+filename+'<h3>');
+    for (var name in tests) {
+        if (Array.prototype[name]) continue;
+        testnames.push(name);
+        alltests[name] = tests[name];
+        document.write('<button onclick="run(\''+name+'\')">'+name+'</button><span id="r'+name+'"></span><br>');
+    }
 }
 
 var outspan = null;
 function run(testname) {
-  console.log(testname);
-  outspan = document.getElementById('r'+testname);
-  alltests[testname]();
+    console.log(testname);
+    outspan = document.getElementById('r'+testname);
+    alltests[testname]();
 }
 
+var curIndex = 0;
 function runalltests() {
-  for (var name in alltests) {
-    console.log(name);
-    if (Array.prototype[name]) continue;
+    var name = testnames[curIndex];
     run(name);
-  }
+    if (curIndex < testnames.length-1) {
+        curIndex++;
+        setTimeout('runalltests()',10);
+    }
 }
 
 function assertEqual(x,y) {
-  if (x==y) print('.');
-  else print(' <b>fail: '+x+' != '+y+'<b> ');
+    if (x==y) print('.');
+    else print(' <b>fail: '+x+' != '+y+'<b> ');
 }
 
 function assert(x) {
-  if (x) print('.');
-  else print(' <b>fail</b> ');
+    if (x) print('.');
+    else print(' <b>fail</b> ');
 }
 
 function print(s) {
-  outspan.innerHTML += s;
+    outspan.innerHTML += s;
 }
 
 function log(s) {
-  console.log(s);
+    console.log(s);
 }
 
 </script>
-<script src="array.js"></script>
-<script src="formula.js"></script>
-<script src="parser.js"></script>
-<script src="test_formula.js"></script>
+<script src="array.debug.js"></script>
+<script src="formula.debug.js"></script>
+<script src="parser.debug.js"></script>
+<script src="test_formula.debug.js"></script>
 <script>
-  showtests('test_formula.js');
+    showtests('test_formula.js');
 </script>
-<script src="modelfinder.js"></script>
-<script src="test_modelfinder.js"></script>
+<script src="test_parser.debug.js"></script>
 <script>
-  showtests('test_modelfinder.js');
+    showtests('test_parser.js');
 </script>
-<script src="prover.js"></script>
-<script src="test_prover.js"></script>
+<script src="modelfinder.debug.js"></script>
+<script src="test_modelfinder.debug.js"></script>
 <script>
-  showtests('test_prover.js');
+    showtests('test_modelfinder.js');
 </script>
-<script src="sentree.js"></script>
-<script src="test_sentree.js"></script>
+<script src="prover.debug.js"></script>
+<script src="test_prover.debug.js"></script>
 <script>
-  showtests('test_sentree.js');
+    showtests('test_prover.js');
+</script>
+<script src="sentree.debug.js"></script>
+<script src="test_sentree.debug.js"></script>
+<script>
+    showtests('test_sentree.js');
 </script>
