@@ -120,9 +120,14 @@ All this makes it doubtful that much is gained by translating modal formulas
 into predicate-logic formulas. As in the case of negation normal form, the
 translation adds a layer of complexity to the code that should earn its keep.
 
-On the other hand, the translation does simplify the "model finder" (see
-below). I also hope to make better use of the free-variable machinery in the
-future. (A simple example: when applying the seriality rule, we could use a new
+On the other hand, the complications do not arise for the simplified tableaux
+rules of S5, where we can ignore the accessibility clauses. Here we also use the
+full free-variables machinery.
+
+Moreover, the translation simplifies the "model finder" (see below). 
+
+I also hope to make better use of the free-variable machinery outside S5 in the
+future. (At a minimum: when applying the seriality rule, we could use a new
 world /variable/.)
 
 [Here's a starting point for making use of free variables: if ∀x(wRx → px) and
