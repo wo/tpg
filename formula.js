@@ -20,18 +20,18 @@ Formula.prototype.negate = function() {
 Formula.prototype.unify = function(formula) {
     // checks whether this formula can be unified with the argument formula.
     // Returns a (minimally) unifying substitution (that, if applied to both
-    // formulas, yields the same formula) if one exists, otherwise false.
-    // A substitution is simply an array of terms, which is interpreted as
-    // arr[1] -> arr[2], arr[3] -> arr[4], ... (arr[1], arr[3], etc.
-    // are variables). Warning: Don't confuse an empty unifier [] with false!
+    // formulas, yields the same formula) if one exists, otherwise false.  A
+    // substitution is simply an array of terms, which is interpreted as arr[1]
+    // -> arr[2], arr[3] -> arr[4], ... (arr[1], arr[3], etc.  are
+    // variables). Warning: Don't confuse an empty unifier [] with false!
     //
     // The following algorithm is losely based on the one described in S.
-    // Hölldobler, Logik und Logikprogrammierung, Synchron Verlag,
-    // Heidelberg 2001, §4.5.
+    // Hölldobler, Logik und Logikprogrammierung, Synchron Verlag, Heidelberg
+    // 2001, §4.5.
     //
-    // Note that this only works for literals.  For quantified
-    // formulas one would have to care about capturing by quantified
-    // variables, which would complicate things a little.
+    // Note that this only works for literals.  For quantified formulas one
+    // would have to care about capturing by quantified variables, which would
+    // complicate things a little.
     if (this.type != 'literal') return false;
     if (this.sub && !formula.sub) return false;
     if (this.sub) return this.sub.unify(formula.sub);
@@ -60,11 +60,14 @@ Formula.prototype.unify = function(formula) {
             }
             continue;
         }
-        if (t1[0] != 'ξ' && t2[0] != 'ξ') {
+        var t1Var = (t1[0] == 'ξ' || t1[0] == 'ζ');
+        var t2Var = (t2[0] == 'ξ' || t2[0] == 'ζ');
+        if (!t1Var && !t2Var) {
             // neither term is variable: unification failed
+            log('neither term variable');
             return false;
         }
-        if (t1[0] != 'ξ') {
+        if (!t1Var) {
             // only second term is a variable: exchange it with first term, so
             // that in what follows the first term is always a variable.
             var temp = t1; t1 = t2; t2 = temp; 

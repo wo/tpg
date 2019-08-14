@@ -125,5 +125,21 @@ tests = {
         assertEqual(m.worlds.length, 1)
         assert(m.toString().indexOf('R: {  }') >= 0);
         assert(m.toString().indexOf('p: {  }') >= 0);
-    }
+    },
+
+    getcountermodels5: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('□p').negate();
+        var prover = new Prover([f], parser, ['universality']);
+        prover.pauseLength = 0;
+        prover.modelfinder.nextStep = function() { return false; };
+        prover.start();
+        var sentenceTree = new SenTree(prover.tree, parser);
+        var m = sentenceTree.getCounterModel();
+        assertEqual(m.worlds.length, 2)
+        assert(m.toString().indexOf('R') == -1);
+        assert(m.toString().indexOf('p: {  }') >= 0);
+    },
+    
+    
 }

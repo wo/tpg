@@ -126,9 +126,8 @@ full free-variables machinery.
 
 Moreover, the translation simplifies the "model finder" (see below). 
 
-I also hope to make better use of the free-variable machinery outside S5 in the
-future. (At a minimum: when applying the seriality rule, we could use a new
-world /variable/.)
+I also hope to make better use of the free-variable machinery in the future. (At
+a minimum: when applying the seriality rule, we could use a new world /variable/.)
 
 [Here's a starting point for making use of free variables: if ∀x(wRx → px) and
 any wR* occurs on a branch, append px. If the branch also contains ¬pv, it can

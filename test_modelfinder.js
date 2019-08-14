@@ -198,5 +198,35 @@ tests = {
         assert(mf.model.toString().indexOf('p: { 0 }') > 0);
     },
 
+    countermodel_s5: function() {
+        var parser = new Parser();
+        var fs = [parser.parseFormula('□p')];
+        fs = fs.map(function(f){
+            var f2 = parser.translateFromModal(f).normalize();
+            return parser.stripAccessibilityClauses(f2);
+        });
+        var mf = new ModelFinder(fs, parser, [], true);
+        for (var i=0; i<100; i++) {
+            if (mf.nextStep()) break;
+        }
+        assertEqual(mf.model.worlds.length, 1);
+        assertEqual(mf.model.toString().indexOf('R:'), -1);
+        assert(mf.model.toString().indexOf('p: { 0 }') >= 0);
+    },
     
+    countermodel_s52: function() {
+        var parser = new Parser();
+        var fs = [parser.parseFormula('□p')];
+        fs = fs.map(function(f){
+            var f2 = parser.translateFromModal(f).normalize();
+            return parser.stripAccessibilityClauses(f2);
+        });
+        var mf = new ModelFinder(fs, parser, [], true);
+        for (var i=0; i<100; i++) {
+            if (mf.nextStep()) break;
+        }
+        assertEqual(mf.model.worlds.length, 1);
+        assertEqual(mf.model.toString().indexOf('R:'), -1);
+        assert(mf.model.toString().indexOf('p: { 0 }') >= 0);
+    },
 }

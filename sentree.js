@@ -17,6 +17,7 @@ function SenTree(fvTree, parser) {
     this.initFormulasNormalized = fvTree.prover.initFormulasNormalized;
     this.fvTree = fvTree;
     this.parser = parser;
+    this.fvParser = fvTree.parser;
     this.constants = [];
 
     this.markEndNodesClosed();
@@ -24,9 +25,7 @@ function SenTree(fvTree, parser) {
     log(this.toString());
     this.removeUnusedNodes();
     log(this.toString());
-    this.replaceFreeVariables();
-    log(this.toString());
-    this.replaceSkolemTerms();
+    this.replaceFreeVariablesAndSkolemTerms();
     log(this.toString());
 }
 
@@ -188,7 +187,17 @@ SenTree.prototype.transferNode = function(node, par) {
         // quantified formula.
         var from = node.fromNodes[0];
         log("transferring "+node+" (gamma/delta from "+from+")");
-        var newFla = from.formula.sub ? from.formula.sub.matrix.negate() : from.formula.matrix;
+        var matrix = from.formula.matrix || from.formula.sub.matrix;
+        if (this.fvTree.prover.s5 && matrix.sub1 &&
+            matrix.sub1.predicate == this.fvParser.R) {
+            // in S5, ∀x(¬wRxvAx) and ∃x(wRx∧Ax) are expanded directly to Ax;
+            // ¬∀x(¬wRxvAx) and ¬∃x(wRx∧Ax) to ¬Ax.
+            log('yes');
+            var newFla = from.formula.sub ? matrix.sub2.negate() : matrix.sub2;
+        }
+        else {
+            var newFla = from.formula.sub ? matrix.negate() : matrix;
+        }
         var boundVar = from.formula.sub ? from.formula.sub.variable : from.formula.variable;
         log(boundVar + ' is instantiated (in '+newFla+') by '+node.instanceTerm);
         node.formula = newFla.substitute(boundVar, node.instanceTerm);
@@ -260,26 +269,94 @@ SenTree.prototype.expandDoubleNegation = function(node) {
     this.nodes.push(newNode);
 } 
 
-SenTree.prototype.replaceFreeVariables = function() {
-    log("replacing free variables by new constants");
-    // We need to make sure we don't include variables only occurring on removed
-    // nodes.
-    var varMap = {};
-    for (var i=0; i<this.nodes.length; i++) {
-        // Free variables all begin with 'ζ' (worlds) or 'ξ' (individuals).
-        var matches = this.nodes[i].formula.string.match(/ξζ\d+/g);
-        if (!matches) continue;
-        for (var j=0; j<matches.length; j++) {
-            if (!varMap[matches[j]]) {
-                var sym = (matches[j][0] == 'ζ') ?
-                    this.parser.getNewWorldName() : this.parser.getNewConstant();
-                varMap[matches[j]] = sym;
+SenTree.prototype.replaceFreeVariablesAndSkolemTerms = function() {
+    log("replacing free variables and skolem terms by new constants");
+    // Free variables and skolem terms are replaced by ordinary constant. We
+    // want these to appear in a sensible order, so we have to go node by node.
+    // We also need to make sure we don't include terms only occurring on
+    // removed nodes.
+    //
+    // Free variables all begin with 'ζ' (worlds) or 'ξ' (individuals).  Skolem
+    // terms all look like 'φ1', 'φ1(𝛏1,𝛏2..)' (for individuals) or 'ω1'
+    // etc. (for worlds); after unification they can also be nested:
+    // '𝛗1(𝛏1,𝛗2(𝛏1)..)'. Note that a skolem term can occur inside an ordinary
+    // function term. xxx Need to check if this should be accounted for;
+    // substitution is shallow...
+    
+    var translations = {};
+    for (var n=0; n<this.nodes.length; n++) {
+        var node = this.nodes[n];
+        var varMatches = node.formula.string.match(/[ξζ]\d+/g);
+        if (varMatches) {
+            for (var j=0; j<varMatches.length; j++) {
+                var fv = varMatches[j];
+                if (!translations[fv]) {
+                    var sym = (fv[0] == 'ζ') ?
+                        this.parser.getNewWorldName() : this.parser.getNewConstant();
+                    translations[fv] = sym;
+                }
+                log("replacing "+fv+" by "+translations[fv]);
+                node.formula = node.formula.substitute(
+                    fv, translations[fv]
+                );
             }
-            log("replacing "+matches[j]+" by "+varMap[matches[j]]);
-            this.nodes[i].formula = this.nodes[i].formula.substitute(
-                matches[j], varMap[matches[j]]
+        }
+        var skterms = getSkolemTerms(node.formula);
+        var indivTerms = skterms[0], worldTerms = skterms[1];
+        for (var c=0; c<indivTerms.length; c++) {
+            var termstr = indivTerms[c].toString();
+            if (!translations[termstr]) {
+                log(termstr + " is skolem term");
+                translations[termstr] = this.parser.getNewConstant();
+            }
+            node.formula = node.formula.substitute(
+                indivTerms[c], translations[termstr], true
             );
         }
+        for (var c=0; c<worldTerms.length; c++) {
+            var termstr = worldTerms[c].toString();
+            if (!translations[termstr]) {
+                log(termstr + " is worldly skolem term");
+                translations[termstr] = this.parser.getNewWorldName(true);
+            }
+            node.formula = node.formula.substitute(
+                worldTerms[c], translations[termstr], true
+            );
+        }
+    }
+    
+    function getSkolemTerms(formula) {
+        // skolem terms for worlds begin with 'ω'. xxx this does not look for
+        // skolem terms inside other terms!
+        var worldTerms = [];
+        var indivTerms = [];
+        var flas = [formula];
+        var fla;
+        while ((fla = flas.shift())) {
+            if (fla.sub) {
+                flas.unshift(fla.sub);
+            }
+            else if (fla.sub1) {
+                flas.unshift(fla.sub1);
+                flas.unshift(fla.sub2);
+            }
+            else if (fla.matrix) {
+                flas.unshift(fla.matrix);
+            }
+            else {
+                for (var i=0; i<fla.terms.length; i++) {
+                    if (fla.terms[i].isArray) {
+                        if (fla.terms[i][0][0] == 'φ') indivTerms.push(fla.terms[i]);
+                        else if (fla.terms[i][0][0] == 'ω') worldTerms.push(fla.terms[i]);
+                    }
+                    else {
+                        if (fla.terms[i][0] == 'φ') indivTerms.push(fla.terms[i]);
+                        else if (fla.terms[i][0] == 'ω') worldTerms.push(fla.terms[i]);
+                    }
+                }
+            }
+        }
+        return [indivTerms, worldTerms];
     }
 }
 
@@ -330,73 +407,6 @@ SenTree.prototype.removeUnusedNodes = function() {
 }
 
 
-SenTree.prototype.replaceSkolemTerms = function() {
-    log("replacing skolem terms");
-    // skolem terms all look like 'φ1', 'φ1(𝛏1,𝛏2..)' (individuals) or 'ω1'
-    // etc. (worlds); after unification they can also be nested:
-    // '𝛗1(𝛏1,𝛗2(𝛏1)..)'. Note that a skolem term can occur inside an ordinary
-    // function term. xxx Need to check if this should be accounted for;
-    // substitution is shallow...
-    var translations = {};
-    for (var n=0; n<this.nodes.length; n++) {
-        var skterms = getSkolemTerms(this.nodes[n].formula);
-        var indivTerms = skterms[0], worldTerms = skterms[1];
-        for (var c=0; c<indivTerms.length; c++) {
-            var termstr = indivTerms[c].toString();
-            if (!translations[termstr]) {
-                log(termstr + " is skolem term");
-                translations[termstr] = this.parser.getNewConstant();
-            }
-            this.nodes[n].formula = this.nodes[n].formula.substitute(
-                indivTerms[c], translations[termstr], true
-            );
-        }
-        for (var c=0; c<worldTerms.length; c++) {
-            var termstr = worldTerms[c].toString();
-            if (!translations[termstr]) {
-                log(termstr + " is worldly skolem term");
-                translations[termstr] = this.parser.getNewWorldName(true);
-            }
-            this.nodes[n].formula = this.nodes[n].formula.substitute(
-                worldTerms[c], translations[termstr], true
-            );
-        }
-    }
-    
-    function getSkolemTerms(formula) {
-        // skolem terms for worlds begin with 'ω'. xxx this does not look for
-        // skolem terms inside other terms!
-        var worldTerms = [];
-        var indivTerms = [];
-        var flas = [formula];
-        var fla;
-        while ((fla = flas.shift())) {
-            if (fla.sub) {
-                flas.unshift(fla.sub);
-            }
-            else if (fla.sub1) {
-                flas.unshift(fla.sub1);
-                flas.unshift(fla.sub2);
-            }
-            else if (fla.matrix) {
-                flas.unshift(fla.matrix);
-            }
-            else {
-                for (var i=0; i<fla.terms.length; i++) {
-                    if (fla.terms[i].isArray) {
-                        if (fla.terms[i][0][0] == 'φ') indivTerms.push(fla.terms[i]);
-                        else if (fla.terms[i][0][0] == 'ω') worldTerms.push(fla.terms[i]);
-                    }
-                    else {
-                        if (fla.terms[i][0] == 'φ') indivTerms.push(fla.terms[i]);
-                        else if (fla.terms[i][0] == 'ω') worldTerms.push(fla.terms[i]);
-                    }
-                }
-            }
-        }
-        return [indivTerms, worldTerms];
-    }
-}
 
 SenTree.prototype.modalize = function() {
     // undo standard translation for formulas on the tree, and hide some nodes
@@ -421,10 +431,10 @@ SenTree.prototype.modalize = function() {
 
         // catch modal expansions: ◇A => (Rxy∧A), ¬□A => ¬(Rxy→A), □A =>
         // (Rxy→A), ¬◇A => ¬(Rxy∧A). xxx update comment
-        if ((formula.sub1 && formula.sub1.predicate == this.parser.R) ||
-            (formula.sub && formula.sub.sub1 && formula.sub.sub1.predicate == this.parser.R)) {
+        if ((formula.sub1 && formula.sub1.predicate == this.fvParser.R) ||
+            (formula.sub && formula.sub.sub1 && formula.sub.sub1.predicate == this.fvParser.R)) {
             log('marking modal expansion '+formula.string+' for removal');
-            removeNodes.push(node);
+            // removeNodes.push(node);
         }
         
         if (removeNodes.includes(node.fromNodes[0])) {
@@ -461,7 +471,7 @@ SenTree.prototype.modalize = function() {
             log('adjusting fromNodes of '+formula+' to '+node.fromNodes);
         }
         
-        node.formula = this.parser.translateToModal(formula);
+        node.formula = this.fvParser.translateToModal(formula);
         // log(formula+' => '+node.formula);
         // log('w: '+node.formula.world);
     }
@@ -470,7 +480,7 @@ SenTree.prototype.modalize = function() {
         this.remove(removeNodes[i]);
     }
     
-    this.relabelWorlds();
+    // this.relabelWorlds();
     log(this.toString());
 }
 
@@ -484,7 +494,7 @@ SenTree.prototype.relabelWorlds = function() {
     var nameMap = { 'w' : 'w' };
     for (var i=0; i<this.nodes.length; i++) {
         var node = this.nodes[i];
-        if (node.formula.predicate == this.parser.R) {
+        if (node.formula.predicate == this.fvParser.R) {
             // relabel worlds in wRv:
             var newWorld = node.formula.terms[1];
             if (!nameMap[newWorld]) {
@@ -492,7 +502,7 @@ SenTree.prototype.relabelWorlds = function() {
             }
             var newTerms = node.formula.terms.map(function(w){return nameMap[w]});
             log('replacing terms in '+node.formula+' by '+newTerms);
-            node.formula = new AtomicFormula(this.parser.R, newTerms);
+            node.formula = new AtomicFormula(this.fvParser.R, newTerms);
             // also adjust 'Rwv' => 'wRv':
             node.formula.string = newTerms[0] + 'R' + newTerms[1];
         }
@@ -702,8 +712,8 @@ SenTree.prototype.getCounterModel = function() {
         for (var t=0; t<terms.length; t++) {
             var term = terms[t].toString();
             if (term in model.denotations) continue;
-            var domain = this.parser.expressionType[term] &&
-                this.parser.expressionType[term].indexOf('world') > -1 ?
+            var domain = this.fvParser.expressionType[term] &&
+                this.fvParser.expressionType[term].indexOf('world') > -1 ?
                 model.worlds : model.domain;
             log("adding "+domain.length+" to domain for "+term);
             domain.push(domain.length);

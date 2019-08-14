@@ -13,24 +13,18 @@
 
 function Prover(initFormulas, parser, accessibilityConstraints) {
 
-    this.depthLimit = 1; // depth = number of free variables on Tree
-    this.nodeLimitFactor = 4;
-    // depthLimit * nodeLimitFactor is the upper bound for number of
-    // nodes on a branch before backtracking; value empirically chosen
-    this.pauseLength = 2; // ms
-    this.maxStepDuration = 0; // ms before setTimeout
-    
     log("initializing prover");
 
-    // normalize initFormulas, translate modal formulas, and set up
+    // init formulas; i.e. normalize, translate modal sentences, set up
     // accessibility rules:
     this.initFormulas = initFormulas; // formulas as entered, with conclusion negated
-    this.parser = parser;
+    this.parser = parser.copy();
     this.accessibilityRules = [];
     if (parser.isModal) {
-        this.initFormulasNonModal = initFormulas.map(function(f){
-            return parser.translateFromModal(f, null);
-        });
+        this.initFormulasNonModal = [];
+        for (var i=0; i<initFormulas.length; i++) {
+            this.initFormulasNonModal.push(this.parser.translateFromModal(initFormulas[i]));
+        }
         if (accessibilityConstraints) {
             this.s5 = accessibilityConstraints.includes('universality');
             if (!this.s5) {
@@ -48,33 +42,37 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
     });
     
     // init prover:
-    this.step = 0;
-    this.alternatives = [];
+    this.pauseLength = 2; // ms pause between calculations
+    this.maxStepDuration = 20; // ms before setTimeout pause
+    this.step = 0; // counter of calculation steps
+    this.depthLimit = 2; // how many free variables may occur on the tree before
+                         // backtracking; in addition, depthLimit * 4 is the
+                         // upper bound for number of nodes on a branch before
+                         // backtracking; value empirically chosen
     this.tree = new Tree(this);
+    this.alternatives = []; // alternative trees stored for backtracking
 
     // init modelfinder:
-    var mfParser = parser.copy();
+    var mfParser = this.parser.copy();
     if (accessibilityConstraints) {
-        if (this.s5) {
-            // xxx todo: remove Rwv clauses from formulas instead!
-            accessibilityFormulas = mfParser.parseAccessibilityFormula("∀v∀uRvu").normalize();
-        }
-        else {
-            var name2fla = {
-                "reflexivity": "∀vRvv",
-                "symmetry": "∀v∀u(Rvu→Ruv)",
-                "transitivity": "∀v∀u∀t(Rvu→(Rut→Rvt))",
-                "euclidity": "∀v∀u∀t(Rvu→(Rvt→Rut))",
-                "seriality": "∀v∃uRvu"
-            };
-            var accessibilityFormulas = accessibilityConstraints.map(function(s) {
-                return mfParser.parseAccessibilityFormula(name2fla[s]).normalize();
-            });
-            // todo: strip redundant constraints
-        }
-        this.modelfinder = new ModelFinder(this.initFormulasNormalized,
-                                           mfParser,
-                                           accessibilityFormulas);
+        var name2fla = {
+            "universality": "∀v∀uRvu",
+            "reflexivity": "∀vRvv",
+            "symmetry": "∀v∀u(Rvu→Ruv)",
+            "transitivity": "∀v∀u∀t(Rvu→(Rut→Rvt))",
+            "euclidity": "∀v∀u∀t(Rvu→(Rvt→Rut))",
+            "seriality": "∀v∃uRvu"
+        };
+        var accessibilityFormluas = accessibilityConstraints.map(function(s) {
+            return mfParser.parseAccessibilityFormula(name2fla[s]).normalize();
+        });
+        // todo: strip redundant constraints
+        this.modelfinder = new ModelFinder(
+            this.initFormulasNormalized,
+            mfParser,
+            accessibilityFormluas,
+            this.s5
+        );
     }
     else {
         this.modelfinder = new ModelFinder(this.initFormulasNormalized, mfParser);
@@ -90,16 +88,11 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
     this.stop = function() {
         this.stopTimeout = true;
         this.status("Proof halted");
-    },
+    };
 
-    this.status = function() {
-        // to be overwritten
-    }
+    this.onfinished = function() {};
     
-    this.onfinished = function(state) { // state 1 = proved, 0 = proof failed
-        log('proof completed');
-        // to be overwritten
-    }
+    this.status = function() {};
 
 }
 
@@ -153,7 +146,7 @@ Prover.prototype.nextStep = function() {
         return this.onfinished(1);
     }
     
-    if (this.tree.openBranches[0].nodes.length > this.depthLimit * this.nodeLimitFactor) {
+    if (this.tree.openBranches[0].nodes.length > this.depthLimit * 4) {
         log('reached complexity limit for backtracking');
         this.limitReached();
     }
@@ -294,7 +287,6 @@ Prover.gamma = function(branch, nodeList, matrix) {
     // else {
     var newVariable = branch.newVariable(matrix);
     // } 
-    branch.freeVariables.push(newVariable);
     var matrix = matrix || node.formula.matrix;
     var newFormula = matrix.substitute(node.formula.variable, newVariable);
     var newNode = new Node(newFormula, Prover.gamma, nodeList); // xxx note that this sets fromRule to gamma even for s5 modal gamma nodes. is that ok?

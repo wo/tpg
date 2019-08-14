@@ -43,23 +43,32 @@
 // take a world as their last argument; 'R' takes two worlds, function terms
 // only take individuals.
 
-function ModelFinder(initFormulas, parser, accessibilityConstraints) {
+function ModelFinder(initFormulas, parser, accessibilityConstraints, s5) {
     // initFormulas = list of demodalized formulas in NNF for which we try to
     //                find a model
     // accessibilityConstraints = another such list, for modal models
     log("*** creating ModelFinder");
 
     this.parser = parser;
+    this.s5 = s5;
+    
+    if (s5) {
+        accessibilityConstraints = [];
+        initFormulas = initFormulas.map(function(f) {
+            return parser.stripAccessibilityClauses(f);
+        });
+    }
     
     // collect expressions that need to be interpreted:
     this.predicates = parser.getSymbols('predicate');
+    if (s5) this.predicates.remove(parser.R);
     this.constants = parser.getSymbols('individual constant');
     this.funcSymbols = parser.getSymbols('function symbol');
     if (parser.isModal) {
         log('adding w');
         this.constants.unshift(parser.w);
     }
-    
+
     // break down initFormulas and accessibilityConstraints into clauses:
     initFormulas = initFormulas.concat(accessibilityConstraints || []);
     this.clauses = this.getClauses(initFormulas);

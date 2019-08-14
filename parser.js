@@ -89,7 +89,7 @@ Parser.prototype.getNewWorldVariable = function() {
 
 Parser.prototype.getNewWorldName = function() {
     // for □/◇ instances in sentrees and cnf skolemization 
-    return this.getNewSymbol('wvutsrqponm', 'world constant', 0);
+    return this.getNewSymbol('vutsrqponm', 'world constant', 0);
 }
 
 Parser.prototype.getVariables = function(formula) {
@@ -163,6 +163,33 @@ Parser.prototype.translateFromModal = function(formula, worldVariable) {
         var nsub = this.translateFromModal(formula.sub, newWorldVariable);
         var nmatrix = new BinaryFormula('∧', wRv, nsub);
         return new QuantifiedFormula('∃', newWorldVariable, nmatrix, true)
+    }
+}
+
+Parser.prototype.stripAccessibilityClauses = function(formula) {
+    // return new non-modal formula with all accessibility conditions stripped;
+    // e.g. ∃v(wRv∧Av) => ∃vAv; ∀v(¬wRv∨Av) => ∀vAv. <formula> is normalized.
+    if (formula.quantifier) {
+        var nmatrix = this.stripAccessibilityClauses(formula.matrix);
+        if (nmatrix == formula.matrix) return formula;
+        return new QuantifiedFormula(formula.quantifier, formula.variable, nmatrix);
+    }
+    if (formula.sub1) {
+        if ((formula.sub1.sub && formula.sub1.sub.predicate == this.R) ||
+            (formula.sub1.predicate == this.R)) {
+            return formula.sub2;
+        }
+        var nsub1 = this.stripAccessibilityClauses(formula.sub1);
+        var nsub2 = this.stripAccessibilityClauses(formula.sub2);
+        if (formula.sub1 == nsub1 && formula.sub2 == nsub2) return formula;
+        return new BinaryFormula(formula.operator, nsub1, nsub2);
+    }
+    if (formula.operator == '¬') {
+        // negation only for literals in NNF
+        return formula;
+    }
+    else { // atomic
+        return formula;
     }
 }
 
@@ -455,7 +482,9 @@ Parser.prototype.parseAccessibilityFormula = function(str) {
     // return Formula for accessibility condition like ∀w∃v(Rwv)
 
     // We need to work around clashes if e.g. 'v' is already used as proposition
-    // letter or 'R' as an ordinary predicate.
+    // letter or 'R' as an ordinary predicate. Also need to make sure the
+    // parsing of accessibility formulas doesn't set this.propositional to
+    // false.
     str = str.replace('R', this.R);
     var matches = str.match(/[∀∃]./g);
     for (var i=0; i<matches.length; i++) {
@@ -469,7 +498,10 @@ Parser.prototype.parseAccessibilityFormula = function(str) {
             this.registerExpression[v] = 'world variable';
         }
     }
-    return this.parseFormula(str);
+    var isPropositional = this.isPropositional;
+    var formula = this.parseFormula(str);
+    this.isPropositional = isPropositional;
+    return formula;
 }
 
 Parser.prototype.parseTerms = function(str, boundVars) {
