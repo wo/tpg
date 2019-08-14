@@ -87,7 +87,6 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
 
     this.stop = function() {
         this.stopTimeout = true;
-        this.status("Proof halted");
     };
 
     this.onfinished = function() {};
@@ -120,10 +119,6 @@ Prover.prototype.nextStep = function() {
     
     // status msg: xxx tidy up
     var numBranches = this.tree.openBranches.length + this.tree.closedBranches.length;
-    // this.status("step " + this.step + ": " + numBranches + " branches, " +
-    //             this.tree.numNodes + " nodes, " +
-    //             this.alternatives.length + " alternatives, search depth " +
-    //             this.depthLimit);
 
     // expand leftmost open branch on tree:
     // (todoList items look like this: [Prover.alpha, nodes[0]])
@@ -522,6 +517,9 @@ Prover.euclidity = function(branch, nodeList) {
                 new AtomicFormula(R, [earlierFla.terms[1], nodeFla.terms[1]]),
                 new AtomicFormula(R, [nodeFla.terms[1], earlierFla.terms[1]])
             ];
+            // xxx adding two formulas isn't ideal because it means even unused
+            // ones will remain on the displayed tree, e.g. in ◇□p →□◇p; better
+            // add second application with same nodeList back on todo stack.
             for (var j=0; j<newFlas.length; j++) {
                 log('adding '+newFlas[j]);
                 var newNode = new Node(newFlas[j], Prover.euclidity, [branch.nodes[i], node]);

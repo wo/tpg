@@ -37,7 +37,6 @@ function renderSymbols(str) {
     str = str.replace(/\(A([s-z])\)/, '∀$1'); // (Ax) => ∀x
     str = str.replace(/\(E([s-z])\)/, '∃$1'); // (Ex) => ∃x
     str = str.replace(/(?:^|\W)\(([s-z])\)/, '∀$1'); // (x) => ∀x, but not f(x) => f∀x
-    // LaTeX:
     str = str.replace(/\\forall[\{ ]?\}?/g, '∀');
     str = str.replace(/\\exists[\{ ]?\}?/g, '∃');
     str = str.replace(/(\\neg|\\lnot)[\{ ]?\}?/g, '¬');
@@ -47,14 +46,8 @@ function renderSymbols(str) {
     str = str.replace(/\\leftrightarrow[\{ ]?\}?/g, '↔');
     str = str.replace(/\\[Bb]ox[\{ ]?\}?/g, '□');
     str = str.replace(/\\[Dd]iamond[\{ ]?\}?/g, '◇');
-    //str = str.replace(/([^'])(\\[^<]*)/, '$1<span class="latex">$2</span>'); // unfinished latex commands
-    //str = str.replace(/^(\\[^<]*)/, '<span class="latex">$1</span>'); // unfinished latex commands
     return str;
 }
-
-// in case the browser has automatically filled in some value into the
-// field (e.g. on Reload):
-setTimeout(updateInput, 1000);
 
 // define method to insert character at caret position upon button click: 
 document.forms[0].flaField.insertAtCaret = function(str) {
@@ -83,9 +76,12 @@ document.forms[0].flaField.insertAtCaret = function(str) {
    }
 }
 
-
 onload = function(e) {
    
+    // in case the browser has automatically filled in some value into the
+    // field (e.g. on Reload):
+    updateInput();
+
     document.forms[0].flaField.onkeyup = updateInput;
 
     // insert the symbol buttons on top of the text field:
@@ -115,6 +111,7 @@ onload = function(e) {
         }
     }
 
+    var prover;
     document.forms[0].onsubmit = function(e) {
         // The action begins...
         var parser = new Parser();
@@ -129,10 +126,9 @@ onload = function(e) {
         document.getElementById("model").style.display = "none";
         document.getElementById("rootAnchor").style.display = "none";
         document.getElementById("backtostartpage").style.display = "block";
-        document.getElementById("statusBox").style.display = "block";
-        document.getElementById("statusHeader").innerHTML = "<div id='waitSymbol'></div>";
-        document.getElementById("statusStop").style.display = "inline";
-        document.getElementById("statusStop").firstChild.nodeValue = 'stop';
+        document.getElementById("status").style.display = "block";
+        document.getElementById("status").innerHTML = "<div id='working'>working</div>";
+        // document.getElementById("statusStop").firstChild.nodeValue = 'stop';
 
         // Now a free-variable tableau is created. When the proof is finished,
         // prover.finished() is called.
@@ -146,17 +142,11 @@ onload = function(e) {
                 }
             });
         }
-        var prover = new Prover(initFormulas, parser, accessibilityConstraints);
-        prover.status = function(str) {
-            // The prover dumps status messages to this function. 
-            document.getElementById("status").innerHTML = str;
-        }
+        prover = new Prover(initFormulas, parser, accessibilityConstraints);
         prover.onfinished = function(treeClosed) {
             // The prover has finished.
-            document.getElementById("statusHeader").innerHTML =
+            document.getElementById("status").innerHTML =
                 "<span class='formula'>" + formula + "</span> is " + (treeClosed ? "valid." : "invalid.");
-            document.getElementById("statusStop").style.display = "none";
-            prover.status("");
             // Translate the free-variable tableau into a sentence tableau:
             var sentree = new SenTree(this.tree, parser);
             if (!treeClosed) {
@@ -183,39 +173,6 @@ onload = function(e) {
         return false;
     }
    
-    // event handlers for the buttons that control the proving/painting:
-    
-    document.getElementById("statusStop").onclick = function(e) {
-        if (this.firstChild.nodeValue == 'stop') {
-            prover.stop();
-            this.firstChild.nodeValue = 'continue';
-            return;
-        }
-        this.firstChild.nodeValue = 'stop';
-        prover.nextStep();
-    }
-    
-    // document.getElementById("paintStop").onclick = function(e) {
-    //     if (this.firstChild.nodeValue == 'stop') {
-    //         painter.stop();
-    //         this.firstChild.nodeValue = 'continue';
-    //         return;
-    //     } 
-    //     this.firstChild.nodeValue = 'stop';
-    //     painter.paintTree();
-    // }
-    
-    // document.getElementById("paintFaster").onclick = function(e) {
-    //     if (this.firstChild.nodeValue == 'faster') {
-    //         painter.oldInterval = painter.paintInterval;
-    //         painter.paintInterval = 100;
-    //         this.firstChild.nodeValue = 'slower';
-    //         return;
-    //     }
-    //     painter.paintInterval = painter.oldInterval;
-    //     this.firstChild.nodeValue = 'faster';
-    // }
-    
     // prove formula submitted via URL:
     if (location.search.match(/\?f=/)) {
         document.forms[0].flaField.value = unescape(location.search.substr(3));
