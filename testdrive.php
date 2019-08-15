@@ -223,7 +223,7 @@ function proveAll(tLimit) {
 }
 
 function proveNext() {
-    if (index >= tests.length-1) {
+    if (index >= tests.length) {
         provingAll = false;
         return;
     }

@@ -144,10 +144,25 @@ tests = {
         for (var i=0; i<500; i++) {
             if (mf.nextStep()) break;
         }
-        assert(i<100);
+        assert(i<500);
         assertEqual(mf.model.domain.length, 2);
+        assert(mf.model.toString().indexOf('F: { 0 }') > 0);
+        assert(mf.model.toString().indexOf('G: { 1 }') > 0);
     },
 
+    countermodel9: function() {
+        var parser = new Parser();
+        var fs = [parser.parseFormula('∃y∃z∀x((Fx→Gy)∧(Gz→Fx))→∀x∃y(Fy↔Gy)').negate().normalize()];
+        var mf = new ModelFinder(fs, parser);
+        for (var i=0; i<500; i++) {
+            if (mf.nextStep()) break;
+        }
+        assert(i<500);
+        assertEqual(mf.model.domain.length, 2);
+        assert(mf.model.toString().indexOf('F: { 1 }') > 0);
+        assert(mf.model.toString().indexOf('G: { 0 }') > 0);
+    },
+               
     countermodel_shortestformulawith3individuals: function() {
         var parser = new Parser();
         var fs = [parser.parseFormula('∀y∃x(Ryx ∧ ¬Rxy)').normalize()];

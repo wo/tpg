@@ -106,73 +106,92 @@ ModelFinder.prototype.getClauses = function(formulas) {
 ModelFinder.prototype.nextStep = function() {
     // Each call of this function tries to satisfy one constraint, namely
     // model.constraints[model.constraintPosition]. We need to do slightly
-    // different things depending on whether we're processing this constraint
-    // for the first time or not. If it's the first time, we (1) assign all new
-    // terms the denotation 0; then we (2) see if there's an interpretation of
-    // the predicates that satisfies the constraint; if yes, we move on to the
-    // next constraint on the next call; if no, we process the same constraint
-    // again. If we process the same constraint again, we (1') try to find a new
-    // assignment of denotations to the new terms; if there's none, we backtrack
-    // to earlier constraints (which will be processed again at that point) or
-    // increase the domain if there are no earlier constraints; if there is a
-    // new assignment of terms, we go through (2) as above.
+    // different things depending on whether (a) we're processing this
+    // constraint for the first time, (b) we're processing it again after having
+    // processed it just before, or (c) we're processing it again after backtracking.
+    //
+    // In case (a), where we process the node for the first time, we (1) assign
+    // to all new terms the denotation 0; then we (2) see if there's an
+    // interpretation of the predicates that satisfies the constraint (there may
+    // be several if the constraint is disjunctive); if yes, we move on to the
+    // next constraint on the next call; if no, we try the same constraint
+    // again.
+    //
+    // In case (b), where we process the same constraint again, we (1') try to
+    // find a new assignment of denotations to the new terms; if there's none,
+    // we backtrack to earlier constraints or increase the domain if there are
+    // no earlier constraints; if there is a new assignment of terms, we go
+    // through (2) as above.
+    //
+    // In case (c), where we've returned to the constraint through backtracking,
+    // we (0) see if there's another interpretation of the predicates that
+    // satisfies the constraint; if yes, we move on to the next constraint; if
+    // no, we procede as in case (b).
 
     log("*** modelfinder"); 
     var model = this.model;
     var curConstraint = model.constraints[model.constraintPosition];
+    var prevConstraintPosition = model.prevConstraintPosition;
+    model.prevConstraintPosition = model.constraintPosition; 
     var newTerms = model.constraintTerms[model.constraintPosition];
-
-    if (model.constraintPosition > model.prevConstraintPosition) {
+    var clauseIndex = 0;
+    
+    if (model.constraintPosition > prevConstraintPosition) {
         log("trying to satisfy next constraint "+curConstraint);
         // init term values for next constraint:
         for (var i=0; i<newTerms.length; i++) {
             log('initialising denotation of '+newTerms[i]+' to 0');
             model.denotations[newTerms[i]] = 0;
         }
-        model.prevConstraintPosition = model.constraintPosition;
     }
     else {
-        model.prevConstraintPosition = model.constraintPosition;
-        log("trying to satisfy constraint "+curConstraint+" with different denotations");
-        if (!model.iterateDenotations(newTerms)) {
-            log("no more term denotations to try; backtracking.");
-            if (model.constraintPosition == 0) {
-                log('nothing to backtrack to; increasing domain');
-                this.initNextModel();
+        if (model.constraintPosition < prevConstraintPosition // backtracking
+            && model.clauseIndex[model.constraintPosition] < curConstraint.length-1) {
+            log("trying to satisfy a different member of "+curConstraint);
+            clauseIndex = model.clauseIndex[model.constraintPosition]+1;
+        }
+        else {
+            log("trying to satisfy "+curConstraint+" with different denotations");
+            if (!model.iterateDenotations(newTerms)) {
+                log("no more term denotations to try; backtracking.");
+                if (model.constraintPosition == 0) {
+                    log('nothing to backtrack to; increasing domain');
+                    this.initNextModel();
+                    return false;
+                }
+                model.constraintPosition--;
+                // When we backtrack from a given constraint (say, Fb) to the
+                // previous constraint (say, Fa) because Fb couldn't be satisfied,
+                // we need to undo the partial interpretation of F that satisfied
+                // Fa; but we don't want to anul the interpretation of the new terms
+                // in the previous constraint: we want to check if the constraint
+                // can be satisfied on the next iteration of the new terms. If we
+                // succeed and we move forward again, we want to start from scratch
+                // interpreting the new terms in the later constraint (Fb). So when
+                // we backtrack from constraint Y to constraint X, we need to (1)
+                // erase the interpretation of new terms in Y, and (2) erase the
+                // partial interpretation of predicates that brought us from X to
+                // Y. (1) is easy, but (2) isn't because constraints can have many
+                // disjuncts and it's not trivial to figure out which disjunct
+                // brought us forward; moreover, if we've set |F|(1)=true because we
+                // have |a|=1 and wanted to satisfy Fa, we can only erase
+                // |F|(1)=true if it wasn't already set by an earlier constraint
+                // (say, Fc, under |c|=1). So we keep track of when a record in a
+                // predicate extension is created. That is, this.extensions is an
+                // array; this.extensions[0] contains the predicate interpretations
+                // added for constraint 0, and so on.
+                delete model.extensions[model.constraintPosition];
+                for (var i=0; i<newTerms.length; i++) {
+                    delete model.denotations[newTerms[i]];
+                }
                 return false;
             }
-            model.constraintPosition--;
-            // When we backtrack from a given constraint (say, Fb) to the
-            // previous constraint (say, Fa) because Fb couldn't be satisfied,
-            // we need to undo the partial interpretation of F that satisfied
-            // Fa; but we don't want to anul the interpretation of the new terms
-            // in the previous constraint: we want to check if the constraint
-            // can be satisfied on the next iteration of the new terms. If we
-            // succeed and we move forward again, we want to start from scratch
-            // interpreting the new terms in the later constraint (Fb). So when
-            // we backtrack from constraint Y to constraint X, we need to (1)
-            // erase the interpretation of new terms in Y, and (2) erase the
-            // partial interpretation of predicates that brought us from X to
-            // Y. (1) is easy, but (2) isn't because constraints can have many
-            // disjuncts and it's not trivial to figure out which disjunct
-            // brought us forward; moreover, if we've set |F|(1)=true because we
-            // have |a|=1 and wanted to satisfy Fa, we can only erase
-            // |F|(1)=true if it wasn't already set by an earlier constraint
-            // (say, Fc, under |c|=1). So we keep track of when a record in a
-            // predicate extension is created. That is, this.extensions is an
-            // array; this.extensions[0] contains the predicate interpretations
-            // added for constraint 0, and so on.
-            delete model.extensions[model.constraintPosition];
-            for (var i=0; i<newTerms.length; i++) {
-                delete model.denotations[newTerms[i]];
-            }
-            return false;
         }
     }
-        
+    
     // Let's see if we can extend the interpretation of predicates to satisfy
     // the constraint.
-    if (this.model.satisfy(curConstraint)) {
+    if (this.model.satisfy(curConstraint, clauseIndex)) {
         log('constraint can be satisfied: '+this.model);
         // moving on to next constraint on next call:
         model.constraintPosition++;
@@ -224,6 +243,7 @@ function Model(modelfinder, numIndividuals, numWorlds) {
     // initialize interpretation:
     this.denotations = {}; // term extensions, e.g. 'a' => 0, '[f,a]' => 2
     this.extensions = []; // predicate extensions, e.g. [0] => ['G','a',true]
+    this.clauseIndex = []; // stores which disjunct in each clause we're currently satisfying; e.g. [0] => 2
     
     // replace universal variables in modelfinder.clauses by domain elements:
     this.constraints = this.getConstraints();
@@ -399,21 +419,23 @@ Model.prototype.iterateDenotations = function(terms) {
 }
 
 
-Model.prototype.satisfy = function(clause) {
+Model.prototype.satisfy = function(clause, startIndex) {
     // tries to extend this.extensions for the predicates so as to satisfy the
-    // clause. However, before we do that, we take care of another issue. When
-    // looking for models, we treat all terms as black boxes, assigning them
-    // denotations with no regard to the denotations assigned to other terms. This
-    // is much faster than iterating through all possible denotations for all
-    // function symbols, but it allows for inconsistent denotation assignments
-    // where e.g. |f(a)|=0, |f(0)|=1, and |f(f(a))|=0. Since the present
-    // function is called whenever this.denotations has been modified, we use it
-    // to test whether the denotations are consistent. If not, we return false,
-    // which will trigger a change in this.denotations and another call of this
-    // function, etc. TODO denotationsAreconsistent should be made redundant by
-    // making iterateDenotations smarter: skip inconsistent term assignments
+    // clause, ignoring disjuncts before <startIndex>. Before we do that, we
+    // take care of another issue. When looking for models, we treat all terms
+    // as black boxes, assigning them denotations with no regard to the
+    // denotations assigned to other terms. This is much faster than iterating
+    // through all possible denotations for all function symbols, but it allows
+    // for inconsistent denotation assignments where e.g. |f(a)|=0, |f(0)|=1,
+    // and |f(f(a))|=0. Since the present function is called whenever
+    // this.denotations has been modified, we use it to test whether the
+    // denotations are consistent. If not, we return false, which will trigger a
+    // change in this.denotations and another call of this function, etc. xxx
+    // TODO denotationsAreconsistent should be made redundant by making
+    // iterateDenotations smarter: skip inconsistent term assignments
     if (!this.denotationsAreConsistent()) return false;
-    for (var i=0; i<clause.length; i++) {
+    // xxx first check if clause is already satisfied?
+    for (var i=startIndex; i<clause.length; i++) {
         log("trying to satisfy "+clause[i].string);
         var atom = clause[i].sub || clause[i];
         var tv = clause[i].sub ? false : true;
@@ -429,6 +451,8 @@ Model.prototype.satisfy = function(clause) {
         if (storedTv !== null) {
             if (storedTv == tv) {
                 log("   "+predicate+" applied to "+argsStr+" already equals "+tv);
+                // no point trying other disjuncts when backtracking:
+                this.clauseIndex[this.constraintPosition] = clause.length-1;
                 return true;
             }
             log("   failed: "+predicate+" applied to "+argsStr+" equals "+storedTv);
@@ -436,6 +460,7 @@ Model.prototype.satisfy = function(clause) {
         }
         log("  setting extension of "+predicate+" for "+argsStr+" to "+tv);
         this.extensions[this.constraintPosition] = [predicate, argsStr, tv];
+        this.clauseIndex[this.constraintPosition] = i;
         return true;
     }
     return false;

@@ -274,8 +274,10 @@ Prover.gamma = function(branch, nodeList, matrix) {
     //  }
     //}
 
+    var isModalGamma = matrix ? true : false;
     var matrix = matrix || node.formula.matrix;
-    if (matrix.string.indexOf(node.formula.variable) == -1) {
+    var vacuous = matrix.string.indexOf(node.formula.variable) == -1; // xxx doesn't catch vacuous qu. in ∀x∃xFx
+    if (vacuous) {
         // don't introduce new free variable if quantifier is vacuous:
         var newFormula = matrix;
     }
@@ -283,7 +285,7 @@ Prover.gamma = function(branch, nodeList, matrix) {
         var newVariable = branch.newVariable(matrix);
         var newFormula = matrix.substitute(node.formula.variable, newVariable);
         // add application back onto todoList:
-        if (!matrix) branch.todoList.push([Prover.gamma, node]);
+        if (!isModalGamma) branch.todoList.push([Prover.gamma, node]);
     }
     var newNode = new Node(newFormula, Prover.gamma, nodeList); // xxx note that this sets fromRule to gamma even for s5 modal gamma nodes. is that ok?
     newNode.instanceTerm = newVariable; // used in sentree
