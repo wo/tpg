@@ -200,7 +200,12 @@ SenTree.prototype.transferNode = function(node, par) {
         }
         var boundVar = from.formula.sub ? from.formula.sub.variable : from.formula.variable;
         log(boundVar + ' is instantiated (in '+newFla+') by '+node.instanceTerm);
-        node.formula = newFla.substitute(boundVar, node.instanceTerm);
+        if (node.instanceTerm) {
+            node.formula = newFla.substitute(boundVar, node.instanceTerm);
+        }
+        else {
+            node.formula = newFla;
+        }
         this.appendChild(par, node);
         return node;
     }

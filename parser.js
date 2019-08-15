@@ -290,30 +290,41 @@ Parser.prototype.clausalNormalForm = function(formula) {
     // xxx todo use switching variables to keep CNFs short?
 
     var distinctVars = this.makeVariablesDistinct(formula);
+    log('distinctVars: '+distinctVars);
     var skolemized = this.skolemize(distinctVars);
+    log('skolemized: '+skolemized);
     var quantifiersRemoved = skolemized.removeQuantifiers();
+    log('qs removed: '+quantifiersRemoved);
     var cnf = this.cnf(quantifiersRemoved);
+    log('cnf: '+cnf);
     return cnf;
 }
 
 Parser.prototype.cnf = function(formula) {
     // see this.clausalNormalForm
     if (formula.type == 'literal') {
+        // return CNF with 1 clause containing 1 literal:
         return [[formula]];
     }
     if (formula.operator == '∧') {
         // log('∧: concatenating clauses of '+formula.sub1+' and '+formula.sub2);
         var con1 = this.cnf(formula.sub1);
         var con2 = this.cnf(formula.sub2);
+        // con1 is [C1, C2 ...], con2 is [D1, D2, ...], where the elements are
+        // clauses; return [C1, C2, ..., D1, D2, ...]:
         // log('back up at ∧: concatenating clauses of '+formula.sub1+' and '+formula.sub2);
         // log('which are '+con1+' and '+con2);
         return con1.concatNoDuplicates(con2);
     }
     if (formula.operator == '∨') {
-        // log('∨: combining clauses of '+formula.sub1+' and '+formula.sub2);
+        log('∨: combining clauses of '+formula.sub1+' and '+formula.sub2);
         var res = [];
         var dis1 = this.cnf(formula.sub1);
         var dis2 = this.cnf(formula.sub2);
+        // dis1 is [C1, C2 ...], dis2 is [D1, D2, ...], where the elements are
+        // disjunctions of literals; (C1 & C2 & ...) v (D1 & D2 & ..) is
+        // equivalent to (C1 v D1) & (C1 v D2) & ... (C2 v D1) & (C2 V D2) &
+        // ...; so return [C1+D1, C1+D2, ..., C2+D1, C2+D2, ...]:
         // log('back up at ∨: combining clauses of '+formula.sub1+' and '+formula.sub2);
         // log('which are '+dis1+' and '+dis2);
         for (var i=0; i<dis1.length; i++) {

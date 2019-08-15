@@ -67,5 +67,5 @@ a { color:#007083; }
   #rootAnchor { transform:scale(0.9); }
 }
 
-tr:nth-child(even) { background-color: #e9e9e6; }
-td.formula { cursor:pointer; }
+#testdrive tr:nth-child(even) { background-color: #e9e9e6; }
+#testdrive td.formula { cursor:pointer; }

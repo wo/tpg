@@ -41,6 +41,16 @@ tests = {
         assertEqual(cnf.toString(), '[[a,c,e],[a,d,e],[b,c,e],[b,d,e]]');
     },
 
+    cnf2: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('((¬F∨G)∧(B∧¬W))∨((C∧¬E)∧(¬T∨D))');
+        var cnf = parser.cnf(f);
+        // wolframalpha: CNF (((~F || G) && (B && ~W)) || ((C && ~E) && (~T || D)))
+        var correct = "[B,C],[B,D,¬T],[B,¬E],[C,¬F,G],[C,¬W],[D,¬F,G,¬T],[D,¬T,¬W],[¬E,¬F,G],[¬E,¬W]";
+        var correct = '[[¬F,G,C],[¬F,G,¬E],[¬F,G,¬T,D],[B,C],[B,¬E],[B,¬T,D],[¬W,C],[¬W,¬E],[¬W,¬T,D]]';
+        assertEqual(cnf.toString(), correct);
+    },
+
     cnf2_TODO: function() {
         var parser = new Parser();
         var f = parser.parseFormula('((p∧(Fa∧Fb))∨(p∧(Fc∧Fd)))∧((q∧(Fe∧Ff))∨(q∧(Fg∧Fh)))');

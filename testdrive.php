@@ -14,7 +14,7 @@ print "<script type='text/javascript' src='$allscripts.js'></script>\n";
 
 </head>
 
-<body>
+<body id="testdrive">
 
 <h2>Tree Proof Generator Test Drive</h2>
 

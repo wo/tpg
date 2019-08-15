@@ -137,6 +137,17 @@ tests = {
         assert(mf.model.toString().indexOf('R: { (0,1), (1,0) }') > 0);
     },
 
+    countermodel8: function() {
+        var parser = new Parser();
+        var fs = [parser.parseFormula('∃y∀x(Fx→Gx) ↔ (∃xFx → ∃xGx)').negate().normalize()];
+        var mf = new ModelFinder(fs, parser);
+        for (var i=0; i<500; i++) {
+            if (mf.nextStep()) break;
+        }
+        assert(i<100);
+        assertEqual(mf.model.domain.length, 2);
+    },
+
     countermodel_shortestformulawith3individuals: function() {
         var parser = new Parser();
         var fs = [parser.parseFormula('∀y∃x(Ryx ∧ ¬Rxy)').normalize()];

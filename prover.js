@@ -122,6 +122,7 @@ Prover.prototype.nextStep = function() {
 
     // expand leftmost open branch on tree:
     // (todoList items look like this: [Prover.alpha, nodes[0]])
+    log(this.tree.openBranches[0].todoList);
     var todo = this.tree.openBranches[0].todoList.shift();
     if (!todo) { // xxx can this ever happen?
         log('tree open and complete');
@@ -230,6 +231,7 @@ Prover.alpha = function(branch, nodeList) {
     if (!branch.closed) branch.tryClose(subnode2);
 }
 Prover.alpha.priority = 1;
+Prover.alpha.toString = function() { return 'alpha' }
 
 Prover.beta = function(branch, nodeList) {
     log('beta '+nodeList[0]);
@@ -243,6 +245,7 @@ Prover.beta = function(branch, nodeList) {
     branch.tree.openBranches[0].tryClose(subnode2);
 }
 Prover.beta.priority = 10;
+Prover.beta.toString = function() { return 'beta' }
 
 Prover.gamma = function(branch, nodeList, matrix) {
     // <matrix> is set when this is called from modalGamma for S5 trees, see
@@ -253,10 +256,6 @@ Prover.gamma = function(branch, nodeList, matrix) {
         log("depthLimit " + this.depthLimit + " exceeded!");
         this.limitReached();
         return null;
-    }
-    // add application back onto todoList:
-    if (!matrix) {
-        branch.todoList.push([Prover.gamma, node]);
     }
     
     // The following lines would incorporate the Herbrand restriction on sentence tableau: 
@@ -274,22 +273,25 @@ Prover.gamma = function(branch, nodeList, matrix) {
     //      return this.backtrack() ? 0 : -1;
     //  }
     //}
-    
-    // <node> might be □p => ∀v(wRv→pv)
-    // if (this.parser.expressionType[node.formula.variable] == 'world variable') {
-    //     var newVariable = branch.newWorldVariable(); 
-    // } xxx remove, along with newWorldvariable...
-    // else {
-    var newVariable = branch.newVariable(matrix);
-    // } 
+
     var matrix = matrix || node.formula.matrix;
-    var newFormula = matrix.substitute(node.formula.variable, newVariable);
+    if (matrix.string.indexOf(node.formula.variable) == -1) {
+        // don't introduce new free variable if quantifier is vacuous:
+        var newFormula = matrix;
+    }
+    else {
+        var newVariable = branch.newVariable(matrix);
+        var newFormula = matrix.substitute(node.formula.variable, newVariable);
+        // add application back onto todoList:
+        if (!matrix) branch.todoList.push([Prover.gamma, node]);
+    }
     var newNode = new Node(newFormula, Prover.gamma, nodeList); // xxx note that this sets fromRule to gamma even for s5 modal gamma nodes. is that ok?
     newNode.instanceTerm = newVariable; // used in sentree
     branch.addNode(newNode);
     branch.tryClose(newNode);
 }
 Prover.gamma.priority = 8;
+Prover.gamma.toString = function() { return 'gamma' }
 
 Prover.modalGamma = function(branch, nodeList) {
     // □A and ¬◇A nodes are translated into ∀x(¬wRxvAx) and ∀x(¬wRx∨¬Ax). By the
@@ -362,6 +364,7 @@ Prover.modalGamma = function(branch, nodeList) {
     }
 }
 Prover.modalGamma.priority = 9;
+Prover.modalGamma.toString = function() { return 'modalGamma' }
     
 Prover.delta = function(branch, nodeList, matrix) {
     // <matrix> is set when this is called from modalDelta for S5 trees, see
@@ -399,6 +402,7 @@ Prover.delta = function(branch, nodeList, matrix) {
     branch.tryClose(newNode);
 }
 Prover.delta.priority = 2;
+Prover.delta.toString = function() { return 'delta' }
 
 Prover.modalDelta = function(branch, nodeList) {
     log('modalDelta '+nodeList[0]);
@@ -424,6 +428,7 @@ Prover.modalDelta = function(branch, nodeList) {
     branch.tryClose(newNode);
 }
 Prover.modalDelta.priority = 2;
+Prover.modalDelta.toString = function() { return 'modalDelta' }
 
 Prover.reflexivity = function(branch, nodeList) {
     log('applying reflexivity rule');
@@ -444,6 +449,7 @@ Prover.reflexivity = function(branch, nodeList) {
     branch.tryClose(newNode);
 }
 Prover.reflexivity.priority = 3;
+Prover.reflexivity.toString = function() { return 'reflexivity' }
 
 Prover.symmetry = function(branch, nodeList) {
     log('applying symmetry rule');
@@ -462,6 +468,7 @@ Prover.symmetry = function(branch, nodeList) {
     }
 }
 Prover.symmetry.priority = 3;
+Prover.symmetry.toString = function() { return 'symmetry' }
 
 Prover.transitivity = function(branch, nodeList) {
     log('applying transitivity rule');
@@ -496,6 +503,7 @@ Prover.transitivity = function(branch, nodeList) {
     }
 }
 Prover.transitivity.priority = 3;
+Prover.transitivity.toString = function() { return 'transitivity' }
 
 Prover.euclidity = function(branch, nodeList) {
     log('applying euclidity rule');
@@ -531,6 +539,7 @@ Prover.euclidity = function(branch, nodeList) {
     }
 }
 Prover.euclidity.priority = 3;
+Prover.euclidity.toString = function() { return 'euclidity' }
 
 Prover.seriality = function(branch, nodeList) {
     log('applying seriality rule');
@@ -560,6 +569,7 @@ Prover.seriality = function(branch, nodeList) {
     }
 }
 Prover.seriality.priority = 10;
+Prover.seriality.toString = function() { return 'seriality' }
 
 function Tree(prover) {
     if (!prover) return; // for copy() function
