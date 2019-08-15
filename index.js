@@ -128,7 +128,6 @@ onload = function(e) {
         document.getElementById("backtostartpage").style.display = "block";
         document.getElementById("status").style.display = "block";
         document.getElementById("status").innerHTML = "<div id='working'>working</div>";
-        // document.getElementById("statusStop").firstChild.nodeValue = 'stop';
 
         // Now a free-variable tableau is created. When the proof is finished,
         // prover.finished() is called.

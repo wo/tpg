@@ -25,10 +25,6 @@ Array.prototype.insert = function(element, index) {
     return this.splice(index, 0, element);
 }
 
-Array.prototype.pushNoDuplicates = function(el) {
-    if (!this.includes(el)) this.push(el);
-}
-    
 Array.prototype.concatNoDuplicates = function(array2) {
     // return array with all elements of <array2> added, but without adding any
     // duplicates. x and y count as duplicates if x.toString() == y.toString(),
@@ -49,9 +45,9 @@ Array.prototype.concatNoDuplicates = function(array2) {
     return res;
 }
 
-Array.prototype.randomElement = function() {
-    return this[Math.floor(Math.random() * this.length)]
-}
+// Array.prototype.randomElement = function() {
+//     return this[Math.floor(Math.random() * this.length)]
+// }
 
 Array.getArrayOfZeroes = function(length) {
     // https://jsperf.com/zero-filled-array-creation/17
@@ -76,7 +72,6 @@ Array.prototype.copyDeep = function() {
     }
     return result;
 }
-
 
 Array.prototype.equals = function(arr2) {
     // return true iff two (possibly nested) arrays are equal (==) at all

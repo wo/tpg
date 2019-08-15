@@ -368,7 +368,7 @@ Parser.prototype.parseFormula = function(str) {
     // return Formula for string
     var boundVars = arguments[1] ? arguments[1].slice() : [];
     log("parsing '"+str+"' (boundVars "+boundVars+")");
-    str = str.trim();
+    str = str.replace(/\s/g, '');
 
     var reTest = /∧|∨|→|↔/.test(str);
     if (reTest) {

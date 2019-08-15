@@ -1,363 +1,250 @@
-<meta charset="utf-8">
+<!doctype html>
+<html lang="en">
 <head>
-
-<title>Tree Proof Generator Test</title>
-
-<style type="text/css">
-#canvas { position:absolute; left:0px; top:80px; width:2000px; height:3000px; background-color:#fff; visibility:hidden; }
-#rootAnchor { position:absolute; left:50px; top:0; width:100%; font-family:Arial,sans-serif; }
-.treeNode, .treeNodeHiParent, .treeNodeHiChild { white-space:nowrap; color:#666; text-align:center; }
-.treeNodeHiParent { background-color:#fd9; border:1px dotted #96c; }
-.treeNodeHiChild { background-color:#fff7d9; border:1px dotted #96c; }
-.formula { color:#600; text-decoration:none; }
-</style>
+<meta charset="utf-8">
+<title>TGP testdrive</title>
+<link href="https://fonts.googleapis.com/css?family=M+PLUS+1p:400,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" type="text/css">
 
 <?php
 $scripts = array("array", "formula", "parser", "prover", "modelfinder", "sentree", "painter");
-if ($_GET['debug'] || $_GET['comments']) {
-	$flag = $_GET['debug'] ? "debug" : "comments";
-	foreach ($scripts as $script) {
-		print "<script type='text/javascript' src='$script.$flag.js'></script>\n";
-	}
-    print "<script>\n";
-    print 'debug = function(str) { if (!self.debugWin) debugPopup(); debugWin.document.write("<pre>"+str+"</pre>"); }'."\n";
-    print 'debugPopup = function() { debugWin = self.open("about:blank","debugWin"); if (!self.debugWin) alert("unblock popups!"); }'."\n";
-    print 'debug("hello, this is the debugging window");'."\n";
-    print 'function log(str) { debug(str); }'."\n";
-    print '</script>';
-}
-else {
-	$allscripts = implode("-", $scripts);
-	print "<script type='text/javascript' src='$allscripts.js'></script>\n";
-    print "<script>\n";
-    print "function log(str) {};\n";
-    print '</script>';
-}
+$allscripts = implode("-", $scripts);
+print "<script type='text/javascript' src='$allscripts.js'></script>\n";
 ?>
-<?php 
-if ($_GET['script']) {
-	$scripts = explode(",", $_GET['script']);
-	foreach ($scripts as $scr) print "<script type='text/javascript' src='" . script($scr) . "'></script>\n";
-}
-?>
-<script>
-
-function prover_status(str) {
-	document.getElementById("status").firstChild.nodeValue = str;
-}
-
-function paintTree() {
-	if (prover.counterModel) document.getElementById("rootAnchor").innerHTML = prover.counterModel.toString();
-	else painter.paintTree();
-}
-
-</script>
 
 </head>
 
 <body>
 
-<div style="position:fixed; left:0; top:0; padding:10px; width:100%; background-color:#ccddee; text-align:center;">
+<h2>Tree Proof Generator Test Drive</h2>
 
-TPG Test Drive / 
-Debugging <?=($_GET["debug"] ? "on (<a href='?debug=0'>off</a>)" : "off (<a href='?debug=1'>on</a>)")?> /
-<form style="display:inline;" onsubmit="setTimeout('prove(document.forms[0].f.value, null, document.forms[0].d.value)', 100); return false">
-<input type="checkbox" onchange="self.prover.fastMode=(this.checked)? true : false"> Fast Mode / 
-<input type="text" size="50" name="f" id="flaInput" value=""> <input type="submit" value="Prove!">
-(depth <input type="text" size="1" name="d" value="1">)
-</form><br>
+<h3>Valid Formulas</h3>
 
-<div id="flaDiv" style="padding:5px; display:none;">
-</div>
+<table>
 
-<div style="padding:5px;">
-<span id="status">
-</span>
-<button onclick="prover.stop()">stop</button>
-<input type="checkbox" onchange="document.getElementById('canvas').style.visibility=(this.checked)? 'visible' : 'hidden'; if (this.checked) paintTree()"> canvas
-</div>
+<tr><td>simp</td><td class="formula">(p∨(q∧r))→((p∨q)∧(p∨r))</td><td></td></tr>
 
-</div>
+<tr><td>merg</td><td class="formula">¬((p∧¬(p→p))∨¬(p→p))</td><td></td></tr>
 
-<div id="canvas">
-<div id="rootAnchor">
-</div>
-</div>
+<tr><td>fun</td><td class="formula">∀ x F(x) → Ff(a)</td><td></td></tr>
 
-<br><br><br><br>
+<tr><td>func</td><td class="formula">¬(Pa∧¬Pf(f(a))∧∀x(Px→Pf(x)))</td><td></td></tr>
 
-<div id="flas" style="display:none">
+<tr><td>bost2nnf</td><td class="formula">¬(∀x(f(x)∧g(a)∨¬f(x)∧¬g(a)) ∧ ∀y∀z(f(b)∧¬g(y)∨g(z)∧¬f(b)) ∨ ∀w(f(d)∧¬g(w)∨¬f(d)∧g(w)) ∧ ∀s((¬f(s)∨g(e)) ∧ (¬g(k)∨f(s))))</td><td></td></tr>
 
-simp	(p\lor(q\landr))\to((p\lorq)\land(p\lorr))	valid
+<tr><td>t5</td><td class="formula">∃x(P∧Fx)↔P∧∃xFx</td><td></td></tr>
 
-merg	\lnot((p\land\lnot(p\top))\lor\lnot(p\top))	valid
+<tr><td>t6</td><td class="formula">∀x∃y(Fx↔Gy)→∃y∃z∀x((Fx→Gy)∧(Gz→Fx))</td><td></td></tr>
 
-fun	\forall x F(x) \to Ff(a)	valid
+<tr><td>t7</td><td class="formula">∃y∃z∀x((Fx→Gy)∧(Gz→Fx))→∀x∃y(Fx↔Gy)</td><td></td></tr>
 
-func	\lnot(Pa\land\lnotPf(f(a))\land\forallx(Px\toPf(x)))	valid
+<tr><td>t8</td><td class="formula">∀x(Fx→Ff(x))∧Ff(a)→Ff(f(f(a)))</td><td></td></tr>
 
-bost2nnf	\lnot(\forallx(f(x)\landg(a)\lor\lnotf(x)\land\lnotg(a)) \land \forally\forallz(f(b)\land\lnotg(y)\lorg(z)\land\lnotf(b)) \lor \forallw(f(d)\land\lnotg(w)\lor\lnotf(d)\landg(w)) \land \foralls((\lnotf(s)\lorg(e)) \land (\lnotg(k)\lorf(s))))	valid
+<tr><td>t9</td><td class="formula">∀x(Fx→Ff(x))∧Ff(g(f(a),b))→Ff(f(f(g(f(a),b))))</td><td></td></tr>
 
-t5	\existsx(P\landFx)\leftrightarrowP\land\existsxFx	valid
+<tr><td>ddelta</td><td class="formula">¬∀x(Fx∧∃y¬Fy)</td><td></td></tr>
 
-t6	\forallx\existsy(Fx\leftrightarrowGy)\to\existsy\existsz\forallx((Fx\toGy)\land(Gz\toFx))	valid
+<tr><td>b162.2</td><td class="formula">∀y∃x(Fx∧Gy)→∃x∀y(Fx∧Gy)</td><td></td></tr>
 
-t7	\existsy\existsz\forallx((Fx\toGy)\land(Gz\toFx))\to\forallx\existsy(Fx\leftrightarrowGy)	valid
+<tr><td>b164.1</td><td class="formula">∃x(Fx→∀xFx)</td><td></td></tr>
 
-t8	\forallx(Fx\toFf(x))\landFf(a)\toFf(f(f(a)))	valid
+<tr><td>b164.k</td><td class="formula">∀x∃y(Fx↔Gy)↔∃y∀x(Fx→Gy)∧∃y∀x(Gy→Fx)</td><td></td></tr>
 
-t9	\forallx(Fx\toFf(x))\landFf(g(f(a),b))\toFf(f(f(g(f(a),b))))	valid
+<tr><td>b164.l</td><td class="formula">∀x∃y(Fx↔Gy)↔∃y∃z∀x((Fx→Gy)∧(Gz→Fx))</td><td></td></tr>
 
-ddelta	\neg\forallx(Fx\land\existsy\negFy)	valid
+<tr><td>conpos</td><td class="formula">∀y(Iy→∀x(Px↔Cxy))∧∃yIy→∀x(Px↔∀y(Iy→Cxy))</td><td></td></tr>
 
-b162.2	\forally\existsx(Fx\landGy)\to\existsx\forally(Fx\landGy)	valid
+<tr><td>carnap</td><td class="formula">(∃xFx→Fw)∧(¬∃xFx∧∃xGx→Gw)↔(∃x(Fx∨(¬∃yFy∧Gx))→(Fw∨(¬∃yFy∧Gw)))</td><td></td></tr>
 
-b164.1	\existsx(Fx\to\forallxFx)	valid
+<tr><td>pel1</td><td class="formula">((p→q)↔(¬q→¬p))</td><td></td></tr>
 
-b164.k	\forallx\existsy(Fx\leftrightarrowGy)\leftrightarrow\existsy\forallx(Fx\toGy)\land\existsy\forallx(Gy\toFx)	valid
+<tr><td>pel2</td><td class="formula">(¬¬p↔p)</td><td></td></tr>
 
-b164.l	\forallx\existsy(Fx\leftrightarrowGy)\leftrightarrow\existsy\existsz\forallx((Fx\toGy)\land(Gz\toFx))	valid
+<tr><td>pel3</td><td class="formula">(¬(p→q)→(q→p))</td><td></td></tr>
 
-conpos	\forally(Iy\to\forallx(Px\leftrightarrowCxy))\land\existsyIy\to\forallx(Px\leftrightarrow\forally(Iy\toCxy))	valid
+<tr><td>pel4</td><td class="formula">((¬p→q)↔(¬q→p))</td><td></td></tr>
 
-carnap	(\existsxFx\toFw)\land(\neg\existsxFx\land\existsxGx\toGw)\leftrightarrow(\existsx(Fx\lor(\neg\existsyFy\landGx))\to(Fw\lor(\neg\existsyFy\landGw)))	valid
+<tr><td>pel5</td><td class="formula">(((p∨q)→(p∨r))→(p∨(q→r)))</td><td></td></tr>
 
-pel1	((p\toq)\leftrightarrow(\negq\to\negp))	valid
+<tr><td>pel6</td><td class="formula">(p∨¬p)</td><td></td></tr>
 
-pel2	(\neg\negp\leftrightarrowp)	valid
+<tr><td>pel7</td><td class="formula">(p∨¬(¬(¬p)))</td><td></td></tr>
 
-pel3	(\neg(p\toq)\to(q\top))	valid
+<tr><td>pel8</td><td class="formula">(((p→q)→p)→p)</td><td></td></tr>
 
-pel4	((\negp\toq)\leftrightarrow(\negq\top))	valid
+<tr><td>pel9</td><td class="formula">((((p∨q)∧(¬p∨q))∧(p∨¬q)) → ¬(¬p∨¬q))</td><td></td></tr>
 
-pel5	(((p\lorq)\to(p\lorr))\to(p\lor(q\tor)))	valid
+<tr><td>pel10</td><td class="formula">¬(¬(p↔q)∧(q→r) ∧(r→(p∧q))∧(p→(q∨r)))</td><td></td></tr>
 
-pel6	(p\lor\negp)	valid
+<tr><td>pel11</td><td class="formula">(p↔p)</td><td></td></tr>
 
-pel7	(p\lor\neg(\neg(\negp)))	valid
+<tr><td>pel12</td><td class="formula">(((p↔q)↔r) ↔ (p↔(q↔r)))</td><td></td></tr>
 
-pel8	(((p\toq)\top)\top)	valid
+<tr><td>pel13</td><td class="formula">((p∨(q∧r))↔((p∨q)∧(p∨r)))</td><td></td></tr>
 
-pel9	((((p\lorq)\land(\negp\lorq))\land(p\lor\negq)) \to \neg(\negp\lor\negq))	valid
+<tr><td>pel14</td><td class="formula">((p↔q)↔((q∨¬p)∧(¬q∨p)))</td><td></td></tr>
 
-pel10	\neg(\neg(p\leftrightarrowq)\land(q\tor) \land(r\to(p\landq))\land(p\to(q\lorr)))	valid
+<tr><td>pel15</td><td class="formula">((p→q)↔(¬p∨q))</td><td></td></tr>
 
-pel11	(p\leftrightarrowp)	valid
+<tr><td>pel16</td><td class="formula">((p→q)∨(q→p))</td><td></td></tr>
 
-pel12	(((p\leftrightarrowq)\leftrightarrowr) \leftrightarrow (p\leftrightarrow(q\leftrightarrowr)))	valid
+<tr><td>pel17</td><td class="formula">(((p∧(q→r))→s) ↔ (((¬p∨q)∨s)∧((¬p∨¬r)∨s)))</td><td></td></tr>
 
-pel13	((p\lor(q\landr))\leftrightarrow((p\lorq)\land(p\lorr)))	valid
+<tr><td>pel18</td><td class="formula">∃y∀x(Fy→Fx)</td><td></td></tr>
 
-pel14	((p\leftrightarrowq)\leftrightarrow((q\lor\negp)\land(\negq\lorp)))	valid
+<tr><td>pel19</td><td class="formula">∃x∀y∀z((Py→Qz)→(Px→Qx))</td><td></td></tr>
 
-pel15	((p\toq)\leftrightarrow(\negp\lorq))	valid
+<tr><td>pel20</td><td class="formula">(∀x∀y∃z∀w((Px∧Qy)→(Rz∧Sw)) → ∃x1∃y1((Px1∧Qy1)→∃z1(Rz1)))</td><td></td></tr>
 
-pel16	((p\toq)\lor(q\top))	valid
+<tr><td>pel21</td><td class="formula">¬(¬∃x(P↔Fx) ∧∃x1(P→Fx1)∧∃x2(Fx2→P))</td><td></td></tr>
 
-pel17	(((p\land(q\tor))\tos) \leftrightarrow (((\negp\lorq)\lors)\land((\negp\lor\negr)\lors)))	valid
+<tr><td>pel22</td><td class="formula">∀x(P↔Fx)→(P↔∀yFy)</td><td></td></tr>
 
-pel18	\existsy\forallx(Fy\toFx)	valid
+<tr><td>pel23</td><td class="formula">∀x(P∨Fx)↔(P∨∀yFy)</td><td></td></tr>
 
-pel19	\existsx\forally\forallz((Py\toQz)\to(Px\toQx))	valid
+<tr><td>pel24</td><td class="formula">¬(¬∃x(Px∧Rx) ∧ ¬∃y(Sy∧Qy) ∧ ∀v(Pv→(Qv∨Rv)) ∧ (¬∃yPy→∃zQz) ∧ ∀w((Qw∨Rw)→Sw))</td><td></td></tr>
 
-pel20	(\forallx\forally\existsz\forallw((Px\landQy)\to(Rz\landSw)) \to \existsx1\existsy1((Px1\landQy1)\to\existsz1(Rz1)))	valid
+<tr><td>pel25</td><td class="formula">¬(¬∃x(Qx∧Px) ∧ ∃yPy ∧ ∀y(Fy→(¬Gy∧Ry)) ∧ ∀y(Py→(Gy∧Fy)) ∧ (∀y(Py→Qy)∨∃z(Pz∧Rz)))</td><td></td></tr>
 
-pel21	\neg(\neg\existsx(P\leftrightarrowFx) \land\existsx1(P\toFx1)\land\existsx2(Fx2\toP))	valid
+<tr><td>pel26</td><td class="formula">¬(¬(∀x(Px→Rx)↔∀y(Qy→Sy)) ∧ (∃zPz↔∃zQz) ∧ ∀x∀y((Px∧Qy)→(Rx↔Sy)))</td><td></td></tr>
 
-pel22	\forallx(P\leftrightarrowFx)\to(P\leftrightarrow\forallyFy)	valid
+<!--tr><td>pel26nnf</td><td class="formula">¬(((q(a)∧ ¬s(a))∧ ∀x(¬p(x)∨r(x))∨ (p(b)∧ ¬r(b))∧ ∀y(¬q(y)∨s(y)))∧ (p(c)∧ q(d)∨∀z¬p(z)∧ ∀w¬q(w))∧ ∀v∀w((¬p(v)∨¬q(w))∨r(v)∧ s(w)∨¬r(v)∧ ¬s(w)))</td><td></td></tr-->
 
-pel23	\forallx(P\lorFx)\leftrightarrow(P\lor\forallyFy)	valid
+<tr><td>pel27</td><td class="formula">¬(¬∀x (J(x) → ¬I(x)) ∧ ∃y (F(y) ∧ ¬G(y)) ∧ ∀z (F(z) → H(z)) ∧ ∀w ((J(w) ∧ I(w)) → F(w)) ∧ (∃x2 (H(x2) ∧ ¬G(x2)) → ∀x3 (I(x3) → ¬H(x3))))</td><td></td></tr>
 
-pel24	\neg(\neg\existsx(Px\landRx) \land \neg\existsy(Sy\landQy) \land \forallv(Pv\to(Qv\lorRv)) \land (\neg\existsyPy\to\existszQz) \land \forallw((Qw\lorRw)\toSw))	valid
+<tr><td>pel28</td><td class="formula">¬(¬∀x ((P(x) ∧ F(x)) → G(x)) ∧ ∀y (P(y) → ∀z (Q(z))) ∧ (∀w (Q(w) ∨ R(w)) → ∃x2 (Q(x2) ∧ S(x2))) ∧ (∃x3 (S(x3)) → ∀x4 (F(x4) → G(x4))))</td><td></td></tr>
 
-pel25	\neg(\neg\existsx(Qx\landPx) \land \existsyPy \land \forally(Fy\to(\negGy\landRy)) \land \forally(Py\to(Gy\landFy)) \land (\forally(Py\toQy)\lor\existsz(Pz\landRz)))	valid
+<tr><td>pel29</td><td class="formula">¬(¬((∀x (F(x) → H(x)) ∧ ∀y (G(y) → J(y))) ↔ ∀z ∀w ((F(z) ∧ G(w)) → (H(z) ∧ J(w)))) ∧ (∃x2 (F(x2)) ∧ ∃x3 (G(x3))))</td><td></td></tr>
 
-pel26	\neg(\neg(\forallx(Px\toRx)\leftrightarrow\forally(Qy\toSy)) \land (\existszPz\leftrightarrow\existszQz) \land \forallx\forally((Px\landQy)\to(Rx\leftrightarrowSy)))	valid
+<tr><td>pel30</td><td class="formula">¬(¬∀x (I(x)) ∧ ∀y ((F(y) ∨ G(y)) → ¬H(y)) ∧ ∀z ((G(z) → ¬I(z)) → (F(z) ∧ H(z))))</td><td></td></tr>
 
-//	pel26nnf	\neg(((q(a)\land \negs(a))\land \forallx(\negp(x)\lorr(x))\lor (p(b)\land \negr(b))\land \forally(\negq(y)\lors(y)))\land (p(c)\land q(d)\lor\forallz\negp(z)\land \forallw\negq(w))\land \forallv\forallw((\negp(v)\lor\negq(w))\lorr(v)\land s(w)\lor\negr(v)\land \negs(w)))	valid
+<tr><td>pel31</td><td class="formula">¬(¬∃x (I(x) ∧ J(x)) ∧ ¬∃y (F(y) ∧ (G(y) ∨ H(y))) ∧ ∃z (I(z) ∧ F(z)) ∧ ∀w (¬H(w) → J(w)))</td><td></td></tr>
 
-pel27	\neg(\neg\forallx (J(x) \to \negI(x)) \land \existsy (F(y) \land \negG(y)) \land \forallz (F(z) \to H(z)) \land \forallw ((J(w) \land I(w)) \to F(w)) \land (\existsx2 (H(x2) \land \negG(x2)) \to \forallx3 (I(x3) \to \negH(x3))))	valid
+<tr><td>pel32</td><td class="formula">¬(¬∀x ((F(x) ∧ K(x)) → J(x)) ∧ ∀y ((F(y) ∧ (G(y) ∨ H(y))) → I(y)) ∧ ∀z ((I(z) ∧ H(z)) → J(z)) ∧ ∀w (K(w) → H(w)))</td><td></td></tr>
 
-pel28	\neg(\neg\forallx ((P(x) \land F(x)) \to G(x)) \land \forally (P(y) \to \forallz (Q(z))) \land (\forallw (Q(w) \lor R(w)) \to \existsx2 (Q(x2) \land S(x2))) \land (\existsx3 (S(x3)) \to \forallx4 (F(x4) \to G(x4))))	valid
+<tr><td>pel33</td><td class="formula">∀x ((P(a) ∧ (P(x) → P(b))) → P(c)) ↔ ∀y ((¬P(a) ∨ (P(y) ∨ P(c))) ∧ (¬P(a) ∨ (¬P(b) ∨ P(c))))</td><td></td></tr>
 
-pel29	\neg(\neg((\forallx (F(x) \to H(x)) \land \forally (G(y) \to J(y))) \leftrightarrow \forallz \forallw ((F(z) \land G(w)) \to (H(z) \land J(w)))) \land (\existsx2 (F(x2)) \land \existsx3 (G(x3))))	valid
+<tr><td>pel34</td><td class="formula">(∃x ∀y (P(x) ↔ P(y)) ↔ (∃z (Q(z)) ↔ ∀w (Q(w)))) ↔ (∃x2 ∀x3 (Q(x2) ↔ Q(x3)) ↔ (∃x4 (P(x4)) ↔ ∀x5 (P(x5))))</td><td></td></tr>
 
-pel30	\neg(\neg\forallx (I(x)) \land \forally ((F(y) \lor G(y)) \to \negH(y)) \land \forallz ((G(z) \to \negI(z)) \to (F(z) \land H(z))))	valid
+<tr><td>pel35</td><td class="formula">∃x ∃y (P(x,y) → ∀z ∀w (P(z,w)))</td><td></td></tr>
 
-pel31	\neg(\neg\existsx (I(x) \land J(x)) \land \neg\existsy (F(y) \land (G(y) \lor H(y))) \land \existsz (I(z) \land F(z)) \land \forallw (\negH(w) \to J(w)))	valid
+<tr><td>pel36</td><td class="formula">¬(¬∀x ∃y (H(x,y)) ∧ ∀z ∃w (F(z,w)) ∧ ∀x2 ∃x3 (G(x2,x3)) ∧ ∀x4 ∀x5 ((F(x4,x5) ∨ G(x4,x5)) → ∀x6 ((F(x5,x6) ∨ G(x5,x6)) → H(x4,x6))))</td><td></td></tr>
 
-pel32	\neg(\neg\forallx ((F(x) \land K(x)) \to J(x)) \land \forally ((F(y) \land (G(y) \lor H(y))) \to I(y)) \land \forallz ((I(z) \land H(z)) \to J(z)) \land \forallw (K(w) \to H(w)))	valid
+<tr><td>pel37</td><td class="formula">¬(¬∀x ∃y (R(x,y)) ∧ ∀z ∃w ∀x2 ∃x3 (P(x2,z) → ((P(x3,w) ∧ P(x3,z)) ∧ (P(x3,w) → ∃x4 (Q(x4,w))))) ∧ ∀x5 ∀x6 (¬P(x5,x6) →∃x7 (Q(x7,x6))) ∧ (∃x8 ∃x9 (Q(x8,x9)) → ∀y1 (R(y1,y1))))</td><td></td></tr>
 
-pel33	\forallx ((P(a) \land (P(x) \to P(b))) \to P(c)) \leftrightarrow \forally ((\negP(a) \lor (P(y) \lor P(c))) \land (\negP(a) \lor (\negP(b) \lor P(c))))	valid
+<tr><td>pel38</td><td class="formula">∀x ((P(a) ∧ (P(x) → ∃y (P(y) ∧ R(x,y)))) → ∃z ∃w ((P(z) ∧ R(x,w)) ∧ R(w,z))) ↔ ∀x2 ((((¬P(a)) ∨ P(x2)) ∨ ∃x3 ∃x4 ((P(x3) ∧ R(x2,x4)) ∧ R(x4,x3))) ∧ (((¬P(a)) ∨ (¬∃x5 (P(x5) ∧ R(x2,x5)))) ∨ ∃x6 ∃x7 ((P(x6) ∧ R(x2,x7)) ∧ R(x7,x6))))</td><td></td></tr>
 
-pel34	(\existsx \forally (P(x) \leftrightarrow P(y)) \leftrightarrow (\existsz (Q(z)) \leftrightarrow \forallw (Q(w)))) \leftrightarrow (\existsx2 \forallx3 (Q(x2) \leftrightarrow Q(x3)) \leftrightarrow (\existsx4 (P(x4)) \leftrightarrow \forallx5 (P(x5))))	valid
+<tr><td>pel39</td><td class="formula">¬∃x ∀y (F(y,x) ↔ ¬F(y,y))</td><td></td></tr>
 
-pel35	\existsx \existsy (P(x,y) \to \forallz \forallw (P(z,w)))	valid
+<tr><td>pel40</td><td class="formula">∃x ∀y (F(y,x) ↔ F(y,y)) → ¬∀z ∃w ∀x2 (F(x2,w) ↔ ¬F(x2,z))</td><td></td></tr>
 
-pel36	\neg(\neg\forallx \existsy (H(x,y)) \land \forallz \existsw (F(z,w)) \land \forallx2 \existsx3 (G(x2,x3)) \land \forallx4 \forallx5 ((F(x4,x5) \lor G(x4,x5)) \to \forallx6 ((F(x5,x6) \lor G(x5,x6)) \to H(x4,x6))))	valid
+</table>
 
-pel37	\neg(\neg\forallx \existsy (R(x,y)) \land \forallz \existsw \forallx2 \existsx3 (P(x2,z) \to ((P(x3,w) \land P(x3,z)) \land (P(x3,w) \to \existsx4 (Q(x4,w))))) \land \forallx5 \forallx6 (\negP(x5,x6) \to\existsx7 (Q(x7,x6))) \land (\existsx8 \existsx9 (Q(x8,x9)) \to \forally1 (R(y1,y1))))	valid
+    <h3>Invalid Formulas</h3>
+    
+<table>
+    
+<tr><td>i1</td><td class="formula">p</td><td></td></tr>
 
-pel38	\forallx ((P(a) \land (P(x) \to \existsy (P(y) \land R(x,y)))) \to \existsz \existsw ((P(z) \land R(x,w)) \land R(w,z))) \leftrightarrow \forallx2 ((((\negP(a)) \lor P(x2)) \lor \existsx3 \existsx4 ((P(x3) \land R(x2,x4)) \land R(x4,x3))) \land (((\negP(a)) \lor (\neg\existsx5 (P(x5) \land R(x2,x5)))) \lor \existsx6 \existsx7 ((P(x6) \land R(x2,x7)) \land R(x7,x6))))	valid
+<tr><td>i2</td><td class="formula">((p→q)↔(q→p))</td><td></td></tr>
 
-pel39	\neg\existsx \forally (F(y,x) \leftrightarrow \negF(y,y))	valid
+<tr><td>i3</td><td class="formula">∀xFx</td><td></td></tr>
 
-pel40	\existsx \forally (F(y,x) \leftrightarrow F(y,y)) \to \neg\forallz \existsw \forallx2 (F(x2,w) \leftrightarrow \negF(x2,z))	valid
+<tr><td>i4</td><td class="formula">∃xFx</td><td></td></tr>
 
+<tr><td>i5</td><td class="formula">∀x∃yRxy</td><td></td></tr>
 
+<tr><td>i6</td><td class="formula">∃y∀xFxy</td><td></td></tr>
 
-i1	p	invalid
+<tr><td>ifun</td><td class="formula">∀x∃y (Fx → Ff(y)) → (¬Fa ∨ Ff(a))</td><td></td></tr>
 
-i2	((p\toq)\leftrightarrow(q\top))	invalid
+<tr><td>Her</td><td class="formula">¬∀x((Fx ∧ ¬Fa)∨ Ga)</td><td></td></tr>
 
-i3	\forallxFx	invalid
+<tr><td>bost1</td><td class="formula">∀x∀y∀z(Fxy∧Fyz→Fxz) ∧ ∀x∀y(Fxy→Fyx) ∧ ∃x∃yFxy → ∀xFxx</td><td></td></tr>
 
-i4	\existsxFx	invalid
+<tr><td>2ind</td><td class="formula">¬∃x∃y(Fx∧¬Fy)</td><td></td></tr>
 
-i5	\forallx\existsyRxy	invalid
+<tr><td>4ind</td><td class="formula">¬(Fa ∧ Ga ∧ Fb ∧ ¬Gb ∧ ¬Fc ∧ Gc ∧ ¬Fd ∧ ¬Gd)</td><td></td></tr>
 
-i6	\existsy\forallxFxy	invalid
+<tr><td>infinity</td><td class="formula">¬(∀x∃yFxy ∧ ∀x∀y∀z(Fxy∧Fyz→Fxz) ∧ ∀x¬Fxx)</td><td></td></tr>
 
-ifun	\forallx\existsy (Fx \to Ff(y)) \to (\negFa \lor Ff(a))	invalid
+<tr><td>bx</td><td class="formula">∀y∃xFxy→∃x∀yFxy</td><td></td></tr>
 
-Her	\neg\forallx((Fx\wedge\negFa)\veeGa)	invalid
+<tr><td>bn</td><td class="formula">∃y∃z∀x((Fx→Gy)∧(Gz→Fx))→∀x∃y(Fy↔Gy)</td><td></td></tr>
 
-bost1	\forallx\forally\forallz(Fxy\landFyz\toFxz) \land \forallx\forally(Fxy\toFyx) \land \existsx\existsyFxy \to \forallxFxx	invalid
+<tr><td>conpos1</td><td class="formula">∀y(Iy→∀x(Px↔Cxy))→∀x(Px↔∀y(Iy→Cxy))</td><td></td></tr>
 
-2ind	\neg\existsx\existsy(Fx\land\negFy)	invalid
+<tr><td>conpos2</td><td class="formula">∀x(Px↔∀y(Iy→Cxy))→∀y(Iy→∀x(Px↔Cxy))</td><td></td></tr>
 
-4ind	\neg(Fa \land Ga \land Fb \land \negGb \land \negFc \land Gc \land \negFd \land \negGd)	invalid
-
-infinity	\neg(\forallx\existsyFxy \land \forallx\forally\forallz(Fxy\landFyz\toFxz) \land \forallx\negFxx)	invalid
-
-bx	\forally\existsxFxy\to\existsx\forallyFxy	invalid
-
-bn	\existsy\existsz\forallx((Fx\toGy)\land(Gz\toFx))\to\forallx\existsy(Fy\leftrightarrowGy)	invalid
-
-conpos1	\forally(Iy\to\forallx(Px\leftrightarrowCxy))\to\forallx(Px\leftrightarrow\forally(Iy\toCxy))	invalid
-
-conpos2	\forallx(Px\leftrightarrow\forally(Iy\toCxy))\to\forally(Iy\to\forallx(Px\leftrightarrowCxy))	invalid
-
-
-
-</div>
-
+</table>
+    
 <script type="text/javascript">
 
-function latex2str(str) {
-    str = str.replace(/\s*/g, '');
-    str = str.replace(/\\forall[\{ ]?\}?/g, '∀');
-    str = str.replace(/\\exists[\{ ]?\}?/g, '∃');
-    str = str.replace(/(\\neg|\\lnot)[\{ ]?\}?/g, '¬');
-    str = str.replace(/\\Box[\{ ]?\}?/g, '□');
-    str = str.replace(/\\Diamond[\{ ]?\}?/g, '◇');
-    str = str.replace(/(\\vee|\\lor)[\{ ]?\}?/g, '∨');
-    str = str.replace(/(\\wedge|\\land)[\{ ]?\}?/g, '∧');
-    str = str.replace(/(\\to|\\rightarrow)[\{ ]?\}?/g, ' → ');
-    str = str.replace(/\\leftrightarrow[\{ ]?\}?/g, ' ↔ ');
-    //str = str.replace(/([^'])(\\[^<]*)/, '$1<span class="latex">$2</span>'); // unfinished latex commands
-    //str = str.replace(/^(\\[^<]*)/, '<span class="latex">$1</span>'); // unfinished latex commands
-    str = str.replace(/([^'])(\\[^<]*)/, '$1$2'); // unfinished latex commands
-    str = str.replace(/^(\\[^<]*)/, '$1'); // unfinished latex commands
-    return str;
-}
+var tests = [];
+document.querySelectorAll('.formula').forEach(function(td) {
+    var formula = td.innerHTML;
+    var resTd = td.parentNode.childNodes[2];
+    td.onclick = function(e) {
+        prove(td.innerHTML, resTd);
+    }
+    tests.push(td.onclick);
+});
 
-if (document.getElementById("flas")) {
-	var flas = "";
-	for (var i=0; i<document.getElementById("flas").childNodes.length; i++) {
-		flas += document.getElementById("flas").childNodes[i].nodeValue;
-	}
-	flas = flas.split("\n");
-	var validTests = [];
-	var invalidTests = [];
-	for (var i=0; i<flas.length; i++) {
-		if (flas[i] == "") continue;
-		var fvals = flas[i].split("\t");
-		if (fvals.length != 3) continue;
-        fvals[1] = latex2str(fvals[1]);
-		if (fvals[2] == 'valid') validTests.push({ name: fvals[0], fla : fvals[1] });
-		else invalidTests.push({ name: fvals[0], fla : fvals[1] });
-	}
-	document.getElementById("flas").parentNode.removeChild(document.getElementById("flas"));
-	
-	document.write("<table id='testTable'>\n");
-	document.write("<tr><th colspan='3'>Valid Formulas</th><th>Result</th></tr>\n");
-	for (var i=0; i<validTests.length; i++) {
-		document.write("<tr" + (i%2 ? " style='background-color:#eee'" : "") + "><td>"+validTests[i].name+"</td><td>"+validTests[i].fla+"</td><td><button onclick='prove(\""+validTests[i].fla+"\", \""+i+"0\")'>prove</button></td><td id='res"+i+"0'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>\n");
-	}
-	document.write("<tr><th colspan='3'><br>Invalid Formulas</th><th><br>Result</th></tr>\n");
-	for (var i=0; i<invalidTests.length; i++) {
-		document.write("<tr" + (i%2 ? " style='background-color:#eee'" : "") + "><td>"+invalidTests[i].name+"</td><td>"+latex2str(invalidTests[i].fla)+"</td><td><button onclick='prove(\""+latex2str(invalidTests[i].fla)+"\", \""+i+"1\")'>prove</button></td><td id='res"+i+"1'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>\n");
-	}
-	document.write("</table>\n");
-}
-
-function prove(fla, resultId) {
+var prover;
+var stopTimer;
+var provingAll;
+function prove(fla, resEl) {
     var parser = new Parser();
     var formula = parser.parseFormula(fla);
-	self.resultId = resultId;
-	self.startDate = new Date();
-    self.prover = new Prover([formula.negate()]);
-    prover.status = prover_status;
-    prover.onfinished = get_onfinished(formula.negate());
-	prover.start();
+    console.log('testing '+fla);
+    var startTime = performance.now();
+    prover = new Prover([formula.negate()], parser);
+    prover.onfinished = function(status) {
+        var endTime = performance.now();
+        console.log('done with '+fla);
+        var res = (endTime - startTime) + ":&nbsp;" + (status ? "valid" : "invalid");
+        resEl.innerHTML = res;
+        if (provingAll) {
+            // console.log('clearing timer '+stopTimer);
+            clearTimeout(stopTimer);
+            setTimeout('proveNext()', 100);
+        }
+    };
+    prover.start();
 }
 
-function proveAll(timeLimit) {
-	self.arr = validTests;
-	self.ind = 0;
-    self.provingAll = true;
-    self.timeLimit = timeLimit;
-	proveNext();
+var index;
+var timeLimit;
+function proveAll(tLimit) {
+    index = 0;
+    provingAll = true;
+    timeLimit = tLimit;
+    proveNext();
 }
 
 function proveNext() {
-	if (!arr[ind]) {
-		if (arr == invalidTests) {
-            self.provingAll = false;
-			return;
-		}
-		arr = invalidTests;
-		ind = 0;
-	}
-	var test = arr[ind];
-	prove(test.fla, ind + (arr == validTests ? "0" : "1"));
-	ind++;
-	stopTimer = setTimeout("prover.stop(); proveNext()", timeLimit);
-}
-
-function get_onfinished(initFormula) {
-    return function(state) {
-        endDate = new Date();
-        // var sentenceTree = new SenTree(this.tree, [initFormula.negate()]);
-        // if (!state) {
-        //     if (!this.counterModel) this.counterModel = sentenceTree.getCounterModel();
-        //     if (!this.counterModel) alert("no countermodel for invalid formula");
-        // }
-        // painter = new TreePainter(sentenceTree, document.getElementById("rootAnchor"));
-        var res = (endDate - startDate) + ": " + (state ? "valid" : "invalid");
-        if (resultId !== null) document.getElementById("res"+resultId).firstChild.nodeValue = res;
-        else alert(res);
-        if (self.stopTimer) clearTimeout(stopTimer);
-        if (self.provingAll) setTimeout('proveNext()', 500);
+    if (index >= tests.length-1) {
+        provingAll = false;
+        return;
     }
+    console.log('launching test '+self.index);
+    stopTimer = setTimeout(function() {
+        console.log('aborting test');
+        prover.stop();
+        proveNext();
+    }, timeLimit);
+    tests[index]();
+    index++;
 }
-
 
 </script>
 
 <br><br><br><br>
 
-<div id="bottombar" style="position:fixed; bottom:0; left:0; padding:10px; width:100%; background-color:#ccddee; text-align:center;">
+<div style="position:fixed; bottom:0; left:0; padding:10px; width:100%; background-color:#ccc">
 <form action="#" method="get" style="display:inline">
 <input type="button" onclick="proveAll(this.form.l.value)" value="run all tests"> 
 Limit <input type="text" size="7" name="l" value="30000"> ms/test
-</form>
--
-<form action="_dump.php" method="post"  style="display:inline">
-<input type="button" onclick="this.form.content.value=''; this.form.content.value=document.body.innerHTML; this.form.submit()" value="dump"> 
-as <input type="text" size="20" name="filename" value="dump_1.html">
-<input type="hidden" name="content" value="">
 </form>
 </div>
 
