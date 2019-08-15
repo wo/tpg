@@ -435,6 +435,7 @@ Model.prototype.satisfy = function(clause, startIndex) {
     // iterateDenotations smarter: skip inconsistent term assignments
     if (!this.denotationsAreConsistent()) return false;
     // xxx first check if clause is already satisfied?
+    startIndex = startIndex || 0;
     for (var i=startIndex; i<clause.length; i++) {
         log("trying to satisfy "+clause[i].string);
         var atom = clause[i].sub || clause[i];
