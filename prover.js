@@ -15,8 +15,8 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
 
     log("initializing prover");
 
-    // init formulas; i.e. normalize, translate modal sentences, set up
-    // accessibility rules:
+    // set up the formulas with which the tableau begins, and the accessibility
+    // rules:
     this.initFormulas = initFormulas; // formulas as entered, with conclusion negated
     this.parser = parser.copy();
     this.accessibilityRules = [];
@@ -42,7 +42,7 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
     });
     
     // init prover:
-    this.pauseLength = 2; // ms pause between calculations
+    this.pauseLength = 10; // ms pause between calculations
     this.maxStepDuration = 20; // ms before setTimeout pause
     this.step = 0; // counter of calculation steps
     this.depthLimit = 2; // how many free variables may occur on the tree before
@@ -79,8 +79,6 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
     }
     this.counterModel = null;
 
-    this.stepStartTime = performance.now();
-    
     this.start = function() {
         this.nextStep();
     };
@@ -96,35 +94,17 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
 }
 
 Prover.prototype.nextStep = function() {
-
-    // if (this.tree.closedBranches.length >= 6) {
-    //     var branch = this.tree.closedBranches[5]
-    //     var lastNode = branch.nodes[branch.nodes.length-1];
-    //     var prevNode = branch.nodes[branch.nodes.length-2];
-    //     if (lastNode.fromRule == Prover.alpha &&
-    //         lastNode.fromNodes != prevNode.fromNodes) {
-    //         log(lastNode.formula.string);
-    //         log(prevNode.formula.string);
-    //         log(lastNode.fromNodes[0].formula.string);
-    //         log(prevNode.fromNodes[0].formula.string);
-    //     }
-    // }
-
-    
-    // expands the next node on the present tree; then initializes backtracking
-    // if limit is reached and occasionally searches for a countermodel; calls
-    // itself again unless proof is complete.
+    // expand the next node on the left-most open branch; initializes
+    // backtracking if limit is reached; also searches for a countermodel; calls
+    // itself again until proof is complete.
     this.step++;
     log('*** prover step '+this.step);
+    var stepStartTime = performance.now();
     
-    // status msg: xxx tidy up
-    var numBranches = this.tree.openBranches.length + this.tree.closedBranches.length;
-
-    // expand leftmost open branch on tree:
-    // (todoList items look like this: [Prover.alpha, nodes[0]])
+    // (todoList items look like this: [Prover.alpha, node])
     log(this.tree.openBranches[0].todoList);
     var todo = this.tree.openBranches[0].todoList.shift();
-    if (!todo) { // xxx can this ever happen?
+    if (!todo) {
         log('tree open and complete');
         return this.onfinished(0);
     }
@@ -132,10 +112,6 @@ Prover.prototype.nextStep = function() {
     var args = todo;
     nextRule(this.tree.openBranches[0], args);
     log(this.tree);
-    
-    // xxx should we check if a rule (say gamma) could be applied but didn't add
-    // any new nodes (e.g. because of duplicate node detection), in which case
-    // the tree remains open?
     
     if (this.tree.openBranches.length == 0) {
         log('tree closed');
@@ -153,34 +129,31 @@ Prover.prototype.nextStep = function() {
         return this.onfinished(0);
     }
     
-    if (this.step % 20 == 19) {
+    if (this.step % 1000 == 999) {
         // Often, there are thousands of trees to check with depth n, and none
         // of them closes, whereas many close for n+1. Changing the depth
-        // measure doesn't change this. Instead, once every x steps, we increase
-        // the limit for a while and then reset it:
-        if (this.step % 1000 == 999) {
-            log("trying with increased depth for a few steps");
-            this.depthLimit++;
-            this.decreaseLimit = this.step + 200;
-        }
-        else if (this.step == this.decreaseLimit) {
-            log("resetting depth");
-            this.depthLimit--;
-        }
+        // measure doesn't help. Instead, once every 1000 steps, we increase the
+        // limit for a while and then reset it:
+        log("trying with increased depth for a few steps");
+        this.depthLimit++;
+        this.decreaseLimit = this.step + 200;
     }
-
+    else if (this.step == this.decreaseLimit) {
+        log("resetting depth");
+        this.depthLimit--;
+    }
+    
+    var stepDuration = performance.now() - stepStartTime;
     if (this.stopTimeout) {
         // proof manually interrupted
         this.stopTimeout = false;
     }
-    else if (this.pauseLength &&
-             performance.now() - this.stepStartTime > this.maxStepDuration) {
+    else if (this.pauseLength && stepDuration > this.maxStepDuration) {
         // continue with next step after short break to display status message
         // and not get killed by browsers
         setTimeout(function(){
-            this.stepStartTime = performance.now();
             this.nextStep();
-        }.bind(this), this.pauseLength*this.tree.numNodes/2);
+        }.bind(this), this.pauseLength*this.tree.numNodes/10);
     }
     else {
         this.nextStep();
@@ -201,21 +174,7 @@ Prover.prototype.limitReached = function() {
     }
 }
 
-Prover.prototype.tryAlternative = function() {
-    // called if a branch can't be closed
-    if (this.alternatives.length) {
-        log(" * proof failed, trying stored alternative * ");
-        log(this.alternatives.length+' alternatives');
-        this.tree = this.alternatives.pop();
-        log(this.tree);
-        return true;
-    }
-    return false;
-}
-
-// If a rule leads to several new nodes, the third arguments to new Node()
-// should be strictly identical, so that we can easily find these new nodes
-// later
+// Rules for expanding the tableau:
 
 Prover.alpha = function(branch, nodeList) {
     log('alpha '+nodeList[0]);
@@ -225,7 +184,7 @@ Prover.alpha = function(branch, nodeList) {
     branch.addNode(subnode1);
     branch.addNode(subnode2);
     // tryClose is not part of addNode because we want to make sure both nodes
-    // are added in the finished tree (this matters in the alternatives clause
+    // are added in the finished tree (this matters for the alternatives clause
     // of unification).
     branch.tryClose(subnode1);
     if (!branch.closed) branch.tryClose(subnode2);
@@ -257,37 +216,12 @@ Prover.gamma = function(branch, nodeList, matrix) {
         this.limitReached();
         return null;
     }
-    
-    // The following lines would incorporate the Herbrand restriction on sentence tableau: 
-    // do not expand a gamma node more often than there are constants on the branch.
-    // For this purpose, s(0) and s(s(0)) should count as different constants, but 
-    // branch.constants only contains [s,0], so I would have to keep track of the actual
-    // instances somewhere. So for now, that's disabled. (2005-02-02) xxx todo
-    // if (!node.numExpansions) node.numExpansions = [];
-    // if (!node.numExpansions[branch.id]) node.numExpansions[branch.id] = 1;
-    // else {
-    //  node.numExpansions[branch.id]++;
-    //  if (node.numExpansions[branch.id] > branch.constants.length + 1) {
-    //      log("Branch unclosable by Herbrand restriction: " + node.numExpansions[branch.id] + " expansions, " + branch.constants.length + " constants on branch");
-    //      // too many gamma instances. But not all is lost if we can backtrack:
-    //      return this.backtrack() ? 0 : -1;
-    //  }
-    //}
-
-    var isModalGamma = matrix ? true : false;
+    // add application back onto todoList:
+    if (!matrix) branch.todoList.push([Prover.gamma, node]);
     var matrix = matrix || node.formula.matrix;
-    var vacuous = matrix.string.indexOf(node.formula.variable) == -1; // xxx doesn't catch vacuous qu. in ∀x∃xFx
-    if (vacuous) {
-        // don't introduce new free variable if quantifier is vacuous:
-        var newFormula = matrix;
-    }
-    else {
-        var newVariable = branch.newVariable(matrix);
-        var newFormula = matrix.substitute(node.formula.variable, newVariable);
-        // add application back onto todoList:
-        if (!isModalGamma) branch.todoList.push([Prover.gamma, node]);
-    }
-    var newNode = new Node(newFormula, Prover.gamma, nodeList); // xxx note that this sets fromRule to gamma even for s5 modal gamma nodes. is that ok?
+    var newVariable = branch.newVariable(matrix);
+    var newFormula = matrix.substitute(node.formula.variable, newVariable);
+    var newNode = new Node(newFormula, Prover.gamma, nodeList); // this sets fromRule to gamma even for s5 modalGamma nodes
     newNode.instanceTerm = newVariable; // used in sentree
     branch.addNode(newNode);
     branch.tryClose(newNode);
@@ -298,30 +232,14 @@ Prover.gamma.toString = function() { return 'gamma' }
 Prover.modalGamma = function(branch, nodeList) {
     // □A and ¬◇A nodes are translated into ∀x(¬wRxvAx) and ∀x(¬wRx∨¬Ax). By the
     // standard gamma rule, these would be expanded to ¬wRξ7 ∨ Aξ7 or ¬wRξ7 ∨
-    // ¬Aξ7. We don't want these nodes to appear on the displayed tree.
-    // More importantly, when these nodes are expanded, we get a ¬wRξ7 branch
-    // which also shouldn't appear on the displayed tree. That's easy to handle
-    // if the branch immediately closes (through unification, presumably).
-    // But there's no guarantee for that, since (1) we actively explore
-    // alternative trees in which unification is not applied, and (2) expansions
-    // of ∀x(¬wRx ∨ Ax) are allowed even if there's no node of the form wRy on
-    // the tree, so that unification is impossible.
-    //
-    // More importantly, if we require the ¬wRξ7 branch to close immediately, we
-    // effectly don't make use of free world variables in the tableau
-    // construction: a □A node is expanded to ¬wRξ7 ∨ Aξ7, alright, but further
-    // expansion is only allowed if some wRv occurs on the branch, in which case
-    // the expansion (effectively) adds Av to the branch. We can reach the same
-    // effect with the textbook □A rule: allow expansion only if some wRv occurs
-    // on the branch; in that case add Av to the branch.
-
+    // ¬Aξ7. We don't want the resulting branches on the tree. See readme.org
     log('modalGamma '+nodeList[0]);
     var node = nodeList[0];
     // add application back onto todoList:
     branch.todoList.push([Prover.modalGamma, node]);
     
     if (branch.tree.prover.s5) {
-        // In S5, we still translate □A into ∀x(¬wRxvAx) rather than the simpler
+        // In S5, we still translate □A into ∀x(¬wRxvAx) rather than
         // ∀xAx. That's because the latter doesn't tell us at which world the
         // formula is evaluated ('w'), which makes it hard to translate back
         // into textbook tableaux. (Think about the tableau for ◇□A→□A.) But
@@ -338,8 +256,8 @@ Prover.modalGamma = function(branch, nodeList) {
     // find wR* node for □A expansion:
     OUTERLOOP:
     for (var i=0; i<branch.literals.length; i++) {
-        log('lit '+branch.literals[i]);
         if (branch.literals[i].formula.string.indexOf(wR) == 0) {
+            log('lit '+branch.literals[i]);
             var wRy = branch.literals[i];
             // check if <node> has already been expanded with this wR* node:
             for (var j=0; j<branch.nodes.length; j++) {
@@ -354,9 +272,7 @@ Prover.modalGamma = function(branch, nodeList) {
             // expand <node> with found wR*:
             var modalMatrix = node.formula.matrix.sub2;
             var v = wRy.formula.terms[1];
-            log(modalMatrix);
             var newFormula = modalMatrix.substitute(node.formula.variable, v);
-            log(newFormula);
             var newNode = new Node(newFormula, Prover.modalGamma, [node, wRy]);
             newNode.instanceTerm = v;
             branch.addNode(newNode);
@@ -374,13 +290,13 @@ Prover.delta = function(branch, nodeList, matrix) {
     log('delta '+nodeList[0]);
     var node = nodeList[0];
     var fla = node.formula;
-    // find skolem term (newTerm):
+    // find skolem term:
     var funcSymbol = branch.newFunctionSymbol(matrix);
     // It suffices to skolemize on variables contained in this formula.
     // This makes some proofs much faster by making some gamma applications
     // redundant. However, translation into sentence tableau then becomes
     // almost impossible, because here we need the missing gamma
-    // applications.  Consider Ax(Fx & Ey~Fy).
+    // applications. Consider Ax(Fx & Ey~Fy).
     if (branch.freeVariables.length > 0) {
         if (branch.tree.prover.s5) {
             // branch.freeVariables contains world and individual variables
@@ -410,13 +326,13 @@ Prover.modalDelta = function(branch, nodeList) {
     log('modalDelta '+nodeList[0]);
     var node = nodeList[0];
     if (branch.tree.prover.s5) {
-        // In S5, we still translate ◇A into ∃x(wRx∧Ax) rather than the simpler
-        // ∃xAx. That's because the latter doesn't tell us at which world the
-        // formula is evaluated ('w'), which makes it hard to translate back
-        // into textbook tableaux. (Think about the tableau for ◇□A→□A.) But
-        // when we expand the ◇A node, we ignore the accessibility
-        // clause. Instead, we expand ∃x(wRx∧Ax) to Aφ, where φ is a suitable
-        // skolem term, just like for ordinary existential formulas.
+        // In S5, we still translate ◇A into ∃x(wRx∧Ax) rather than ∃xAx. That's
+        // because the latter doesn't tell us at which world the formula is
+        // evaluated ('w'), which makes it hard to translate back into textbook
+        // tableaux. (Think about the tableau for ◇□A→□A.) But when we expand
+        // the ◇A node, we ignore the accessibility clause. Instead, we expand
+        // ∃x(wRx∧Ax) to Aφ, where φ is a suitable skolem term, just like for
+        // ordinary existential formulas.
         return Prover.delta(branch, nodeList, node.formula.matrix.sub2);
     }
     var fla = node.formula;

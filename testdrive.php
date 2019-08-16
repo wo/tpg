@@ -166,8 +166,6 @@ print "<script type='text/javascript' src='$allscripts.js'></script>\n";
 
 <tr><td>4ind</td><td class="formula">¬(Fa ∧ Ga ∧ Fb ∧ ¬Gb ∧ ¬Fc ∧ Gc ∧ ¬Fd ∧ ¬Gd)</td><td></td></tr>
 
-<tr><td>infinity</td><td class="formula">¬(∀x∃yFxy ∧ ∀x∀y∀z(Fxy∧Fyz→Fxz) ∧ ∀x¬Fxx)</td><td></td></tr>
-
 <tr><td>bx</td><td class="formula">∀y∃xFxy→∃x∀yFxy</td><td></td></tr>
 
 <tr><td>bn</td><td class="formula">∃y∃z∀x((Fx→Gy)∧(Gz→Fx))→∀x∃y(Fy↔Gy)</td><td></td></tr>
@@ -175,6 +173,8 @@ print "<script type='text/javascript' src='$allscripts.js'></script>\n";
 <tr><td>conpos1</td><td class="formula">∀y(Iy→∀x(Px↔Cxy))→∀x(Px↔∀y(Iy→Cxy))</td><td></td></tr>
 
 <tr><td>conpos2</td><td class="formula">∀x(Px↔∀y(Iy→Cxy))→∀y(Iy→∀x(Px↔Cxy))</td><td></td></tr>
+
+<tr><td>infinity</td><td class="formula">¬(∀x∃yFxy ∧ ∀x∀y∀z(Fxy∧Fyz→Fxz) ∧ ∀x¬Fxx)</td><td></td></tr>
 
 </table>
     
