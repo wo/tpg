@@ -182,9 +182,9 @@ SenTree.prototype.transferNode = function(node, par) {
         return node;
     }
         
-    case Prover.gamma: case Prover.delta: case Prover.modalDelta: {
+    case Prover.gamma: case Prover.delta: {
         // <node> is the result of expanding a (possibly negated)
-        // quantified formula.
+        // quantified formula (or a modal formula in S5).
         var from = node.fromNodes[0];
         log("transferring "+node+" (gamma/delta from "+from+")");
         var matrix = from.formula.matrix || from.formula.sub.matrix;
@@ -192,7 +192,6 @@ SenTree.prototype.transferNode = function(node, par) {
             matrix.sub1.predicate == this.fvParser.R) {
             // in S5, ∀x(¬wRxvAx) and ∃x(wRx∧Ax) are expanded directly to Ax;
             // ¬∀x(¬wRxvAx) and ¬∃x(wRx∧Ax) to ¬Ax.
-            log('yes');
             var newFla = from.formula.sub ? matrix.sub2.negate() : matrix.sub2;
         }
         else {
@@ -228,6 +227,28 @@ SenTree.prototype.transferNode = function(node, par) {
         return node;
     }
 
+    case Prover.modalDelta: 
+        // <node> is the result of expanding a ◇ formula ∃v(wRv ∧ Av) or a ¬□
+        // formula ¬∀v(wRv → Av); so <node> is either wRuv or Av/¬Av.
+        var from = node.fromNodes[0];
+        log("transferring "+node+" (modalDelta from "+from+")");
+        if (node.formula.predicate == this.fvParser.R) {
+            this.appendChild(par, node);
+        }
+        else {
+            if (from.formula.sub) { 
+                var newFla = from.formula.sub.matrix.sub2.negate();
+                var boundVar = from.formula.sub.variable;
+            }
+            else {
+                var newFla = from.formula.matrix.sub2;
+                var boundVar = from.formula.variable;
+            }
+            node.formula = newFla.substitute(boundVar, node.instanceTerm);
+            this.appendChild(par, node);
+        }
+        return node;
+        
     default: {
         this.appendChild(par, node);
         return node;

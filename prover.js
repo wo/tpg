@@ -252,12 +252,12 @@ Prover.modalGamma = function(branch, nodeList) {
     var wRx = node.formula.matrix.sub1.sub;
     var w = wRx.terms[0];
     var wR = wRx.predicate + w;
-    log('wRx: '+wRx+', w: '+w);
+    log('looking for '+wR+'* nodes');
     // find wR* node for □A expansion:
     OUTERLOOP:
     for (var i=0; i<branch.literals.length; i++) {
         if (branch.literals[i].formula.string.indexOf(wR) == 0) {
-            log('lit '+branch.literals[i]);
+            log('found '+branch.literals[i]);
             var wRy = branch.literals[i];
             // check if <node> has already been expanded with this wR* node:
             for (var j=0; j<branch.nodes.length; j++) {
@@ -268,10 +268,10 @@ Prover.modalGamma = function(branch, nodeList) {
                     continue OUTERLOOP;
                 }
             }
-            log('expanding!');
             // expand <node> with found wR*:
             var modalMatrix = node.formula.matrix.sub2;
             var v = wRy.formula.terms[1];
+            log('expanding: '+node.formula.variable+' => '+v);
             var newFormula = modalMatrix.substitute(node.formula.variable, v);
             var newNode = new Node(newFormula, Prover.modalGamma, [node, wRy]);
             newNode.instanceTerm = v;
@@ -324,7 +324,7 @@ Prover.delta.toString = function() { return 'delta' }
 
 Prover.modalDelta = function(branch, nodeList) {
     log('modalDelta '+nodeList[0]);
-    var node = nodeList[0];
+    var node = nodeList[0]; // a node of type ∃x(wRx∧Ax)
     if (branch.tree.prover.s5) {
         // In S5, we still translate ◇A into ∃x(wRx∧Ax) rather than ∃xAx. That's
         // because the latter doesn't tell us at which world the formula is
@@ -336,14 +336,18 @@ Prover.modalDelta = function(branch, nodeList) {
         return Prover.delta(branch, nodeList, node.formula.matrix.sub2);
     }
     var fla = node.formula;
-    // don't need skolem terms for diamond formulas ∃v(wRv ∧ Av):
+    // don't need skolem terms (see readme.org):
     var newWorldName = branch.newWorldName();
-    var newFormula = node.formula.matrix.substitute(node.formula.variable, newWorldName);
-    // xxx might as well expand the conjunction, then I don't need to remove it in sentree!
-    var newNode = new Node(newFormula, Prover.delta, nodeList);
-    newNode.instanceTerm = newWorldName;
-    branch.addNode(newNode);
-    branch.tryClose(newNode);
+    // The instance formula would be wRu∧Au. We immediately expand the
+    // conjunction to conform to textbooks modal rules:
+    var fla1 = node.formula.matrix.sub1.substitute(node.formula.variable, newWorldName);
+    var fla2 = node.formula.matrix.sub2.substitute(node.formula.variable, newWorldName);
+    var newNode1 = new Node(fla1, Prover.modalDelta, nodeList); // wRu
+    var newNode2 = new Node(fla2, Prover.modalDelta, nodeList); // Au
+    newNode2.instanceTerm = newWorldName;
+    branch.addNode(newNode1);
+    branch.addNode(newNode2);
+    branch.tryClose(newNode2);
 }
 Prover.modalDelta.priority = 2;
 Prover.modalDelta.toString = function() { return 'modalDelta' }
