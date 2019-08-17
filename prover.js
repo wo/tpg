@@ -13,7 +13,7 @@
 
 function Prover(initFormulas, parser, accessibilityConstraints) {
 
-    log("initializing prover");
+    log("*** initializing prover");
 
     // set up the formulas with which the tableau begins, and the accessibility
     // rules:
@@ -40,6 +40,7 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
     this.initFormulasNormalized = this.initFormulasNonModal.map(function(f){
         return f.normalize();
     });
+    log('normalized initFormulas: '+this.initFormulasNormalized);
     
     // init prover:
     this.pauseLength = 10; // ms pause between calculations
@@ -218,8 +219,8 @@ Prover.gamma = function(branch, nodeList, matrix) {
     }
     // add application back onto todoList:
     if (!matrix) branch.todoList.push([Prover.gamma, node]);
-    var matrix = matrix || node.formula.matrix;
     var newVariable = branch.newVariable(matrix);
+    var matrix = matrix || node.formula.matrix;
     var newFormula = matrix.substitute(node.formula.variable, newVariable);
     var newNode = new Node(newFormula, Prover.gamma, nodeList); // this sets fromRule to gamma even for s5 modalGamma nodes
     newNode.instanceTerm = newVariable; // used in sentree
@@ -511,7 +512,6 @@ function Tree(prover) {
 Tree.prototype.closeBranch = function(branch, complementary1, complementary2) {
     branch.closed = true;
     this.markUsedNodes(branch, complementary1, complementary2);
-    log(this);
     this.pruneBranch(branch, complementary1, complementary2);
     this.openBranches.remove(branch);
     this.closedBranches.push(branch);
@@ -522,16 +522,14 @@ Tree.prototype.pruneAlternatives = function() {
     // discard all alternatives whose open branches are a superset of
     // this.openBranches; otherwise a lot of time is spent in complex proofs
     // exploring alternatives that reopen already closed branches without making
-    // progress on open ones.  xxx doesn't work: see step 138 in ∀x∃y(Fx ↔ Gy) ↔
-    // ∃y∀x(Fx → Gy)∧∃y∀x(Gy → Fx): here all branches emerging from one disjunct
-    // are closed, but we still reopen the disjunct. The problem
+    // progress on open ones.
     var alternatives = this.prover.alternatives.copy();
     ALTLOOP:
     for (var i=0; i<alternatives.length; i++) {
         var altTree = alternatives[i];
         for (var j=0; j<this.openBranches.length; j++) {
             var openBranch = this.openBranches[j];
-            if (!altTree.containsOpenBranch(openBranch)) { // xxx optimise: containsopenbranch looks through all open branches for each call
+            if (!altTree.containsOpenBranch(openBranch)) {
                 // log('alternative '+i+' does not contain open branch '+openBranch);
                 continue ALTLOOP
             }
@@ -542,8 +540,8 @@ Tree.prototype.pruneAlternatives = function() {
 }
 
 Tree.prototype.containsOpenBranch = function(branch) {
-    // check if tree contains an open branch with the same kind of nodes as
-    // <branch>; used in pruneAlternatives
+    // check if tree contains an open branch with the same nodes as <branch>;
+    // used in pruneAlternatives
     BRANCHLOOP:
     for (var i=0; i<this.openBranches.length; i++) {
         var oBranch = this.openBranches[i];
@@ -624,35 +622,6 @@ Tree.prototype.pruneBranch = function(branch, complementary1, complementary2) {
                     // it'll be removed in the displayed sentence tree because
                     // it has .used == false
                 }
-            }
-        }
-    }
-    return;
-
-    // original code:
-    toRoot:
-    for (var i=branch.nodes.length-1; branch.nodes[i].developedFrom; i--) {
-        if (branch.nodes[i].developedFrom.type != 'beta') continue;
-        // if on a branch with nodes [n1,...,n17] BETA is applied, the result
-        // are two branches [n1,...,n17,b1], [n1,...,n17,b2]. b1 and b2 have the
-        // same index.
-        for (var j=0; j<this.openBranches.length; j++) {
-            var obranch = this.openBranches[j];
-            if (obranch == branch) continue;
-            if (obranch.nodes[i] &&
-                obranch.nodes[i].developedFrom == branch.nodes[i].developedFrom &&
-                obranch.nodes[i] != branch.nodes[i]) {
-                // another open branch originating here
-                if (branch.nodes[i].used) {
-                    // can't look any further because from here upwards this
-                    // subtree isn't closed
-                    break toRoot;
-                }
-                log("pruning branch "+obranch+" originating from unused node "+branch.nodes[i].developedFrom);
-                this.openBranches.remove(obranch);
-                // note that we don't remove the beta expansion result on the
-                // closed branch.
-                break;
             }
         }
     }
@@ -751,39 +720,9 @@ Tree.prototype.copy = function() {
     
 }
 
-Tree.prototype.genericcopy = function() { // xxx remove
-    // Returns a deep copy. This is a generic clone function due to Brendan Eich. 
-    // It should be simplified because it slows down proofs.
-    function cloneObjectGraph(obj) {
-        var copy = new obj.constructor;
-        obj._mark = copy;
-        for (var i in obj) {
-            if (i == '_mark') continue;
-            var pval = obj[i];
-            if (typeof pval == "object" && pval != null) {
-                pval = pval._mark ? pval._mark : cloneObjectGraph(pval);
-            }
-            copy[i] = pval;
-        } 
-        return copy;
-    }
-    function removeMarksFromObjectGraph(obj) {
-        delete obj._mark;
-        for (var i in obj) {
-            var pval = obj[i];
-            if (typeof pval == "object" && pval != null && pval._mark) {
-                removeMarksFromObjectGraph(pval);
-            }
-        }
-    }
-    var copy = cloneObjectGraph(this);
-    removeMarksFromObjectGraph(this);
-    return copy;
-}
-
 Tree.prototype.applySubstitution = function(sub) {
     // apply substitution of terms for variables to all nodes on tree
-    var branches = this.openBranches.concat(this.closedBranches); // xxx optimise! e.g., why process closed branches at all?
+    var branches = this.openBranches.concat(this.closedBranches); // xxx optimise, e.g. why process closed branches at all?
     for (var i=0; i<sub.length; i+=2) {
         var nodeProcessed = {};
         for (var b=0; b<branches.length; b++) {
@@ -844,7 +783,7 @@ function Branch(tree, nodes, literals, freeVariables, skolemSymbols, todoList, c
     this.freeVariables = freeVariables || [];
     this.skolemSymbols = skolemSymbols || [];
     this.todoList = todoList || [];
-    // todoList looks like this: [[Prover.alpha, nodes[0]], [Prover.seriality]]
+    // todoList looks like this: [[Prover.alpha, node], [Prover.seriality]]
     this.closed = closed || false;
     this.id = Branch.counter++;
 }
@@ -885,7 +824,6 @@ Branch.prototype.newWorldName = function() {
 Branch.prototype.tryClose = function(node) {
     // check if branch can be closed with the help of the newly added node
     // <node>.
-    
     log('checking if branch can be closed with '+node);
     // First check if closure is possible without unification:
     var negatedFormula = (node.formula.operator == '¬') ? node.formula.sub : node.formula.negate();
@@ -981,30 +919,24 @@ Branch.prototype.tryClose = function(node) {
 Branch.prototype.copy = function() {
     // returns a copy of this branch with the same (===) nodes, for beta
     // expansions
-    var nb = new Branch(this.tree,
-                        this.nodes.copy(), // Array.copy
-                        this.literals.copy(),
-                        this.freeVariables.copy(),
-                        this.skolemSymbols.copy(),
-                        this.todoList.copyDeep(), // make copies of the todo items
-                        this.closed);
-    // disabled Herbrand restriction:
-    //
-    // for (var i=0; i<nb.unexpanded.length; i++) {
-    //  if (nb.enexpanded[i].numExpansions) nb.unexpanded[i].numExpansions[nb.id] = nb.unexpanded[i].numExpansions[this.id];
-    // }
-    return nb;
+    return new Branch(this.tree,
+                      this.nodes.copy(), // Array.copy
+                      this.literals.copy(),
+                      this.freeVariables.copy(),
+                      this.skolemSymbols.copy(),
+                      this.todoList.copyDeep(), // make copies of the todo items
+                      this.closed);
 }
 
 
 Branch.prototype.addNode = function(node) {
-    var doExpand = true;
+    var addToTodo = true;
     if (this.containsFormula(node.formula)) {
         // don't add node if same formula is already on branch, except if the
         // node comes from an alpha or beta expansion, in which case we
         // shouldn't call expandTodolist.
         if (node.fromRule == Prover.alpha || node.fromRule == Prover.beta) {
-            doExpand = false;
+            addToTodo = false;
         }
         else {
             return null;
@@ -1015,7 +947,7 @@ Branch.prototype.addNode = function(node) {
     if (node.type == 'literal') {
         this.literals.push(node);
     }
-    if (!this.closed && doExpand) {
+    if (!this.closed && addToTodo) {
         this.expandTodoList(node);
     }
     // so that we can later find nodes added in the same step:
@@ -1029,7 +961,6 @@ Branch.prototype.containsFormula = function(formula) {
     }
     return false;
 }
-
 
 Branch.prototype.expandTodoList = function(node) {
     // insert node expansion into branch's todoList
@@ -1074,15 +1005,6 @@ Branch.prototype.expandTodoList = function(node) {
             this.addAccessibilityRuleApplications();
         }
         else if (node.formula.predicate == this.tree.parser.R) {
-            // node has form vRu; check that world u is new:
-            // var worldName = node.formula.terms[1];
-            // for (var i=0; i<this.nodes.length-1; i++) {
-            //     if (node.formula.constants.includes(worldName)) {
-            //         // xxx check that worldName is always a constant, not a
-            //         // genuine skolem function
-            //         return;
-            //     }
-            // }
             this.addAccessibilityRuleApplications(node);
         }
     }
@@ -1100,41 +1022,6 @@ Branch.prototype.addAccessibilityRuleApplications = function(node) {
         if (node) this.todoList.insert([rule, node], j);
         else this.todoList.insert([rule], j);
     }
-}
-
-
-Branch.prototype.merge = function() { // xxx remove?
-    // If (the set of formulas on) a branch A is a subset of a branch B, then
-    // only branch A needs to be checked, whereas B can be regarded as if it was
-    // closed. (For if A closes, B closes as well, and if A doesn't close, the
-    // search is over.) I check if it has become a branch B of this kind. If so,
-    // it is removed from the tree. (This function can't be called directly from
-    // addNode as that messes up the beta expansion).
-    var branches = this.tree.closedBranches.concat(this.tree.openBranches);
-    for (var i=0; i<branches.length; i++) {
-        if (branches[i] == this) continue;
-        var merge = true;
-        nodeLoop:
-        for (var j=0; j<branches[i].nodes.length; j++) {
-            for (var k=0; k<this.nodes.length; k++) {
-                if (this.nodes[k].formula.equals(branches[i].nodes[j].formula)) continue nodeLoop;
-            }
-            // log("can't merge "+this.nodes+" with "+branches[i].nodes+" because of "+branches[i].nodes[j]);
-            merge = false;
-            break;
-        }
-        if (merge) {
-            log(this.tree);
-            log("Merging: removing " + this.nodes + " from tree as it contains " + branches[i].nodes);
-            if (!this.tree.mergedBranches) this.tree.mergedBranches = [];
-            this.tree.mergedBranches.push(this);
-            this.mergedWith = branches[i];
-            this.mergePoint = branches[i].nodes[branches[i].nodes.length-1];
-            this.tree.openBranches.remove(this);
-            return 1;
-        }
-    }
-    return 0;
 }
 
 Branch.prototype.toString = function() {
@@ -1159,21 +1046,6 @@ Node.counter = 0;
 Node.prototype.getExpansionRule = function() {
     // return rule for expanding this node
     return Prover[this.type];
-}
-
-
-Node.prototype.iterateOverOrigin = function(iterFun) {
-    // apply <iterFun> to this node and all its ancestors, in terms of rule
-    // applications xxx remove
-    var ancestor, ancestors = [this];
-    while ((ancestor = ancestors.shift())) {
-        iterFun(ancestor);
-        for (var i=0; i<ancestor.fromNodes.length; i++) {
-            if (!ancestors.includes(ancestor.fromNodes[i])) {
-                ancestors.push(ancestor.fromNodes[i]);
-            }
-        }
-    }
 }
 
 Node.prototype.toString = function() {

@@ -18,7 +18,7 @@ Formula.prototype.negate = function() {
 }
 
 Formula.prototype.unify = function(formula) {
-    // checks whether this formula can be unified with the argument formula.
+    // check whether this formula can be unified with the argument formula.
     // Returns a (minimally) unifying substitution (that, if applied to both
     // formulas, yields the same formula) if one exists, otherwise false.  A
     // substitution is simply an array of terms, which is interpreted as arr[1]
@@ -101,28 +101,28 @@ Formula.prototype.unify = function(formula) {
 }
 
 Formula.prototype.normalize = function() {
-    // returns an equivalent formula in negation normal form, in which left
-    // subformulas are generally less complex than right subformulas (complexity
-    // here means number of disjunctions). This helps when constructing proofs:
-    // we can always focus on the leftmost open branch in a tree. xxx todo
-    // implement, and see if it helps at all.
+    // returns an equivalent formula in negation normal form
     var op = this.operator || this.quantifier;
     if (!op) return this;
     switch (op) {
     case '∧' : case '∨' : {
         // |A&B| = |A|&|B|
         // |AvB| = |A|v|B|
-        return new BinaryFormula(op, this.sub1.normalize(), this.sub2.normalize());
+        var sub1 = this.sub1.normalize();
+        var sub2 = this.sub2.normalize();
+        return new BinaryFormula(op, sub1, sub2);
     }
     case '→' : {
         // |A->B| = |~A|v|B|
-        return new BinaryFormula('∨', this.sub1.negate().normalize(), this.sub2.normalize());
+        var sub1 = this.sub1.negate().normalize();
+        var sub2 = this.sub2.normalize();
+        return new BinaryFormula('∨', sub1, sub2);
     }
     case '↔' : {
         // |A<->B| = |A&B|v|~A&~B|
-        var sub1 = new BinaryFormula('∧', this.sub1, this.sub2);
-        var sub2 = new BinaryFormula('∧', this.sub1.negate(), this.sub2.negate());
-        return new BinaryFormula('∨', sub1.normalize(), sub2.normalize());
+        var sub1 = new BinaryFormula('∧', this.sub1, this.sub2).normalize();
+        var sub2 = new BinaryFormula('∧', this.sub1.negate(), this.sub2.negate()).normalize();
+        return new BinaryFormula('∨', sub1, sub2);
     }
     case '∀' : case '∃' : {
         // |(Ax)A| = Ax|A|
@@ -142,7 +142,8 @@ Formula.prototype.normalize = function() {
             // |~(AvB)| = |~A|&|~B|
             var sub1 = this.sub.sub1.negate().normalize();
             var sub2 = this.sub.sub2.negate().normalize();
-            return new BinaryFormula(op2=='∧' ? '∨' : '∧', sub1, sub2);
+            var newOp = op2 == '∧' ? '∨' : '∧';
+            return new BinaryFormula(newOp, sub1, sub2);
         }
         case '→' : {
             // |~(A->B)| = |A|&|~B|
@@ -152,9 +153,9 @@ Formula.prototype.normalize = function() {
         }
         case '↔' : {
             // |~(A<->B)| = |A&~B|v|~A&B|
-            var sub1 = new BinaryFormula('∧', this.sub.sub1, this.sub.sub2.negate());
-            var sub2 = new BinaryFormula('∧', this.sub.sub1.negate(), this.sub.sub2);
-            return new BinaryFormula('∨', sub1.normalize(), sub2.normalize());
+            var sub1 = new BinaryFormula('∧', this.sub.sub1, this.sub.sub2.negate()).normalize();
+            var sub2 = new BinaryFormula('∧', this.sub.sub1.negate(), this.sub.sub2).normalize();
+            return new BinaryFormula('∨', sub1, sub2);
         }
         case '∀' : case '∃' : {
             // |~(Ax)A| = Ex|~A|
@@ -176,26 +177,6 @@ Formula.prototype.normalize = function() {
     }
 }
 
-Formula.prototype.prenex = function() { // xxx unused
-    // return formula with universal quantifiers moved to front; formula must be
-    // skolemized and in NNF.
-    if (this.sub1) { // ∀xP ∧ Q => ∀x(P ∧ Q), Q ∧ ∀xP => ∀x(Q ∧ P)
-        var nsub1 = this.sub1.quantifier ? this.sub1.matrix.prenex() : this.sub1.prenex();
-        var nsub2 = this.sub2.quantifier ? this.sub2.matrix.prenex() : this.sub2.prenex();
-        if (this.sub1 == nsub1 && this.sub2 == nsub2) return this;
-        var res = new BinaryFormula(this.operator, nsub1, nsub2);
-        if (this.sub2.quantifier) {
-            res = new QuantifiedFormula('∀', this.sub2.variable, res);
-        }
-        if (this.sub1.quantifier) {
-            res = new QuantifiedFormula('∀', this.sub1.variable, res);
-        }
-        return res;
-    }
-    return this;
-}
-
-
 Formula.prototype.removeQuantifiers = function() {
     // return formula with all quantifiers removed; formula must be skolemized
     // and in NNF.
@@ -212,119 +193,8 @@ Formula.prototype.removeQuantifiers = function() {
     return this;
 }
 
-// Formula.prototype.isModal = function() {
-//     var fla, flas = [this];
-//     while ((fla = flas.shift())) {
-//         if (fla.operator == '□' || fla.operator == '◇') return true;
-//         if (fla.matrix) {
-//             flas.push(fla.matrix);
-//         }
-//         else if (fla.sub) {
-//             flas.push(fla.sub);
-//         }
-//         else if (fla.sub1) {
-//             flas.push(fla.sub1);
-//             flas.push(fla.sub2);
-//         }
-//     }
-//     return false;
-// }
-
-// Formula.prototype.getBoundVariables = function() {
-//     // returns all bound variables in the formula (no duplicates)
-//     var result = [];
-//     var fla, flas = [this];
-//     while ((fla = flas.shift())) {
-//         if (fla.variable) {
-//             if (!result.includes(fla.variable)) result.push(fla.variable);
-//             flas.push(fla.matrix);
-//         }
-//         else if (fla.sub) {
-//             flas.push(fla.sub);
-//         }
-//         else if (fla.sub1) {
-//             flas.push(fla.sub1);
-//             flas.push(fla.sub2);
-//         }
-//     }
-//     return result;
-// }
-
-// Formula.prototype.getConstants = function(withArity) { 
-//     // returns a list of all constants and function symbols in the (normalized)
-//     // formula. If <withArity> is set and true, the returned elements are
-//     // objects with properties 'constant' and 'arity'.
-//     var result = [], resultWithArity = [];
-//     var boundVars = []; // xxx check: what if a variable occurs both free and bound?
-//     var fla, flas = [this];
-//     while ((fla = flas.shift())) {
-//         if (fla.matrix) {
-//             flas.push(fla.matrix);
-//             boundVars.push(fla.variable);
-//             continue;
-//         }
-//         if (fla.sub1) {
-//             flas.push(fla.sub1);
-//             flas.push(fla.sub2);
-//             continue;
-//         }
-//         if (fla.sub) {
-//             flas.push(fla.sub);
-//             continue;
-//         }
-//         var term, terms = fla.terms.copyDeep();
-//         while ((term = terms.shift())) {
-//             if (term.isArray) {
-//                 for (var i=1; i<term.length; i++) terms.push(term[i]);
-//                 if (result.includes(term[0])) continue;
-//                 result.push(term[0]);
-//                 if (withArity) {
-//                     resultWithArity.push({ constant : term[0], arity : term.length-1 });
-//                 }
-//             }
-//             else if (!result.includes(term) && !boundVars.includes(term)) {
-//                 result.push(term);
-//                 if (withArity) {
-//                     resultWithArity.push({ constant : term, arity : 0 });
-//                 }
-//             }
-//         }
-//     }
-//     return withArity ? resultWithArity : result;
-// }
-
-// Formula.prototype.getPredicates = function(withArity) {
-//     // returns a list of all predicates in the formula. If <withArity>
-//     // is set and true, the returned elements are objects with
-//     // properties 'predicate' and 'arity'.
-//     var result = [], resultWithArity = [];
-//     var fla, flas = [this];
-//     while ((fla = flas.shift())) {
-//         if (fla.matrix) {
-//             flas.push(fla.matrix);
-//             continue;
-//         }
-//         if (fla.sub1) {
-//             flas.push(fla.sub1);
-//             flas.push(fla.sub2);
-//             continue;
-//         }
-//         if (fla.sub) {
-//             flas.push(fla.sub);
-//             continue;
-//         }
-//         if (!result.includes(fla.predicate)) {
-//             result.push(fla.predicate);
-//             if (withArity) {
-//                 resultWithArity.push({ predicate : fla.predicate, arity : fla.terms.length });
-//             }
-//         }
-//     }
-//     return withArity ? resultWithArity : result;
-// }
-
 Formula.prototype.alpha = function(n) {
-    // return first/second formula for sentree alpha expansion
+    // return first/second subformula for sentree alpha expansion
     if (this.operator == '∧') {
         return n == 1 ? this.sub1 : this.sub2;
     }
@@ -338,7 +208,7 @@ Formula.prototype.alpha = function(n) {
 }
 
 Formula.prototype.beta = function(n) {
-    // return first/second formula for sentree alpha expansion
+    // return first/second subformula for sentree beta expansion
     if (this.operator == '∨') {
         return n == 1 ? this.sub1 : this.sub2;
     }
@@ -367,28 +237,6 @@ function AtomicFormula(predicate, terms) {
     this.predicate = predicate;
     this.terms = terms; // a,b,f(a,g(c),d) => a,b,[f,a,[g,c],d]
     this.string = this.predicate + AtomicFormula.terms2string(this.terms);
-    this.predicates = [predicate];
-    // this.constants = []; // includes function symbols
-    this.variables = [];
-    // classify atomic terms into variables and constants:
-    // var list = terms;
-    // for (var i=0; i<list.length; i++) {
-    //     if (list[i].isArray) list = list.concat(list[i]);
-    //     else {
-    //         var termType = this.parser.expressionType[list[i]];
-    //         if (termType == 'variable' || termType == 'world variable') {
-    //             this.variables.pushNoDuplicates(list[i]);
-    //         }
-    //         else this.constants.pushNoDuplicates(list[i]);
-    //     }
-    // }
-    // if (this.parser.isPropositional &&
-    //     this.terms.length > 0 &&
-    //     (!this.parser.isModal ||
-    //      (this.predicate != this.parser.R && this.terms.length > 1))) {
-    //         this.parser.isPropositional = false;
-    // }
-    // log(this.constants);
 }
 
 AtomicFormula.terms2string = function(list) {
@@ -418,6 +266,7 @@ AtomicFormula.prototype.substitute = function(origTerm, newTerm, shallow) {
     }
     else return this;
 }
+
 AtomicFormula.substituteInTerm = function(term, origTerm, newTerm, shallow) {
     // xxx this could be optimized (it's also used in prover)
     if (term.isArray && !shallow) {
@@ -443,12 +292,6 @@ function QuantifiedFormula(quantifier, variable, matrix, overWorlds) {
         this.type = quantifier == '∀' ? 'gamma' : 'delta';
     }
     this.string = quantifier + variable + matrix;
-    this.predicates = matrix.predicates;
-    // this.constants = matrix.constants;
-    // this.variables = matrix.variables; // if current variable is vacuous we
-                                       // don't care if it's listed under
-                                       // variables
-    
     // We could now set this.parser.isPropositional = false, so that ∀xP counts
     // as a non-propositional formula; OTOH, it's useful to have
     // parser.isPropositional true for modal formulas. So we only set
@@ -472,28 +315,6 @@ function BinaryFormula(operator, sub1, sub2) {
     this.sub2 = sub2;
     this.type = operator == '∧' ? 'alpha' : 'beta';
     this.string = '(' + this.sub1 + this.operator + this.sub2 + ')';
-    this.predicates = this.sub1.predicates.copy();
-    // xxx optimize the following by defining Array.merge?
-    for (var i=0; i<this.sub2.predicates.length; i++) {
-        var pred = this.sub2.predicates[i];
-        if (!this.predicates.includes(pred)) {
-            this.predicates.push(pred);
-        }
-    }
-    // this.constants = this.sub1.constants.copy();
-    // for (var i=0; i<this.sub2.constants.length; i++) {
-    //     var cons = this.sub2.constants[i];
-    //     if (!this.constants.includes(cons)) {
-    //         this.constants.push(cons);
-    //     }
-    // }
-    // this.variables = this.sub1.variables.copy();
-    // for (var i=0; i<this.sub2.variables.length; i++) {
-    //     var vari = this.sub2.variables[i];
-    //     if (!this.variables.includes(vari)) {
-    //         this.variables.push(vari);
-    //     }
-    // }
 }
 
 BinaryFormula.prototype = Object.create(Formula.prototype);
@@ -510,11 +331,8 @@ BinaryFormula.prototype.substitute = function(origTerm, newTerm, shallow) {
 function ModalFormula(operator, sub) {
     this.operator = operator;
     this.sub = sub;
-    this.type = operator == '□' ? 'boxy' : 'diamondy';
+    this.type = operator == '□' ? 'modalGamma' : 'modalDelta';
     this.string = this.operator + this.sub;
-    this.predicates = this.sub.predicates;
-    // this.constants = this.sub.constants;
-    // this.variables = this.sub.variables;
 }
 
 ModalFormula.prototype = Object.create(Formula.prototype);
@@ -532,9 +350,6 @@ function NegatedFormula(sub) {
     this.sub = sub;
     this.type = NegatedFormula.computeType(sub);
     this.string = '¬' + this.sub;
-    this.predicates = this.sub.predicates;
-    // this.constants = this.sub.constants;
-    // this.variables = this.sub.variables;
 }
 
 NegatedFormula.computeType = function(sub) {
@@ -545,8 +360,8 @@ NegatedFormula.computeType = function(sub) {
     case 'beta': { return sub.operator == '↔' ? 'beta' : 'alpha'; }
     case 'gamma': { return 'delta'; }
     case 'delta': { return 'gamma'; }
-    case 'boxy': { return 'diamondy'; }
-    case 'diamondy': { return 'boxy'; }
+    case 'modalGamma': { return 'modalBeta'; }
+    case 'modalDelta': { return 'modalGamma'; }
     }
 }
 

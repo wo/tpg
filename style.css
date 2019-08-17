@@ -48,6 +48,7 @@ a { color:#007083; }
 .nodenumber { color: #566; width: 1.5em; padding-top:1px; text-align: right; }
 .fromnumbers { color: #566; width: 2.5em; padding-top:1px; text-align: left; }
 .worldlabel { color: #742; width: 1.5em; padding-top:1px; margin-right:0.5em; text-align: center; }
+.treeNode b { display:block; margin-bottom:30px; }
 
 #model { margin:20px; padding:3px 20px; text-align:center; display:none; }
 #model b { font-weight:500; color:#023; }

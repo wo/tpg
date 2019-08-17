@@ -21,6 +21,17 @@ tests = {
         assertEqual(sentree.nodes.length, 7);
         assertEqual(sentree.nodes[2].children[1].formula.string, 'A');
     },
+
+    nicenames: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('∃y∀x(Fy→Fx)').negate();
+        var prover = new Prover([f], parser);
+        prover.pauseLength = 0;
+        prover.start();
+        var sentree = new SenTree(prover.tree, parser);
+        assertEqual(sentree.nodes[1].formula.string, '¬∀x(Fa→Fx)');
+        assertEqual(sentree.nodes[2].formula.string, '¬(Fa→Fb)');
+    },
     
     dne: function() {
         var parser = new Parser();

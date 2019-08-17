@@ -1,13 +1,11 @@
 
 function Parser() {
     // store signature info so that we can parse multiple formulas and check if
-    // they make sense together (e.g. matching arities for same predicate); free
-    // variables and skolem terms used in tableau construction are not
-    // registered here, but skolem terms used for CNF conversion are. 
+    // they make sense together (e.g. matching arities for same predicate)
     this.symbols = [];
-    this.expressionType = {};
-    this.arities = {};
-    // store whether at least one of the parsed formulas is modal or
+    this.expressionType = {}; // symbol => string describing expression type
+    this.arities = {}; // symbol => number
+    // store whether at least one of the parsed formulas is modal/
     // propositional, so that we can build an appropriate tree/countermodel:
     this.isModal = false;
     this.isPropositional = true;
@@ -40,7 +38,6 @@ Parser.prototype.registerExpression = function(ex, exType, arity) {
     }
     this.expressionType[ex] = exType;
     this.arities[ex] = arity;
-    // xxx del if (ex == this.freeVariable) this.freeVariable = 'ξ';
 }
 
 Parser.prototype.getSymbols = function(expressionType) {
@@ -93,7 +90,7 @@ Parser.prototype.getNewWorldName = function() {
 }
 
 Parser.prototype.getVariables = function(formula) {
-    // return all variables in <formula>
+    // return all variables in <formula>; used in model.getconstraints()
     var variables = this.getSymbols('variable');
     var res = [];
     var dupe = {};
@@ -139,7 +136,7 @@ Parser.prototype.translateFromModal = function(formula, worldVariable) {
     if (formula.quantifier) {
         var nmatrix = this.translateFromModal(formula.matrix, worldVariable);
         return new QuantifiedFormula(formula.quantifier, formula.variable, nmatrix);
-        // xxx assumes constant domains
+        // assumes constant domains
     }
     if (formula.sub1) {
         var nsub1 = this.translateFromModal(formula.sub1, worldVariable);
@@ -287,6 +284,7 @@ Parser.prototype.clausalNormalForm = function(formula) {
 
     // see http://cs.jhu.edu/~jason/tutorials/convert-to-CNF and
     // http://www8.cs.umu.se/kurser/TDBB08/vt98b/Slides4/norm1_4.pdf
+
     // xxx todo use switching variables to keep CNFs short?
 
     var distinctVars = this.makeVariablesDistinct(formula);
@@ -376,7 +374,7 @@ Parser.prototype.makeVariablesDistinct = function(formula) {
 
 
 Parser.prototype.parseFormula = function(str) {
-    // return Formula for string
+    // return Formula for (entered) string
     var boundVars = arguments[1] ? arguments[1].slice() : [];
     log("parsing '"+str+"' (boundVars "+boundVars+")");
     str = str.replace(/\s/g, '');

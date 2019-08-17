@@ -1,8 +1,3 @@
-//
-// A SenTree is a tableau in the familiar sentence format (without free
-// variables). The SenTree constructor takes a Tree object (a free-variable
-// tableau) as argument.
-//
 // Unlike Tree objects, SenTrees have their nodes really stored in tree form,
 // with a root node and children/parent attributes.  Other than that, the nodes
 // are the same Node objects as on Tree Branches.
@@ -16,9 +11,8 @@ function SenTree(fvTree, parser) {
     this.initFormulasNonModal = fvTree.prover.initFormulasNonModal;
     this.initFormulasNormalized = fvTree.prover.initFormulasNormalized;
     this.fvTree = fvTree;
-    this.parser = parser;
-    this.fvParser = fvTree.parser;
-    this.constants = [];
+    this.parser = parser; // parser for entered formulas
+    this.fvParser = fvTree.parser; // parser with added symbols used in fvtree
 
     this.markEndNodesClosed();
     this.transferNodes();
@@ -386,28 +380,6 @@ SenTree.prototype.replaceFreeVariablesAndSkolemTerms = function() {
     }
 }
 
-SenTree.prototype.getNewConstant = function() {
-    // We want to reuse constants that have been used by the clauses in
-    // modelfinder, so we don't call this.parser.getNewConstant(). xxx update, and del this.constants
-    var candidates = 'abcdefghijklmno';
-    for (var i=0; i<candidates.length; i++) {
-        var sym = candidates[i];
-        if (this.constants.includes(sym)) continue;
-        if (this.parser.expressionType[sym]) {
-            if (this.parser.expressionType[sym]  != 'individual constant') {
-                continue;
-            }
-        }
-        else {
-            this.parser.registerExpression(sym, 'individual constant', 0);
-        }
-        this.constants.push(sym);
-        return sym;
-        // after we've gone through <candidates>, add indices to first element:
-        candidates.push(candidates[0]+(i+2));
-    }
-}
-
 SenTree.prototype.removeUnusedNodes = function() {
     log("removing unused nodes");
     if (!this.isClosed) return;
@@ -435,126 +407,15 @@ SenTree.prototype.removeUnusedNodes = function() {
 
 
 SenTree.prototype.modalize = function() {
-    // undo standard translation for formulas on the tree, and hide some nodes
-    // to make tree look like a familiar modal tree.
-    //
-    // Example: ◇(p→q) is translated into ∃v(wRv ∧ (pv → qv)), and expanded into
-    // (wRu ∧ (pu → qu)). This is further expanded to wRu and (pu → qu). We want
-    // to hide the direct result of first expansion and translate (pu → qu) back
-    // into (p → q) with world label u.
-    //
-    // Example: □p is translated into ∀v(wRv → pv), expanded by modalGamma to pu.
-
-    // xxx update 
-
+    // undo standard translation for formulas on the tree
     log("modalizing tree");
-    var removeNodes = [];
     for (var i=0; i<this.nodes.length; i++) {
-        
         var node = this.nodes[i];
-        var formula = node.formula;
-        log('modalising '+formula);
-
-        // catch modal expansions: ◇A => (Rxy∧A), ¬□A => ¬(Rxy→A), □A =>
-        // (Rxy→A), ¬◇A => ¬(Rxy∧A). xxx update comment
-        if ((formula.sub1 && formula.sub1.predicate == this.fvParser.R) ||
-            (formula.sub && formula.sub.sub1 && formula.sub.sub1.predicate == this.fvParser.R)) {
-            log('marking modal expansion '+formula.string+' for removal');
-            // removeNodes.push(node);
-        }
-        
-        if (removeNodes.includes(node.fromNodes[0])) {
-            // remove leaf nodes expanded from (Rxy→A) or ¬(Rxy∧A):
-            // if (formula.sub && formula.sub.predicate == this.parser.R) {
-            //     log('marking leaf node '+formula+' for removal');
-            //     removeNodes.push(node);
-            //     continue;
-            // }
-            // adjust fromNodes of surviving nodes descending from modal
-            // expansions:
-            var modalExpansion = node.fromNodes[0];
-            if (modalExpansion.fromNodes[0].formula.type == 'diamondy') {
-                // ◇A => Rxy,A come from ◇A; ¬□A => Rxy,¬A come from ¬□A
-                node.fromNodes = modalExpansion.fromNodes;
-                // xxx could node.fromNodes have more than 1 member here?
-            }
-            else { // 'boxy' origin
-                // □A => [removed ¬Rxy],A come from □A AND Rxy node; ¬◇A => [removed
-                // ¬Rxy],A come from ¬◇A AND Rxy node
-                // node.fromNodes = [modalExpansion.fromNodes[0]];
-                // // find Rxy node: first, get 'Rxy' string from removed sibling:
-                // var sibf = node.parent.children[0].formula.sub;
-                // var rxy = sibf.terms[0] + sibf.predicate + sibf.terms[1];
-                // log('rxy = '+rxy);
-                // for (var anc=node.parent; anc; anc=anc.parent) {
-                //     if (anc.formula.string == rxy) {
-                //         node.fromNodes.push(anc);
-                //         log('match: '+anc);
-                //         break;
-                //     }
-                // }
-            }
-            log('adjusting fromNodes of '+formula+' to '+node.fromNodes);
-        }
-        
-        node.formula = this.fvParser.translateToModal(formula);
-        // log(formula+' => '+node.formula);
-        // log('w: '+node.formula.world);
+        log('modalising '+node.formula);
+        node.formula = this.fvParser.translateToModal(node.formula);
     }
-
-    for (var i=0; i<removeNodes.length; i++) {
-        this.remove(removeNodes[i]);
-    }
-    
-    // this.relabelWorlds();
     log(this.toString());
 }
-
-SenTree.prototype.relabelWorlds = function() {
-    // During proof construction, we have often used nice world names like 'v',
-    // 'u', etc. e.g. in accessibility formulas or for skolemizing in cnfs etc.;
-    // these symbols may also occur as overt variables for individuals. We still
-    // want to use them as world names. xxx update
-    if (!this.parser.isModal) return; 
-    log("relabeling worlds");
-    var nameMap = { 'w' : 'w' };
-    for (var i=0; i<this.nodes.length; i++) {
-        var node = this.nodes[i];
-        if (node.formula.predicate == this.fvParser.R) {
-            // relabel worlds in wRv:
-            var newWorld = node.formula.terms[1];
-            if (!nameMap[newWorld]) {
-                nameMap[newWorld] = this.getNewWorldName();
-            }
-            var newTerms = node.formula.terms.map(function(w){return nameMap[w]});
-            log('replacing terms in '+node.formula+' by '+newTerms);
-            node.formula = new AtomicFormula(this.fvParser.R, newTerms);
-            // also adjust 'Rwv' => 'wRv':
-            node.formula.string = newTerms[0] + 'R' + newTerms[1];
-        }
-        else {
-            var oldName = node.formula.world;
-            node.formula.world = nameMap[oldName];
-            log('replacing '+oldName+' with '+node.formula.world);
-        }
-    }
-}
-
-SenTree.prototype.getNewWorldName = function() {
-    var candidates = 'vutsrqponmlkjihgfedcbazyx'.split('');
-    if (!this.usedWorldNames) this.usedWorldNames = ['w'];
-    for (var i=0; i<candidates.length; i++) {
-        var sym = candidates[i];
-        if (!this.usedWorldNames.includes(sym)) {
-            this.usedWorldNames.push(sym);
-            return sym;
-        }
-        // after we've gone through <candidates>, add indices to first element:
-        candidates.push('w'+(i+2));
-    }
-}
-
-
 
 SenTree.prototype.makeNode = function(node) {
     node.parent = null;
@@ -759,68 +620,5 @@ SenTree.prototype.getCounterModel = function() {
         model.domain = [0];
     }
     return model;
-    
-    
-    node = endNode;
-    do {
-        var fla = node.formula;
-        var tv = true;
-        while (fla.operator == '¬') {
-            fla = fla.sub;
-            tv = !tv;
-        }
-        if (!fla.predicate) continue;
-        log("interpreting " + node);
-        if (fla.terms.length == 0) { // propositional constant
-            model.values[fla.predicate] = tv;
-            continue;
-        }
-        // interpret function symbols:
-        var subTerms = fla.terms.copy();
-        for (var t=0; t<subTerms.length; t++) {
-            var term = subTerms[t];
-            if (!term.isArray) continue;
-            var functor = term[0], args = term.slice(1);
-            if (!model.values[functor]) {
-                // init functor interpretation; recall that model.values['f'] is
-                // the list of function values, e.g. [0,1,0,0] corresponding to
-                // the list of possible function arguments, e.g. [<0,0>, <0,1>,
-                // <1,0>, <1,1>]. This second list is stored in
-                // model.argLists[arity].
-                var arity = args.length;
-                if (!model.argLists[arity]) {
-                    model.argLists[arity] = Model.initArguments(arity, numIndividuals);
-                }
-                model.values[functor] = Array.getArrayOfZeroes(model.argLists[arity].length);
-            }
-            // now make sure the value assigned to 'f' for the value of '(ab)'
-            // is terms2individuals['f(ab)'];
-            var argValues = [];
-            for (var i=0; i<args.length; i++) {
-                argValues.push(terms2individuals[args[i].toString()]);
-            }
-            var argsIndex = model.argLists[arity].indexOf(argValues.toString());
-            model.values[functor][argsIndex] = terms2individuals[term.toString()]; 
-        }
-        // interpret predicate:
-        if (!model.values[fla.predicate]) {
-            var arity = fla.terms.length; // always >0 because we've dealt with the other case before
-            if (!model.argLists[arity]) {
-                model.argLists[arity] = Model.initArguments(arity, numIndividuals);
-            }
-            model.values[fla.predicate] = Array.getArrayOfZeroes(model.argLists[arity].length);
-        }
-        // make sure the value assigned to 'F' for the value of '(ab)' is tv:
-        var argValues = [];
-        for (var i=0; i<fla.terms.length; i++) {
-            argValues.push(terms2individuals[fla.terms[i].toString()]);
-        }
-        var argsIndex = model.argLists[arity].indexOf(argValues.toString());
-        model.values[fla.predicate][argsIndex] = tv;
-        log(model);
-    } while ((node = node.parent));
-    log("model: " + model);
-    if (model.satisfiesInitFormulas()) return model;
-    return null;
 }
 

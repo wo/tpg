@@ -1,17 +1,7 @@
-// 
-// A TreePainter object takes a SenTree object and outputs it as a tree in HTML.
-// Methods:
-//    paintTree = function()          initiates/continues the painting
-//    stop = function()               halts the painting
-//    finished = function()           ic called when the painting has finished
-// Some properties that influence the layout of the tree are defined at the beginning
-// of the constructor.
-//
-
 function TreePainter(senTree, rootAnchor) {
     // Constructor for a tree painter. rootAnchor is the HTML element into which
     // the tree will be written.
-    
+
     this.paintInterval = 200;      // number of ms between paint steps
     this.branchPadding = window.innerWidth < 500 ? 0 :
         window.innerWidth < 800 ? 20 : 30; // min margin between tree branches
@@ -281,44 +271,6 @@ TreePainter.prototype.drawLine = function(el, x1, y1, x2, y2) {
     return line;
 }
 
-
-// TreePainter.prototype.drawLine = function(el, x1, y1, x2, y2) {
-//     var distX = x2 - x1;
-//     var distY = y2 - y1;
-//     var dist = Math.sqrt(distX*distX + distY*distY);
-//     var pxX = distX/dist;
-//     var pxY = distY/dist;
-//     var drawn = 1;
-//     var dotX = x1;
-//     var dotY = y1;
-//     var pixels = [];
-//     while (drawn < dist) {
-//         if ((dotX != Math.round(x1 + drawn*pxX) || dotY != Math.round(y1 + drawn*pxY)) &&
-//             (drawn % this.pixelDistanceOnLine == 0)) {
-//             dotX = Math.round(x1 + drawn*pxX);
-//             dotY = Math.round(y1 + drawn*pxY);
-//             if (this.freePixels.length > 0) {
-//                 var pixel = this.freePixels.shift();
-//                 el.appendChild(pixel);
-//             }
-//             else {
-//                 var pixel = document.createElement("div");
-//                 el.appendChild(pixel);
-//                 pixel.style.position = "absolute";
-//                 pixel.style.width = "1px";
-//                 pixel.style.height = "1px";
-//                 pixel.style.clip = "rect(0 1px 1px 0)";
-//                 pixel.style.backgroundColor = this.lineColor;
-//             }
-//             pixel.style.left = dotX + "px";
-//             pixel.style.top = dotY + "px";
-//             pixels.push(pixel);
-//         }
-//         drawn++;
-//     }
-//     return pixels;
-// }
-    
 TreePainter.prototype.getNextUnpaintedNode = function() {
     var nodes = [this.tree.nodes[0]];
     var node;
