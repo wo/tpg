@@ -258,9 +258,10 @@ SenTree.prototype.addInitNodes = function() {
     for (var i=0; i<this.initFormulasNonModal.length; i++) {
         log('adding init node '+branch.nodes[i]);
         var node = this.makeNode(branch.nodes[i]);
-        node.formula = this.initFormulasNonModal[i]; // yes, we overwrite the node's original
-                                                     // (normalized) formula -- don't need
-                                                     // it anymore.
+        node.formula = this.initFormulasNonModal[i];
+        // Tes, we overwrite the node's original (normalized) formula -- don't
+        // need it anymore.
+        node.used = true; // Even unused init nodes shouldn't be removed.
         if (i==0) this.nodes.push(node);
         else this.appendChild(this.nodes[i-1], node);
     }
