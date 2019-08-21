@@ -373,6 +373,63 @@ Parser.prototype.makeVariablesDistinct = function(formula) {
 }
 
 
+Parser.prototype.parseInput = function(str) {
+    // return [premises, conclusion] for entered string, where <premises> is
+    // a list of premise Formulas and <conclusion> is a Formula.
+    log("*** parsing input");
+    var parts = str.split('|=');
+    if (parts.length > 2) {
+        throw "You can't use more than one turnstile";
+    }
+    var premises = [];
+    var conclusion = this.parseFormula(parts[parts.length-1]);
+    log("=== conclusion "+conclusion);
+    if (parts.length == 2) {
+        // split premises by commas that are not in parentheses:
+        var temp = this.hideSubStringsInParens(parts[0]);
+        var nstr = temp[0];
+        var subStringsInParens = temp[1];
+        var premiseStrings = nstr.split(',');
+        for (var i=0; i<premiseStrings.length; i++) {
+            var prem = premiseStrings[i];
+            // restore substrings:
+            for (var j=0; j<subStringsInParens.length; j++) {
+                prem = prem.replace("%"+j, subStringsInParens[j]);
+            }
+            premises.push(this.parseFormula(prem));
+            log("=== premise "+premises.length+": "+premises[premises.length]);
+        }
+    }
+    return [premises, conclusion];
+}
+
+Parser.prototype.hideSubStringsInParens = function(str) {
+    // return [nstr, hiddenSubStrings], where <nstr> is <str> with all
+    // substrings in parentheses replaced by %0, %1, etc., and
+    // <hiddenSubStrings> is a list of the corresponding substrings.
+    var subStringsInParens = []; 
+    var parenDepth = 0;
+    var storingAtIndex = -1; // index in subStringsInParens
+    var nstr = "";
+    for (var i=0; i<str.length; i++) {
+        if (str.charAt(i) == "(") {
+            parenDepth++;
+            if (parenDepth == 1) {
+                storingAtIndex = subStringsInParens.length;
+                subStringsInParens[storingAtIndex] = "";
+                nstr += "%" + storingAtIndex;
+            }
+        }
+        if (storingAtIndex == -1) nstr += str.charAt(i);
+        else subStringsInParens[storingAtIndex] += str.charAt(i);
+        if (str.charAt(i) == ")") {
+            parenDepth--;
+            if (parenDepth == 0) storingAtIndex = -1;
+        }
+    }
+    return [nstr, subStringsInParens];
+}
+
 Parser.prototype.parseFormula = function(str) {
     // return Formula for (entered) string
     var boundVars = arguments[1] ? arguments[1].slice() : [];
@@ -384,30 +441,13 @@ Parser.prototype.parseFormula = function(str) {
         // str contains a connective. Main operator might nevertheless be a
         // quantifier or negation etc. We replace every substring in parens by
         // "%0", "%1", etc.:
-        var subStringsInParens = []; 
-        var parenDepth = 0;
-        var storingAtIndex = -1;
-        var nstr = "";
-        for (var i=0; i<str.length; i++) {
-            if (str.charAt(i) == "(") {
-                parenDepth++;
-                if (parenDepth == 1) {
-                    storingAtIndex = subStringsInParens.length;
-                    subStringsInParens[storingAtIndex] = "";
-                    nstr += "%" + storingAtIndex;
-                }
-            }
-            if (storingAtIndex == -1) nstr += str.charAt(i);
-            else subStringsInParens[storingAtIndex] += str.charAt(i);
-            if (str.charAt(i) == ")") {
-                parenDepth--;
-                if (parenDepth == 0) storingAtIndex = -1;
-            }
-        }
+        var temp = this.hideSubStringsInParens(str);
+        var nstr = temp[0];
+        var subStringsInParens = temp[1];
         log("   nstr = '"+nstr+"'; ");
          
-        // done. Now let's see if there is still a connective in the
-        // modified string (in decreasing order of precedence):
+        // Now let's see if there is still a connective in the modified string
+        // (in decreasing order of precedence):
         var reTest = nstr.match(/↔/) || nstr.match(/→/)  || nstr.match(/∨/) || nstr.match(/∧/);
         if (reTest) { 
             // yes. The matched connective is the main operator

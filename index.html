@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Tree Proof Generator</title>
-  <!--link href="https://fonts.googleapis.com/css?family=Gothic+A1&display=swap" rel="stylesheet"-->
   <link href="https://fonts.googleapis.com/css?family=M+PLUS+1p:400,500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" type="text/css">
 </head>
@@ -90,6 +89,7 @@ else {
     <li class="formula">∀y∃xFxy → ∃x∀yFxy</li>
     <li class="formula">□(p→q)→□p→□q</li>
     <li class="formula">∀x□Fx→□∀xFx</li>
+    <li class="formula">p∨q, ¬p |= q</li>
   </ul>
 
   <h3>Entering formulas</h3>
@@ -107,6 +107,13 @@ else {
     <span class="formula"><></span> for <span class="formula">◇</span>. You can
     also use LaTeX commands.</p>
 
+  <h3>Premises</h3>
+
+  <p>If you want to test an argument with premises and conclusion,
+  use <span class="formula">|=</span> to separate the premises from the
+  conclusion, and use commas to separate the premises. See the last example in
+  the list above.</p>
+  
   <h3>Syntax of formulas</h3>
   
   <p>Any alphabetic character is allowed as a propositional constant, predicate,

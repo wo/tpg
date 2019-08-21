@@ -138,6 +138,11 @@ print "<script type='text/javascript' src='$allscripts.js'></script>\n";
 
 <tr><td>pel40</td><td class="formula">∃x ∀y (F(y,x) ↔ F(y,y)) → ¬∀z ∃w ∀x2 (F(x2,w) ↔ ¬F(x2,z))</td><td></td></tr>
 
+<tr><td>mod1</td><td class="formula">(□p ∧ ◇q)→◇(p∧q)</td><td></td></tr>
+
+<tr><td>mod2</td><td class="formula">◇(p ∨ q)↔(◇p ∨ ◇q)</td><td></td></tr>
+    
+    
 </table>
 
     <h3>Invalid Formulas</h3>

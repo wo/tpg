@@ -16,15 +16,6 @@ function updateInput() {
     toggleAccessibilityRow();
 }
 
-function toggleAccessibilityRow() {
-    if (/[□◇]/.test(document.forms[0].flaField.value)) {
-        document.getElementById('accessibilitySpan').style.display = 'inline-block';
-    }
-    else {
-        document.getElementById('accessibilitySpan').style.display = 'none';
-    }
-}
-
 function renderSymbols(str) {
     str = str.replace('&', '∧');
     str = str.replace('^', '∧');
@@ -47,6 +38,15 @@ function renderSymbols(str) {
     str = str.replace(/\\[Bb]ox[\{ ]?\}?/g, '□');
     str = str.replace(/\\[Dd]iamond[\{ ]?\}?/g, '◇');
     return str;
+}
+
+function toggleAccessibilityRow() {
+    if (/[□◇]/.test(document.forms[0].flaField.value)) {
+        document.getElementById('accessibilitySpan').style.display = 'inline-block';
+    }
+    else {
+        document.getElementById('accessibilitySpan').style.display = 'none';
+    }
 }
 
 // define method to insert character at caret position upon button click: 
@@ -116,7 +116,10 @@ onload = function(e) {
         // The action begins...
         var parser = new Parser();
         try {
-            var formula = parser.parseFormula(this.flaField.value);
+            var parsedInput = parser.parseInput(this.flaField.value);
+            var premises = parsedInput[0];
+            var conclusion = parsedInput[1];
+            var initFormulas = premises.concat([conclusion.negate()]);
         }
         catch (e) {
             alert(e);
@@ -131,7 +134,6 @@ onload = function(e) {
 
         // Now a free-variable tableau is created. When the proof is finished,
         // prover.finished() is called.
-        var initFormulas = [formula.negate()];
         var accessibilityConstraints = [];
         if (parser.isModal) {
             document.querySelectorAll('.accCheckbox').forEach(function(el) {
@@ -143,9 +145,17 @@ onload = function(e) {
         }
         prover = new Prover(initFormulas, parser, accessibilityConstraints);
         prover.onfinished = function(treeClosed) {
-            // The prover has finished.
-            document.getElementById("status").innerHTML =
-                "<span class='formula'>" + formula + "</span> is " + (treeClosed ? "valid." : "invalid.");
+            // The prover has finished. Show result:
+            var conclusionSpan = "<span class='formula'>"+conclusion+"</span>";
+            if (initFormulas.length == 1) {
+                var summary = conclusion + " is " + (treeClosed ? "valid." : "invalid.");
+            }
+            else {
+                var summary = premises.map(function(f){
+                    return "<span class='formula'>"+f+"</span>";
+                }).join(', ') + (treeClosed ? " entails " : " does not entail ") + conclusion + ".";
+            }
+            document.getElementById("status").innerHTML = summary;
             // Translate the free-variable tableau into a sentence tableau:
             var sentree = new SenTree(this.tree, parser);
             if (!treeClosed) {
