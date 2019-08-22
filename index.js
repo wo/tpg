@@ -157,7 +157,7 @@ onload = function(e) {
             }
             document.getElementById("status").innerHTML = summary;
             // Translate the free-variable tableau into a sentence tableau:
-            var sentree = new SenTree(this.tree, parser);
+            var sentree = new SenTree(this.tree, parser); 
             if (!treeClosed) {
                 // Tree is open. Display a countermodel if one is known:
                 if (!this.counterModel) this.counterModel = sentree.getCounterModel();

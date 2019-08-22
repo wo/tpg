@@ -44,6 +44,7 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
     
     // init prover:
     this.pauseLength = 10; // ms pause between calculations
+    log('increasing pauseLength to '+(this.pauseLength = 100));
     this.maxStepDuration = 20; // ms before setTimeout pause
     this.step = 0; // counter of calculation steps
     this.depthLimit = 2; // how many free variables may occur on the tree before
@@ -438,27 +439,45 @@ Prover.euclidity = function(branch, nodeList) {
     var R = branch.tree.parser.R;
     var node = nodeList[0];
     var nodeFla = node.formula;
-    // see if we can apply euclidity:
-    for (var i=0; i<branch.nodes.length-1; i++) {
+    if (nodeFla.terms[0] == nodeFla.terms[1]) {
+        // nothing to do for vRv nodes
+        return;
+    }
+    // When a wRv node has been added, euclidity always allows us to add vRv. In
+    // addition, for each earlier wRu node, we can add uRv as well as
+    // vRu. However, if we add all of these at once, they will be marked as
+    // having been added in the same step, so that if some of them are
+    // eventually used to derive a contradiction, senTree.removeUnusedNodes will
+    // keep them all (ex.: ◇□p→□◇p). So we have to add them one by one. (And
+    // they really are different applications of the euclidity rule.)
+    var laterFlaStrings = [];
+    for (var j=branch.nodes.length-1; branch.nodes[j] != node; j--) {
+        laterFlaStrings.push(branch.nodes[j].formula.string);
+    }
+    for (var i=0; i<branch.nodes.length; i++) {
         var earlierFla = branch.nodes[i].formula;
         if (earlierFla.predicate != R) continue;
         if (earlierFla.terms[0] == nodeFla.terms[0]) {
-            // earlierFla wRu, nodeFla wRv
-            var newFlas = [
-                new AtomicFormula(R, [earlierFla.terms[1], nodeFla.terms[1]]),
-                new AtomicFormula(R, [nodeFla.terms[1], earlierFla.terms[1]])
-            ];
-            // xxx adding two formulas isn't ideal because it means even unused
-            // ones will remain on the displayed tree, e.g. in ◇□p →□◇p; better
-            // add second application with same nodeList back on todo stack.
-            for (var j=0; j<newFlas.length; j++) {
-                log('adding '+newFlas[j]);
-                var newNode = new Node(newFlas[j], Prover.euclidity, [branch.nodes[i], node]);
+            // earlierFla is wRu, nodeFla wRv (or earlierFla == nodeFla); need
+            // to add uRv and vRu if not already there.
+            var newFla;
+            if (!laterFlaStrings.includes(R + earlierFla.terms[1] + nodeFla.terms[1])) {
+                newFla = new AtomicFormula(R, [earlierFla.terms[1], nodeFla.terms[1]]);
+            }
+            else if (!laterFlaStrings.includes(R + nodeFla.terms[1] + earlierFla.terms[1])) {
+                newFla = new AtomicFormula(R, [nodeFla.terms[1], earlierFla.terms[1]]);
+            }
+            if (newFla) {
+                log('adding '+newFla);
+                var newNode = new Node(newFla, Prover.euclidity, [branch.nodes[i], node]);
                 if (branch.addNode(newNode)) {
                     branch.tryClose(newNode);
                 }
+                branch.todoList.unshift([Prover.euclidity, node]);
+                return;
             }
         }
+        if (branch.nodes[i] == node) break;
     }
 }
 Prover.euclidity.priority = 3;
@@ -493,6 +512,7 @@ Prover.seriality = function(branch, nodeList) {
 }
 Prover.seriality.priority = 10;
 Prover.seriality.toString = function() { return 'seriality' }
+
 
 function Tree(prover) {
     if (!prover) return; // for copy() function
@@ -629,7 +649,6 @@ Tree.prototype.pruneBranch = function(branch, complementary1, complementary2) {
 
 Tree.prototype.closeCloseableBranches = function() {
     // close branches without unification
-    // xxx does this handle double negations correctly?
     var openBranches = this.openBranches.copy();
     for (var k=0; k<openBranches.length; k++) {
         var branch = openBranches[k];
@@ -888,8 +907,6 @@ Branch.prototype.tryClose = function(node) {
             altTree.closeCloseableBranches();
             log('alternative tree:\n'+altTree);
             if (altTree.openBranches.length == 0) {
-                // xxx what if we're currently adding the first node of a beta
-                // expansion? Won't the tree miss the second node? 
                 log('alternative tree closes, stopping proof');
                 this.tree.prover.tree = altTree;
                 return true;

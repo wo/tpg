@@ -9,10 +9,10 @@ a { color:#007083; }
 #githublink { text-decoration:none; font-size:.8em; color:#4490a4; padding-left:1em; }
 #helplink { float:right; margin-top:0.3em; text-decoration:none; font-size:.9em; font-weight:bold; }
 
-#inputForm { background:#fce9ba; color:#000; margin:5px 0; padding:10px; border:1px solid #cccaaa; border-radius:8px; }
-#symbolButtonRow { margin:0 0 5px 76px; font-size:1em; color:#456; }
+#inputForm { background:#fce9ba; color:#000; margin:5px 0; padding:10px 10px 10px 12px; border:1px solid #cccaaa; border-radius:8px; }
+#symbolButtonRow { margin:0 0 5px 3px; font-size:1em; color:#456; }
 #symbolButtonRow .formula { color:#444; }
-#accessibilityRow { margin: 10px 0 0 76px; color:#234; }
+#accessibilityRow { margin: 10px 0 0 3px; color:#234; }
 #proveButton { width:70px; font-size:0.9em; padding:3px; }
 #flaField { width:calc(100% - 97px); }
 .button { background:#fdf0c9; ; color:#000; border:1px solid #ccc0bb; cursor:default; }
