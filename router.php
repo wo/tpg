@@ -3,7 +3,7 @@
 $urlparts = explode('?', $_SERVER['REQUEST_URI']);
 if (@$urlparts[1]) {
     $params = $urlparts[1];
-    while (preg_match("/(\w+)=(\d)/", $url, $matches)) {
+    while (preg_match("/(\w+)=(\d)/", $params, $matches)) {
         $_GET[$matches[1]] = $matches[2];
         $params = replace($matches[0], '', $params);
     }
