@@ -315,7 +315,7 @@ Parser.prototype.cnf = function(formula) {
         return con1.concatNoDuplicates(con2);
     }
     if (formula.operator == '∨') {
-        log('∨: combining clauses of '+formula.sub1+' and '+formula.sub2);
+        // log('∨: combining clauses of '+formula.sub1+' and '+formula.sub2);
         var res = [];
         var dis1 = this.cnf(formula.sub1);
         var dis2 = this.cnf(formula.sub2);

@@ -14,9 +14,18 @@ if (!Array.prototype.includes) { // IE
 }
 
 Array.prototype.remove = function(element) {
-    // removes the first element that strictly equals <element>
+    // remove the first element that strictly equals <element>
     var index = this.indexOf(element);
     if (index > -1) this.splice(index, 1);
+}
+
+Array.prototype.intersect = function(elements) {
+    // remove each item not in <elements>: 
+    for (var i=0; i<this.length; i++) {
+        if (elements.indexOf(this[i]) == -1) {
+            this.splice(i--, 1);
+        }
+    }
 }
 
 Array.prototype.insert = function(element, index) {
@@ -60,7 +69,7 @@ Array.prototype.removeDuplicates = function() {
 }
 
 Array.getArrayOfZeroes = function(length) {
-    // https://jsperf.com/zero-filled-array-creation/17
+    // https://jsperf.com/zero-illed-array-creation/17
     for (var i = 0, a = new Array(length); i < length;) a[i++] = 0;
     return a;
 }

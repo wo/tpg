@@ -103,37 +103,56 @@ ModelFinder.prototype.getClauses = function(formulas) {
 ModelFinder.prototype.simplifyClauses = function(clauseList) {
     // simplify <clauseList>
 
+    // remove clauses that contain contradictory formulas, e.g. [p,q,¬p]:
+    var nl = clauseList.filter(function(clause) {
+        for (var i=0; i<clause.length; i++) {
+            for (var j=i+1; j<clause.length; j++) {
+                if (clause[i].sub && clause[i].sub.string == clause[j].string ||
+                    clause[j].sub && clause[j].sub.string == clause[i].string) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    });
     // remove repetitions in clauses, as in [p,p,q]; also order each clause
     // alphabetically:
-    var nl = clauseList.map(function(clause) {
+    var nl = nl.map(function(clause) {
         return clause.removeDuplicates().sort();
     });
-    // order clause list by simplicity (number of disjuncts):
+    // sort clauses by length:
     nl.sort(function(a,b){ return a.length > b.length; });
-    // if clause A is a subset or equal to clause B, clause B can be removed
-    // (e.g. [[p],[p,q]] => [[p]]):
-    var nl2 = [];
-    OUTERLOOP:
+    // If clause A is a subset of (or equal to) clause B, clause B can be
+    // removed (e.g. [[p],[p,q]] => [[p]] or [[q,s],[p,q,r,s]] => [[q,s]]. The
+    // naive way to test this is O(n!). We store which clauses contain which
+    // literals: q => [c1,c2]...  For each clause, we intersect store[q] with
+    // store[s]. This still takes too long if we have a lot of clauses.
+    if (nl.length > 5000) return nl;
+    nl2 = nl.copy();
+    var literals2clauses = {};
     for (var i=0; i<nl.length; i++) {
-        MIDDLELOOP:
-        for (var j=0; j<nl2.length; j++) {
-            // test if nl[i] contains nl2[j]: 
-            INNERLOOP:
-            for (var k=0; k<nl2[j].length; k++) {
-                for (var l=0; l<nl[i].length; l++) {
-                    if (nl2[j][k].string == nl[i][l].string) {
-                        // k-th member of nl2[j] is in nl[i].
-                        continue INNERLOOP;
-                    }
-                }
-                // nl[i] does not contain nl2[j].
-                continue MIDDLELOOP;
-            }
-            // nl[i] does contain nl2[j].
-            continue OUTERLOOP
+        for (var k=0; k<nl[i].length; k++) {
+            var lit = nl[i][k].string;
+            if (!literals2clauses[lit]) literals2clauses[lit] = [nl[i]];
+            else literals2clauses[lit].push(nl[i]);
         }
-        // nl[i] does not contain any member of nl2.
-        nl2.push(nl[i]);
+    }
+    for (var i=0; i<nl.length; i++) {
+        var clause = nl[i];
+        var lit = clause[0].string;
+        var supersets = literals2clauses[lit];
+        log(clause+': supsersets from first literal: '+supersets);
+        for (var k=1; k<clause.length; k++) {
+            lit = clause[k].string;
+            supersets.intersect(literals2clauses[lit]);
+            log(clause+': supsersets from next literal: '+supersets);
+        }
+        log(clause+' is contained in '+supersets);
+        for (var k=0; k<supersets.length; k++) {
+            if (nl.indexOf(supersets[k]) > nl.indexOf(clause)) {
+                nl2.remove(supersets[k]);
+            }
+        }
     }
     return nl2;
 }
@@ -329,8 +348,9 @@ Model.prototype.getConstraints = function() {
             res.push(nclause);
         }
     }
-    res = this.modelfinder.simplifyClauses(res);
     log('constraints: '+res);
+    res = this.modelfinder.simplifyClauses(res);
+    log('simplified constraints: '+res);
     return res;
 }
 
