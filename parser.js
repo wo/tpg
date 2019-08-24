@@ -434,7 +434,8 @@ Parser.prototype.parseFormula = function(str) {
     // return Formula for (entered) string
     var boundVars = arguments[1] ? arguments[1].slice() : [];
     log("parsing '"+str+"' (boundVars "+boundVars+")");
-    str = str.replace(/\s/g, '');
+
+    if (!arguments[1]) str = this.tidyFormula(str);
 
     var reTest = /∧|∨|→|↔/.test(str);
     if (reTest) {
@@ -527,6 +528,28 @@ Parser.prototype.parseFormula = function(str) {
 
     throw "Parse Error.\n'" + str + "' is not a well-formed formula.";
 }        
+
+Parser.prototype.tidyFormula = function(str) {
+    // remove whitespace:
+    str = str.replace(/\s/g, '');
+    // replace brackets by parentheses:
+    str = str.replace('[', '(').replace(']', ')');
+    // check that parentheses are balanced:
+    this.checkBalancedParentheses(str);
+    // remove parentheses around quantifiers: (∀x)Fx => ∀xFx
+    str = str.replace(/\(([∀∃]\w\d*)\)/g, '$1');
+    log(str);
+    return str;
+}
+
+Parser.prototype.checkBalancedParentheses = function(str) {
+    // check if equally many parentheses open and close in <str>
+    var openings = str.split('(').length - 1;
+    var closings = str.split(')').length - 1;
+    if (openings != closings) {
+        throw "unbalanced parentheses: "+openings+" opening parentheses, "+closings+" closing";
+    }
+}  
 
 Parser.prototype.parseAccessibilityFormula = function(str) {
     // return Formula for accessibility condition like ∀w∃v(Rwv)

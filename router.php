@@ -5,7 +5,7 @@ if (@$urlparts[1]) {
     $params = $urlparts[1];
     while (preg_match("/(\w+)=(\d)/", $params, $matches)) {
         $_GET[$matches[1]] = $matches[2];
-        $params = replace($matches[0], '', $params);
+        $params = str_replace($matches[0], '', $params);
     }
 }
 $requested = dirname(__FILE__) . $urlparts[0];

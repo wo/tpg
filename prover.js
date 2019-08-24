@@ -436,7 +436,6 @@ Prover.euclidity = function(branch, nodeList) {
         // applied to initial world w; nothing to do.
         return;
     }
-    var R = branch.tree.parser.R;
     var node = nodeList[0];
     var nodeFla = node.formula;
     if (nodeFla.terms[0] == nodeFla.terms[1]) {
@@ -454,6 +453,7 @@ Prover.euclidity = function(branch, nodeList) {
     for (var j=branch.nodes.length-1; branch.nodes[j] != node; j--) {
         laterFlaStrings.push(branch.nodes[j].formula.string);
     }
+    var R = branch.tree.parser.R;
     for (var i=0; i<branch.nodes.length; i++) {
         var earlierFla = branch.nodes[i].formula;
         if (earlierFla.predicate != R) continue;
@@ -1068,5 +1068,3 @@ Node.prototype.getExpansionRule = function() {
 Node.prototype.toString = function() {
     return this.formula.string;
 }
-
-
