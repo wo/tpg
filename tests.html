@@ -29,10 +29,11 @@ function run(testname) {
 var curIndex = 0;
 function runalltests() {
     var name = testnames[curIndex];
+    console.log('-------------'+curIndex);
     run(name);
     if (curIndex < testnames.length-1) {
         curIndex++;
-        setTimeout('runalltests()',10);
+        setTimeout('runalltests()', 200);
     }
 }
 
