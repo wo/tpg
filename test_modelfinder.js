@@ -12,6 +12,21 @@ tests = {
         assertEqual(mf.model.worlds.length, 0);
     },
 
+    simplifyCNF: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula(
+            '(p ∨ q) ∧ (q ∨ q ∨ r) ∧ (q ∨ r ∨ t) ∧ (r ∨ s) ∧ (s ∨ r) ∧ p '
+        );
+        var mf = new ModelFinder([f], parser);
+        assertEqual(mf.clauses.toString(), '[[p],[q,r],[r,s]]');
+    },
+
+    simplifyCNF2: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('((p∧(Fa∧Fb))∨(p∧(Fc∧Fd)))∧((q∧(Fe∧Ff))∨(q∧(Fg∧Fh)))');
+        var mf = new ModelFinder([f], parser);
+        assertEqual(mf.clauses.toString(), '[[p],[q],[Fa,Fc],[Fa,Fd],[Fb,Fc],[Fb,Fd],[Fe,Fg],[Fe,Fh],[Ff,Fg],[Ff,Fh]]');
+    },
 
     makeconstraints_propositional: function() {
         var parser = new Parser();

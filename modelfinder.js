@@ -95,12 +95,47 @@ ModelFinder.prototype.getClauses = function(formulas) {
         res = res.concatNoDuplicates(clauses);
     }
     log('all clauses: '+res);
-    // xxx TODO: simplify clauses! xxx that function should also be called
-    // within clausalnormalform to return a simpler list.
-    
-    // order clauses by simplicity (number of disjuncts):
-    res.sort(function(a,b){ return a.length > b.length; });
+    res = this.simplifyClauses(res);
+    log('simplified clauses: '+res);
     return res;
+}
+
+ModelFinder.prototype.simplifyClauses = function(clauseList) {
+    // simplify <clauseList>
+
+    // remove repetitions in clauses, as in [p,p,q]; also order each clause
+    // alphabetically:
+    var nl = clauseList.map(function(clause) {
+        return clause.removeDuplicates().sort();
+    });
+    // order clause list by simplicity (number of disjuncts):
+    nl.sort(function(a,b){ return a.length > b.length; });
+    // if clause A is a subset or equal to clause B, clause B can be removed
+    // (e.g. [[p],[p,q]] => [[p]]):
+    var nl2 = [];
+    OUTERLOOP:
+    for (var i=0; i<nl.length; i++) {
+        MIDDLELOOP:
+        for (var j=0; j<nl2.length; j++) {
+            // test if nl[i] contains nl2[j]: 
+            INNERLOOP:
+            for (var k=0; k<nl2[j].length; k++) {
+                for (var l=0; l<nl[i].length; l++) {
+                    if (nl2[j][k].string == nl[i][l].string) {
+                        // k-th member of nl2[j] is in nl[i].
+                        continue INNERLOOP;
+                    }
+                }
+                // nl[i] does not contain nl2[j].
+                continue MIDDLELOOP;
+            }
+            // nl[i] does contain nl2[j].
+            continue OUTERLOOP
+        }
+        // nl[i] does not contain any member of nl2.
+        nl2.push(nl[i]);
+    }
+    return nl2;
 }
 
 ModelFinder.prototype.nextStep = function() {
@@ -294,6 +329,7 @@ Model.prototype.getConstraints = function() {
             res.push(nclause);
         }
     }
+    res = this.modelfinder.simplifyClauses(res);
     log('constraints: '+res);
     return res;
 }
