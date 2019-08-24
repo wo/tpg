@@ -111,13 +111,6 @@ tests = {
         assertEqual(cnf.toString(), correct);
     },
 
-    cnf2_TODO: function() {
-        var parser = new Parser();
-        var f = parser.parseFormula('((p∧(Fa∧Fb))∨(p∧(Fc∧Fd)))∧((q∧(Fe∧Ff))∨(q∧(Fg∧Fh)))');
-        var cnf = parser.cnf(f);
-        assertEqual(cnf.toString(), '');
-    },
-
     cnf3: function() {
         var parser = new Parser();
         var f = parser.parseFormula("(¬Px∨((¬Py∨Pf(xy))∧(Qxg(x)∧(¬Pg(x)∨¬Rcg(x)))))");
@@ -166,5 +159,6 @@ tests = {
         assertEqual(cnf.toString(), '[[Rwu],[pu]]');
         assertEqual(parser.expressionType['u'], 'world constant');
     }
+    
 
 }
