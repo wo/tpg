@@ -45,19 +45,9 @@ Array.prototype.concatNoDuplicates = function(array2) {
     return res;
 }
 
-Array.prototype.removeDuplicates = function() {
-    // return new array with no duplicate elements.
-    var hash = {};
-    var res = [];
-    for (var i=0; i<this.length; i++){
-        var s = this[i].toString();
-        if (!hash[s]) {
-            hash[s] = true;
-            res.push(this[i]);
-        }
-    }
-    return res;
-}
+// Array.prototype.randomElement = function() {
+//     return this[Math.floor(Math.random() * this.length)]
+// }
 
 Array.getArrayOfZeroes = function(length) {
     // https://jsperf.com/zero-filled-array-creation/17

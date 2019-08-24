@@ -333,7 +333,11 @@ Parser.prototype.cnf = function(formula) {
             }
         }
         return res;
-        // res contains redundant clauses; see modelfinder.simplifyClauses()
+        // xxx TODO: remove redundant elements:
+        // [[p],[p,Fc],[p,Fd],[Fa,p],[Fa,Fc],[Fa,Fd],[Fb,p],[Fb,Fc],[Fb,Fd],[q],[q,Fg],[q,Fh],[Fe,q],[Fe,Fg],[Fe,Fh],[Ff,q],[Ff,Fg],[Ff,Fh]]
+        // can be simplified to
+        // [[p],[Fa,Fc],[Fa,Fd],[Fb,Fc],[Fb,Fd],[q],[Fe,Fg],[Fe,Fh],[Ff,Fg],[Ff,Fh]].
+        // Also, remove duplicates under reorderings, like [[p,q], [q,p]].
     }
     throw formula;
 }
