@@ -141,13 +141,13 @@ ModelFinder.prototype.simplifyClauses = function(clauseList) {
         var clause = nl[i];
         var lit = clause[0].string;
         var supersets = literals2clauses[lit];
-        log(clause+': supsersets from first literal: '+supersets);
+        // log(clause+': supsersets from first literal: '+supersets);
         for (var k=1; k<clause.length; k++) {
             lit = clause[k].string;
             supersets.intersect(literals2clauses[lit]);
-            log(clause+': supsersets from next literal: '+supersets);
+            // log(clause+': supsersets from next literal: '+supersets);
         }
-        log(clause+' is contained in '+supersets);
+        // log(clause+' is contained in '+supersets);
         for (var k=0; k<supersets.length; k++) {
             if (nl.indexOf(supersets[k]) > nl.indexOf(clause)) {
                 nl2.remove(supersets[k]);

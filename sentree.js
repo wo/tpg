@@ -223,7 +223,7 @@ SenTree.prototype.transferNode = function(node, par) {
 
     case Prover.modalDelta: 
         // <node> is the result of expanding a ◇ formula ∃v(wRv ∧ Av) or a ¬□
-        // formula ¬∀v(wRv → Av); so <node> is either wRuv or Av/¬Av.
+        // formula ¬∀v(wRv → Av); so <node> is either wRv or Av/¬Av.
         var from = node.fromNodes[0];
         log("transferring "+node+" (modalDelta from "+from+")");
         if (node.formula.predicate == this.fvParser.R) {
@@ -405,8 +405,6 @@ SenTree.prototype.removeUnusedNodes = function() {
     }
 }
 
-
-
 SenTree.prototype.modalize = function() {
     // undo standard translation for formulas on the tree
     log("modalizing tree");
@@ -414,6 +412,10 @@ SenTree.prototype.modalize = function() {
         var node = this.nodes[i];
         log('modalising '+node.formula);
         node.formula = this.fvParser.translateToModal(node.formula);
+        if (node.formula.predicate == this.fvParser.R) {
+            node.formula.string = node.formula.terms[0] + this.fvParser.R
+                + node.formula.terms[1];
+        }
     }
     log(this.toString());
 }

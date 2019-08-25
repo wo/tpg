@@ -120,7 +120,8 @@ Prover.prototype.nextStep = function() {
         return this.onfinished(1);
     }
     
-    if (this.tree.openBranches[0].nodes.length > this.depthLimit * 4) {
+    if (this.tree.openBranches[0].nodes.length > this.depthLimit * 4
+        && this.alternatives.length > 0) {
         log('reached complexity limit for backtracking');
         this.limitReached();
     }
@@ -145,6 +146,7 @@ Prover.prototype.nextStep = function() {
         this.depthLimit--;
     }
     
+    log(this.step == 10000 && (this.stopTimeout=true) && 'proof halted');
     var stepDuration = performance.now() - stepStartTime;
     if (this.stopTimeout) {
         // proof manually interrupted
@@ -449,10 +451,9 @@ Prover.euclidity = function(branch, nodeList) {
     // eventually used to derive a contradiction, senTree.removeUnusedNodes will
     // keep them all (ex.: ◇□p→□◇p). So we have to add them one by one. (And
     // they really are different applications of the euclidity rule.)
-    var laterFlaStrings = [];
-    for (var j=branch.nodes.length-1; branch.nodes[j] != node; j--) {
-        laterFlaStrings.push(branch.nodes[j].formula.string);
-    }
+    var flaStrings = branch.nodes.map(function(n) {
+        return n.formula.string;
+    });
     var R = branch.tree.parser.R;
     for (var i=0; i<branch.nodes.length; i++) {
         var earlierFla = branch.nodes[i].formula;
@@ -461,18 +462,16 @@ Prover.euclidity = function(branch, nodeList) {
             // earlierFla is wRu, nodeFla wRv (or earlierFla == nodeFla); need
             // to add uRv and vRu if not already there.
             var newFla;
-            if (!laterFlaStrings.includes(R + earlierFla.terms[1] + nodeFla.terms[1])) {
+            if (!flaStrings.includes(R + earlierFla.terms[1] + nodeFla.terms[1])) {
                 newFla = new AtomicFormula(R, [earlierFla.terms[1], nodeFla.terms[1]]);
             }
-            else if (!laterFlaStrings.includes(R + nodeFla.terms[1] + earlierFla.terms[1])) {
+            else if (!flaStrings.includes(R + nodeFla.terms[1] + earlierFla.terms[1])) {
                 newFla = new AtomicFormula(R, [nodeFla.terms[1], earlierFla.terms[1]]);
             }
             if (newFla) {
                 log('adding '+newFla);
                 var newNode = new Node(newFla, Prover.euclidity, [branch.nodes[i], node]);
-                if (branch.addNode(newNode)) {
-                    branch.tryClose(newNode);
-                }
+                branch.addNode(newNode);
                 branch.todoList.unshift([Prover.euclidity, node]);
                 return;
             }
@@ -493,13 +492,13 @@ Prover.seriality = function(branch, nodeList) {
     }
     else {
         var oldWorld = nodeList[0].formula.terms[1];
-        // check if oldWorld can already see a world:
-        for (var i=0; i<branch.nodes.length-1; i++) {
-            var earlierFla = branch.nodes[i].formula;
-            if (earlierFla.predicate == R && earlierFla.terms[0] == oldWorld) {
-                log(oldWorld+' can already see a world');
-                return;
-            }
+    } 
+    // check if oldWorld can already see a world:
+    for (var i=0; i<branch.nodes.length-1; i++) {
+        var earlierFla = branch.nodes[i].formula;
+        if (earlierFla.predicate == R && earlierFla.terms[0] == oldWorld) {
+            log(oldWorld+' can already see a world');
+            return;
         }
     }
     var newWorld = branch.newWorldName();

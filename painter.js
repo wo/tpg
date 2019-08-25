@@ -134,8 +134,14 @@ TreePainter.prototype.makeNodeDiv = function(node) {
 
     var fromSpan = document.createElement('span');
     fromSpan.className = 'fromnumbers';
-    var fromNodeNums = node.fromNodes.map(function(n) { return n.nodeNumber; }).join(',');
-    fromSpan.innerHTML = fromNodeNums ? "(" + fromNodeNums + ")" : " ";
+    var annot = node.fromNodes.map(function(n) { return n.nodeNumber; });
+    if (node.fromRule) {
+        var fromRule = node.fromRule.toString().substr(0,3);
+        if (!['alp', 'bet', 'gam', 'del', 'mod'].includes(fromRule)) {
+            annot.push(fromRule+'.');
+        }
+    }
+    fromSpan.innerHTML = annot.length>0 ? "("+annot.join(',')+")" : " ";
     div.appendChild(fromSpan);
 
     return div;
