@@ -106,6 +106,7 @@ onload = function(e) {
     for (var i=0; i<ul.childNodes.length; i++) {
         ul.childNodes[i].onclick = function(e) {
             document.forms[0].flaField.value = this.innerHTML;
+            toggleAccessibilityRow();
             document.forms[0].onsubmit();
             return false;
         }
