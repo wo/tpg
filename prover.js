@@ -146,7 +146,7 @@ Prover.prototype.nextStep = function() {
         this.depthLimit--;
     }
     
-    log(this.step == 10000 && (this.stopTimeout=true) && 'proof halted');
+    log((this.step == 10000 && (this.stopTimeout=true) && 'proof halted') || '');
     var stepDuration = performance.now() - stepStartTime;
     if (this.stopTimeout) {
         // proof manually interrupted
@@ -590,7 +590,6 @@ Tree.prototype.markUsedNodes = function(branch, complementary1, complementary2) 
     }
 }
 
-
 Tree.prototype.pruneBranch = function(branch, complementary1, complementary2) {
     // When a branch is closed, we look for branching steps that weren't used to
     // derive the complementary pair; we undo these steps and remove the other
@@ -620,23 +619,39 @@ Tree.prototype.pruneBranch = function(branch, complementary1, complementary2) {
     // emerges; any unused branching up to that point is removed.
     //
     // NB: in tests this is almost never used :(
+
     var obranches = this.openBranches.concat(this.closedBranches);
     obranches.remove(branch);
+    log('pruning '+branch+' on tree '+this);
     for (var i=branch.nodes.length-1; i>0; i--) {
         for (var j=0; j<obranches.length; j++) {
             if (obranches[j].nodes[i] &&
                 obranches[j].nodes[i] != branch.nodes[i] &&
                 obranches[j].nodes[i].expansionStep == branch.nodes[i].expansionStep) {
+                log(branch.nodes[i]+" and "+obranches[j].nodes[i]+" are sibling");
                 // branch.nodes[i] is the result of a branching step;
                 // obranches[j].nodes[i] is one if its siblings.
                 if (branch.nodes[i].used) {
                     // quit if sibling branch is open:
+                    log(obranches[j]+" is open; don't know which beta nodes are used from here");
                     if (!obranches[j].closed) return;
                 }
                 else {
-                    log("pruning branch "+obranches[j]+": unused expansion of "+branch.nodes[i].fromNodes[0]);
-                    if (obranches[j].closed) this.closedBranches.remove(obranches[j]);
+                    log(branch.nodes[i]+" is unused");
+                    log("removing branch "+obranches[j]+": unused expansion of "+branch.nodes[i].fromNodes[0]);
+                    if (obranches[j].closed) {
+                        // xxx disabled because it leads to wrong .used
+                        // markings: we'd need to re-assess which nodes are
+                        // really used to close the remaining closed branches,
+                        // and that's hard -- there can be several contradictory
+                        // pairs on a branch, and it matters which we mark as
+                        // used; see ∃y∃z∀x((Fx→Gy)∧(Gz→Fx)) → ∀x∃y(Fx↔Gy)
+                        
+                        // this.closedBranches.remove(obranches[j]);
+                        // this.remarkUsedNodes();
+                    }
                     else this.openBranches.remove(obranches[j]);
+                    log(this);
                     // We don't remove the beta expansion result on this branch;
                     // it'll be removed in the displayed sentence tree because
                     // it has .used == false
@@ -647,34 +662,25 @@ Tree.prototype.pruneBranch = function(branch, complementary1, complementary2) {
 }
 
 Tree.prototype.closeCloseableBranches = function() {
-    // close branches without unification
-    var openBranches = this.openBranches.copy();
+    // Applying unification to close a branch sometimes results in other
+    // branches also containing contradictory nodes; this function ensures that
+    // those branches are closed as well (without applying any more
+    // unification).
+    var openBranches = this.openBranches.copy(); // branch can become closed
     for (var k=0; k<openBranches.length; k++) {
         var branch = openBranches[k];
+        if (!this.openBranches.includes(branch)) { // branch can be removed
+            continue;
+        }
         // log('?b: '+branch);
-        BRANCHLOOP:
-        for (var i=branch.nodes.length-1; i>=0; i--) {
-            var n1 = branch.nodes[i];
-            var n1negated = (n1.formula.operator == '¬');
-            var closed = false;
-            for (var j=i-1; j>=0; j--) {
-                var n2 = branch.nodes[j];
-                // log('? '+n1+' '+n2);
-                if (n2.formula.operator == '¬') {
-                    if (n2.formula.sub.equals(n1.formula)) closed = true;
-                }
-                else if (n1negated) {
-                    if (n1.formula.sub.equals(n2.formula)) closed = true;
-                }
-                if (closed) {
-                    this.closeBranch(branch, n1, n2);
-                    log("+++ branch closed +++");
-                    break BRANCHLOOP;
-                }
-            }
+        var contradictoryNodes = branch.findContradictoryNodes();
+        if (contradictoryNodes) {
+            log("++ branch "+branch+" closes: "+contradictoryNodes);
+            this.closeBranch(branch, contradictoryNodes[0], contradictoryNodes[1]);
         }
     }
 }
+
 
 Tree.prototype.copy = function() {
     // return a deep copy, including copy of nodes (but not of formulas)
@@ -840,13 +846,12 @@ Branch.prototype.newWorldName = function() {
 }
 
 Branch.prototype.tryClose = function(node) {
-    // check if branch can be closed with the help of the newly added node
-    // <node>.
+    // check if branch can be closed with the help of the newly added <node>
     log('checking if branch can be closed with '+node);
     // First check if closure is possible without unification:
     var negatedFormula = (node.formula.operator == '¬') ? node.formula.sub : node.formula.negate();
     for (var i=0; i<this.nodes.length; i++) {
-        if (this.nodes[i].formula.equals(negatedFormula)) {
+        if (this.nodes[i].formula.string == negatedFormula.string) {
             this.tree.closeBranch(this, node, this.nodes[i]);
             log("+++ branch closed +++");
             return true;
@@ -861,7 +866,7 @@ Branch.prototype.tryClose = function(node) {
     if (node.type != 'literal') return false; // Formula.unify() only works for
                                               // literals
     var unifiers = []; // list of substitutions
-    var otherNodes = []; // corresponding list of other nodes
+    var otherNodes = []; // corresponding list of complementary nodes
     for (var i=this.literals.length-1; i>=0; i--) {
         if (this.literals[i] == node) continue;
         var u = negatedFormula.unify(this.literals[i].formula);
@@ -886,7 +891,7 @@ Branch.prototype.tryClose = function(node) {
     // unifier affects variables on other open branches):
     var considerAlternatives = false;
     var unifier = unifiers[0], otherNode = otherNodes[0];
-    VARLOOP: 
+    VARLOOP:
     for (var i=0; i<unifier.length; i+=2) {
         var variable = unifier[i];
         for (var j=0; j<this.tree.openBranches.length; j++) {
@@ -900,9 +905,10 @@ Branch.prototype.tryClose = function(node) {
     if (considerAlternatives) {
         for (var i=1; i<unifiers.length; i++) {
             var altTree = this.tree.copy();
-            log("processing and storing alternative unifier for "+node+": "+unifiers[i]);
-            // applying a substitution can make other branches closable as well
+            log("== processing and storing alternative unifier for "+node+": "+unifiers[i]);
+            // applying a substitution can make other branches closeable as well
             altTree.applySubstitution(unifiers[i]);
+            log('alternative tree:\n'+altTree);
             altTree.closeCloseableBranches();
             log('alternative tree:\n'+altTree);
             if (altTree.openBranches.length == 0) {
@@ -911,6 +917,7 @@ Branch.prototype.tryClose = function(node) {
                 return true;
             }
             this.tree.prover.alternatives.push(altTree);
+            log("== done processing alternative unifier for "+node+": "+unifiers[i]);
         }
         if (this.todoList.length) {
             // instead of unifying, we could apply some other rule from the todoList:
@@ -930,6 +937,26 @@ Branch.prototype.tryClose = function(node) {
     log(this.tree);
     log("+++ branch closed +++");
     return true;
+}
+
+Branch.prototype.findContradictoryNodes = function() {
+    // return last pair of contradictory nodes on branch
+    for (var i=this.nodes.length-1; i>=0; i--) {
+        var n1 = this.nodes[i];
+        var n1negated = (n1.formula.operator == '¬');
+        var closed = false;
+        for (var j=i-1; j>=0; j--) {
+            var n2 = this.nodes[j];
+            // log('? '+n1+' '+n2);
+            if (n2.formula.operator == '¬' && n2.formula.sub.equals(n1.formula)) {
+                return [n2,n1];
+            }
+            if (n1negated && n1.formula.sub.equals(n2.formula)) {
+                return [n2,n1];
+            }
+        }
+    }
+    return null;
 }
 
 Branch.prototype.copy = function() {
@@ -1041,7 +1068,11 @@ Branch.prototype.addAccessibilityRuleApplications = function(node) {
 }
 
 Branch.prototype.toString = function() {
-    return this.nodes.map(function(n){ return n.formula.string }).join(',');
+    var lastNodes = [this.nodes[this.nodes.length-1].formula.string];
+    if (this.nodes.length > 1) {
+        lastNodes.unshift(this.nodes[this.nodes.length-2].formula.string);
+    }
+    return this.id+'..'+lastNodes;
 }
 
 
