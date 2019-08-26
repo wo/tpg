@@ -2,7 +2,7 @@
 * Introduction
 
 This is the source code for [[https://www.umsu.de/trees]], a website that implements
-a tableaux prover for classical propositional and predicate logic, as well as
+a tableau prover for classical propositional and predicate logic, as well as
 some modal logics. The prover is written in Javascript and runs entirely in the
 browser.
 
@@ -34,8 +34,8 @@ classifications as valid or invalid.
 
 * Overview
 
-Textbook tableaux rules are a little inefficient for automated proving. Behind
-the scenes, we therefore use somewhat different rules. Once a closed tableaux is
+Textbook tableau rules are a little inefficient for automated proving. Behind
+the scenes, we therefore use somewhat different rules. Once a closed tableau is
 found, we translate it back into the textbook rules to display on the page.
 
 ** Free variables, unification, and run-time skolemization
@@ -45,11 +45,11 @@ instantiating "gamma" formulas (of type ∀xA or ¬∃xA). Blindly trying all
 possibilities is inefficient. A useful trick is to use "free-variable" tableaux
 in which gamma formulas are initially expanded with dummy variables.
 
-For example, in a free-variable tableaux, we would expand ∀xFx as Fy, with y
+For example, in a free-variable tableau, we would expand ∀xFx as Fy, with y
 free. Whenever a new formula is added, we then check if some substitution of
 terms for the free variables (= some *unification*) would close the branch. For
 example, if the branch contains ¬Fc, we can substitute c for y and close the
-branch. (Even in a free-variable tableaux, gamma nodes may need to be expanded
+branch. (Even in a free-variable tableau, gamma nodes may need to be expanded
 more than once.)
 
 A problem now arises for the expansion of "delta" nodes (∃xA or ¬∀xA). Suppose
@@ -86,7 +86,7 @@ with predicate logic formulas.
 
 Unfortunately, there are a few complications.
 
-For one, the standard tableaux rules applied to translated modal formulas easily
+For one, the standard tableau rules applied to translated modal formulas easily
 create tableaux that are hard to convert back into textbook modal tableaux. For
 example, □A is translated into ∀x(¬wRx v Ax); by the standard free-variable rule
 for gamma expansions, this would be expanded to ¬wRy ∨ Ay, which in turn is
@@ -96,7 +96,7 @@ does not involve any kind of branching.
 
 We could require that the expansion of ¬wRy ∨ Ay is only allowed if the ¬wRy
 subbranch immediately closes because it can be unified with some wR* node
-earlier on the branch. That would make the resulting tableaux relatively easy to
+earlier on the branch. That would make the resulting tableau relatively easy to
 convert back into a textbook tableau. But then we might as well use a special
 rule for expanding ∀x(¬wRx v Ax), which mimics the standard rule for □A: expand
 directly to A*, but only if wR* is already on the branch.
@@ -111,7 +111,7 @@ A second complication arises from constraints on the accessibility relation. In
 textbook tableaux, these correspond to special rules for expanding tableaux. We
 could instead translate the constraints into quantified formulas and add them to
 the starting formulas for the tableau construction. But again that would often
-lead to tableau that don't look like textbook tableaux; for example, expanding
+lead to tableaux that don't look like textbook tableaux; for example, expanding
 the transitivity node would lead to a two-fold branching. So the
 behind-the-scenes prover now has special accessibility rules mimicking the
 textbook rules.
@@ -120,7 +120,7 @@ All this makes it doubtful that much is gained by translating modal formulas
 into predicate-logic formulas. As in the case of negation normal form, the
 translation adds a layer of complexity to the code that should earn its keep.
 
-On the other hand, the complications do not arise for the simplified tableaux
+On the other hand, the complications do not arise for the simplified tableau
 rules of S5, where we can ignore the accessibility clauses. Here we use the full
 free-variables machinery. The translation also simplifies the "model finder"
 (see below).
