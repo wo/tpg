@@ -13,7 +13,8 @@ function TreePainter(senTree, rootAnchor) {
     this.isModal = senTree.parser.isModal;
     this.rootAnchor = rootAnchor;
     this.rootAnchor.innerHTML = "";
-    this.minX = this.branchPadding - rootAnchor.offsetLeft;
+    this.minX = this.branchPadding/2 - rootAnchor.offsetLeft;
+    this.scale = 1;
     
     this.curNodeNumber = 0;
     this.highlighted = [];
@@ -204,16 +205,17 @@ TreePainter.prototype.keepTreeInView = function() {
     if (mainContainer.getBoundingClientRect) {
         var midPoint = Math.round(mainContainer.getBoundingClientRect()['left']);
         var winTreeRatio = window.innerWidth*1.0/(midPoint*2);
-        if (winTreeRatio < 1.1) {
-            log("tree doesn't fit into visible area");
+        if (winTreeRatio < 1) {
             this.scale = Math.max(winTreeRatio, 0.8);
             document.getElementById('rootAnchor').style.transform="scale("+this.scale+")";
+            log("tree doesn't fit: ratio window.width/tree.width "+winTreeRatio);
         }
     }
     var minX = this.getMinX();
-    if (minX < this.minX) {
-        log("minX " + minX + ": tree out of left document border by " + (this.minX - minX));
-        mainContainer.style.left = mainContainer.__x + (this.minX - minX) + "px";
+    if (minX < this.minX/this.scale) {
+        var invisibleWidth = (this.minX/this.scale - minX);
+        log("minX " + minX + "<" + this.minX+": tree out of left document border by " + invisibleWidth);
+        mainContainer.style.left = mainContainer.__x + invisibleWidth + "px";
     }
 }
 

@@ -61,7 +61,7 @@ a { color:#007083; }
   .hideOnPhone { display:none; }
   .formula { font-size:0.9em; }
   #proveButton { width:55px; }
-  #symbolButtonRow { margin-left:61px; font-size:0.9em; }
+  #symbolButtonRow { font-size:0.9em; }
   .symbutton { display:inline-block; font-size:0.9em; width:16px; height:16px; margin:0 1px 0 0; vertical-align:bottom; }
   #flaField { width:calc(100% - 77px); }
   #rootAnchor { transform:scale(0.9); }
