@@ -285,8 +285,6 @@ Parser.prototype.clausalNormalForm = function(formula) {
     // see http://cs.jhu.edu/~jason/tutorials/convert-to-CNF and
     // http://www8.cs.umu.se/kurser/TDBB08/vt98b/Slides4/norm1_4.pdf
 
-    // xxx todo use switching variables to keep CNFs short?
-
     var distinctVars = this.makeVariablesDistinct(formula);
     log('distinctVars: '+distinctVars);
     var skolemized = this.skolemize(distinctVars);

@@ -40,7 +40,7 @@ Formula.prototype.unify = function(formula) {
     // So we have two atomic formulas of the same arity. Now we walk through all
     // the pairs of terms.
     var unifier = [];
-    var terms1 = this.terms.copyDeep(); // xxx wouldn't copy() suffice?
+    var terms1 = this.terms.copyDeep(); // copy() doesn't suffice: see pel38 
     var terms2 = formula.terms.copyDeep();
     var t1, t2;
     while (t1 = terms1.shift(), t2 = terms2.shift()) {
@@ -64,7 +64,7 @@ Formula.prototype.unify = function(formula) {
         var t2Var = (t2[0] == 'ξ' || t2[0] == 'ζ');
         if (!t1Var && !t2Var) {
             // neither term is variable: unification failed
-            log('neither term variable');
+            log('no, neither term variable');
             return false;
         }
         if (!t1Var) {
@@ -257,26 +257,32 @@ AtomicFormula.prototype = Object.create(Formula.prototype);
 AtomicFormula.prototype.substitute = function(origTerm, newTerm, shallow) {
     // return new formula with all free occurrences of <origTerm> replaced
     // by <newTerm>. If <shallow>, don't replace terms in function arguments
-    var newTerms = [];
-    for (var i=0; i<this.terms.length; i++) {
-        newTerms.push(AtomicFormula.substituteInTerm(this.terms[i], origTerm, newTerm, shallow));
+    if (typeof(origTerm) == 'string' && this.string.indexOf(origTerm) == -1) {
+        return this;
     }
+    var newTerms = AtomicFormula.substituteInTerms(this.terms, origTerm, newTerm, shallow);
     if (!this.terms.equals(newTerms)) {
         return new AtomicFormula(this.predicate, newTerms);
     }
     else return this;
 }
 
-AtomicFormula.substituteInTerm = function(term, origTerm, newTerm, shallow) {
-    // xxx this could be optimized (it's also used in prover)
-    if (term == origTerm) return newTerm;
-    else if (term.isArray && !shallow) {
-        var nTerm = [];
-        for (var i=0; i<term.length; i++) {
-            nTerm.push(AtomicFormula.substituteInTerm(term[i], origTerm, newTerm));
+AtomicFormula.substituteInTerms = function(terms, origTerm, newTerm, shallow) {
+    var newTerms = [];
+    for (var i=0; i<terms.length; i++) {
+        var term = terms[i];
+        if (term == origTerm) newTerms.push(newTerm);
+        else if (term.isArray && !shallow) {
+            newTerms.push(AtomicFormula.substituteInTerms(term, origTerm, newTerm));
         }
-        return nTerm;
+        else newTerms.push(term);
     }
+    return newTerms;
+}
+
+AtomicFormula.substituteInTerm = function(term, origTerm, newTerm) {
+    if (term == origTerm) return newTerm;
+    if (term.isArray) return AtomicFormula.substituteInTerms(term, origTerm, newTerm);
     return term;
 }
 
