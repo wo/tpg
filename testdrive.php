@@ -249,7 +249,7 @@ function proveNext() {
 <div style="position:fixed; bottom:0; left:0; padding:10px; width:100%; background-color:#ccc">
 <form action="#" method="get" style="display:inline">
 <input type="button" onclick="proveAll(this.form.l.value)" value="run all tests"> 
-Limit <input type="text" size="7" name="l" value="30000"> ms/test
+Limit <input type="text" size="7" name="l" value="3000"> ms/test
 </form>
 </div>
 
