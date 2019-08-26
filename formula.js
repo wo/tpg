@@ -269,14 +269,14 @@ AtomicFormula.prototype.substitute = function(origTerm, newTerm, shallow) {
 
 AtomicFormula.substituteInTerm = function(term, origTerm, newTerm, shallow) {
     // xxx this could be optimized (it's also used in prover)
-    if (term.isArray && !shallow) {
+    if (term == origTerm) return newTerm;
+    else if (term.isArray && !shallow) {
         var nTerm = [];
         for (var i=0; i<term.length; i++) {
             nTerm.push(AtomicFormula.substituteInTerm(term[i], origTerm, newTerm));
         }
         return nTerm;
     }
-    if (term == origTerm) return newTerm;
     return term;
 }
 

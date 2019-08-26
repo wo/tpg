@@ -739,7 +739,8 @@ Tree.prototype.copy = function() {
 
 Tree.prototype.applySubstitution = function(sub) {
     // apply substitution of terms for variables to all nodes on tree
-    var branches = this.openBranches.concat(this.closedBranches); // xxx optimise, e.g. why process closed branches at all?
+    var branches = this.openBranches.concat(this.closedBranches);
+    // (need to process closed branches so that displayed tree looks right)
     for (var i=0; i<sub.length; i+=2) {
         var nodeProcessed = {};
         for (var b=0; b<branches.length; b++) {
@@ -879,7 +880,6 @@ Branch.prototype.tryClose = function(node) {
     if (unifiers.length == 0) {
         return false;
     }
-    // xxx todo: use simpler unifiers first! ¬(Pa∧¬Pf(f(a))∧∀x(Px→Pf(x)))
     
     // check whether we need to store alternatives for backtracking (only if
     // unifier affects variables on other open branches):
@@ -985,23 +985,6 @@ Branch.prototype.expandTodoList = function(node) {
 	// are expanded, e.g. look-ahead heuristics for beta expansions.  Turns
 	// out that most of these don't have any consistent effect; they usually
 	// speed up some proofs and slow down others.)
-        //
-        // TODO: check if it helps to favour beta applications for which the
-	// complement of beta1 or beta2 is already on the branch (so that one of
-	// the new branches will immediately close).
-        //
-        // TODO: One should never expand a beta node if either beta1 or beta2 is
-        // already on the branch: if the resulting branches
-        //
-        // ... beta ... beta1 ... beta1 ...
-        // ... beta ... beta1 ... beta2 ...
-        //
-        // both close, then so does
-        //
-        // ... beta ... beta1 ... 
-        //
-        // with beta unexpanded. Perhaps this could be handled in the code that
-        // checks if a newly added formula already occurs on the branch.
         //
         var expansionRule = node.getExpansionRule();
 	for (var i=0; i<this.todoList.length; i++) {

@@ -165,8 +165,9 @@ SenTree.prototype.transferNode = function(node, par) {
             (from.formula.operator == '¬' && from.formula.sub.operator == '↔')) {
             node.biconditionalExpansion = true;
             node.used = false;
-            // xxx TODO what if we have a tree with nodes ¬(A&B) and (A<->B)?! This
-            // will be closed with the hidden biconditional expansion node!
+            // NB: after normalizing initNodes, we can't have a fvTree with
+            // nodes ¬(A&B) and (A<->B) that would be closed with the hidden
+            // biconditional expansion node
         }
         this.appendChild(par, node);
         if (par.children.length == 2 && node.formula == f1) {
@@ -301,9 +302,7 @@ SenTree.prototype.replaceFreeVariablesAndSkolemTerms = function() {
     // terms all look like 'φ1', 'φ1(𝛏1,𝛏2..)' (for individuals) or 'ω1'
     // etc. (for worlds); after unification they can also be nested:
     // '𝛗1(𝛏1,𝛗2(𝛏1)..)'. Note that a skolem term can occur inside an ordinary
-    // function term. xxx Need to check if this should be accounted for;
-    // substitution is shallow...
-    
+    // function term, as in expansions of ∃xf(x).    
     var translations = {};
     for (var n=0; n<this.nodes.length; n++) {
         var node = this.nodes[n];
@@ -330,8 +329,9 @@ SenTree.prototype.replaceFreeVariablesAndSkolemTerms = function() {
                 log(termstr + " is skolem term");
                 translations[termstr] = this.parser.getNewConstant();
             }
+            log("replacing "+indivTerms[c]+" by "+translations[termstr]);
             node.formula = node.formula.substitute(
-                indivTerms[c], translations[termstr], true
+                indivTerms[c], translations[termstr]
             );
         }
         for (var c=0; c<worldTerms.length; c++) {
@@ -340,21 +340,33 @@ SenTree.prototype.replaceFreeVariablesAndSkolemTerms = function() {
                 log(termstr + " is worldly skolem term");
                 translations[termstr] = this.parser.getNewWorldName(true);
             }
+            log("replacing "+worldTerms[c]+" by "+translations[termstr]);
             node.formula = node.formula.substitute(
-                worldTerms[c], translations[termstr], true
+                worldTerms[c], translations[termstr]
             );
         }
     }
     
     function getSkolemTerms(formula) {
-        // skolem terms for worlds begin with 'ω'. xxx this does not look for
-        // skolem terms inside other terms!
         var worldTerms = [];
         var indivTerms = [];
-        var flas = [formula];
+        var flas = [formula]; // formulas or term lists
         var fla;
         while ((fla = flas.shift())) {
-            if (fla.sub) {
+            if (fla.isArray) { // term list, e.g. ['a', ['f','a']]
+                for (var i=0; i<fla.length; i++) {
+                    if (fla[i].isArray) {
+                        if (fla[i][0][0] == 'φ') indivTerms.push(fla[i]);
+                        else if (fla[i][0][0] == 'ω') worldTerms.push(fla[i]);
+                        else flas.unshift(fla[i]);
+                    }
+                    else {
+                        if (fla[i][0] == 'φ') indivTerms.push(fla[i]);
+                        else if (fla[i][0] == 'ω') worldTerms.push(fla[i]);
+                    }
+                }
+            }
+            else if (fla.sub) {
                 flas.unshift(fla.sub);
             }
             else if (fla.sub1) {
@@ -365,16 +377,7 @@ SenTree.prototype.replaceFreeVariablesAndSkolemTerms = function() {
                 flas.unshift(fla.matrix);
             }
             else {
-                for (var i=0; i<fla.terms.length; i++) {
-                    if (fla.terms[i].isArray) {
-                        if (fla.terms[i][0][0] == 'φ') indivTerms.push(fla.terms[i]);
-                        else if (fla.terms[i][0][0] == 'ω') worldTerms.push(fla.terms[i]);
-                    }
-                    else {
-                        if (fla.terms[i][0] == 'φ') indivTerms.push(fla.terms[i]);
-                        else if (fla.terms[i][0] == 'ω') worldTerms.push(fla.terms[i]);
-                    }
-                }
+                flas.unshift(fla.terms);
             }
         }
         return [indivTerms, worldTerms];
