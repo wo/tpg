@@ -69,7 +69,7 @@ Array.prototype.removeDuplicates = function() {
 }
 
 Array.getArrayOfZeroes = function(length) {
-    // https://jsperf.com/zero-illed-array-creation/17
+    // https://jsperf.com/zero-filled-array-creation/17
     for (var i = 0, a = new Array(length); i < length;) a[i++] = 0;
     return a;
 }

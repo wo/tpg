@@ -120,8 +120,7 @@ Prover.prototype.nextStep = function() {
         return this.onfinished(1);
     }
     
-    if (this.tree.openBranches[0].nodes.length > this.depthLimit * 4
-        && this.alternatives.length > 0) {
+    if (this.tree.openBranches[0].nodes.length > this.depthLimit * 4) {
         log('reached complexity limit for backtracking');
         this.limitReached();
     }
