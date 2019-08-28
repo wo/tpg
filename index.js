@@ -76,6 +76,7 @@ document.forms[0].flaField.insertAtCaret = function(str) {
    }
 }
 
+prover = null;
 onload = function(e) {
    
     // in case the browser has automatically filled in some value into the
@@ -112,7 +113,6 @@ onload = function(e) {
         }
     }
 
-    var prover;
     document.forms[0].onsubmit = function(e) {
         // The action begins...
         var parser = new Parser();
@@ -126,6 +126,7 @@ onload = function(e) {
             alert(e);
             return false;
         }
+        setHash(this.flaField.value);
         document.getElementById("intro").style.display = "none";
         document.getElementById("model").style.display = "none";
         document.getElementById("rootAnchor").style.display = "none";
@@ -183,9 +184,39 @@ onload = function(e) {
         return false;
     }
    
-    // prove formula submitted via URL:
-    if (location.search.match(/\?f=/)) {
-        document.forms[0].flaField.value = unescape(location.search.substr(3));
+    // start proof submitted via URL (e.g. from back button):
+    if (location.hash.length > 0) {
+        hashChange();
+    }
+}
+
+var hashSetByScript = false;
+function setHash(str) {
+    hashSetByScript = true;
+    location.hash = str;
+}
+
+window.onhashchange = hashChange;
+
+function hashChange() {
+    // input submitted via URL or through back button; in the last case there
+    // might be a prover running.
+    if (hashSetByScript) {
+        hashSetByScript = false;
+        return;
+    }
+    if (prover) prover.stop();
+    if (location.hash.length == 0) {
+        document.getElementById("intro").style.display = "block";
+        document.getElementById("model").style.display = "none";
+        document.getElementById("rootAnchor").style.display = "none";
+        document.getElementById("backtostartpage").style.display = "none";
+        document.getElementById("status").style.display = "none";
+    }
+    else {
+        var input = decodeURIComponent(location.hash.substr(1).replace(/\+/g, '%20'));
+        document.forms[0].flaField.value = input;
         document.forms[0].onsubmit();
     }
 }
+

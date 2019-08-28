@@ -17,7 +17,7 @@ a { color:#007083; }
 #flaField { width:calc(100% - 97px); }
 .button { background:#fdf0c9; ; color:#000; border:1px solid #ccc0bb; cursor:default; }
 #statusStop#statusStop.button:hover { background-color:#fff6e9; }
-.symbutton { display:inline-block; width:18px; height:18px; color:#333!important; padding:0px 1px 3px 1px; margin-right:2px; text-align:center; }
+.symbutton { display:inline-block; width:18px; height:18px; color:#333!important; padding:0px 1px 5px 1px; margin-right:2px; text-align:center; }
 #accessibilitySpan { display:none; font-size:0.9em; }
 #accessibilityRow input[type=checkbox] { vertical-align: middle; position: relative; bottom: .08em; margin:0 0px 0 5px; }
 #backtostartpage { float:right; display:none; }
