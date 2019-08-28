@@ -18,7 +18,10 @@
 
 <form id="inputForm" action="." method="get" onsubmit="return false">
   <div id="symbolButtonRow">
-    insert <span class="hideOnTablet">symbol:</span> <span id="symbolButtons"></span>
+    insert <span class="hideOnTablet">symbol:</span>
+    <div id="symbolButtons">
+      <div class="symbutton button formula">¬</div><div class="symbutton button formula">∧</div><div class="symbutton button formula">∨</div><div class="symbutton button formula">→</div><div class="symbutton button formula">↔</div><div class="symbutton button formula">∀</div><div class="symbutton button formula">∃</div><div class="symbutton button formula">□</div><div class="symbutton button formula">◇</div>
+    </div>
   </div>
   <div id="proveRow">
     <input type="text" size="60" name="flaField" id="flaField" class="formula">
@@ -36,7 +39,7 @@
     </span>
   </div>
 </form>
-<div id="backtostartpage"><a href="javascript:location.reload()">back to start page</a></div>
+<div id="backtostartpage"><a href="#">back to start page</a></div>
 
 <div id="status"></div>
 
@@ -80,15 +83,15 @@ else {
 
   <p>Examples (click!):</p>
   <ul id="exampleList">
-    <li class="formula">(p∨(q∧r))→((p∨q)∧(p∨r))</li>
-    <li class="formula">((A→B)→A)→A</li>
-    <li class="formula">∃y∀x(Fy→Fx)</li>
-    <li class="formula">∃y∃z∀x((Fx→Gy)∧(Gz→Fx)) → ∀x∃y(Fx↔Gy)</li>
-    <li class="formula">N(0) ∧ ∀i(N(i)→N(s(i))) → N(s(s(s(0))))</li>
-    <li class="formula">∀y∃xFxy → ∃x∀yFxy</li>
-    <li class="formula">□(p→q)→□p→□q</li>
-    <li class="formula">∀x□Fx→□∀xFx</li>
-    <li class="formula">p∨q, ¬p |= q</li>
+    <li class="formula"><a href="#(p∨(q∧r))→((p∨q)∧(p∨r))">(p∨(q∧r))→((p∨q)∧(p∨r))</a></li>
+    <li class="formula"><a href="#((A→B)→A)→A">((A→B)→A)→A</a></li>
+    <li class="formula"><a href="#∃y∀x(Fy→Fx)">∃y∀x(Fy→Fx)</a></li>
+    <li class="formula"><a href="#∃y∃z∀x((Fx→Gy)∧(Gz→Fx)) → ∀x∃y(Fx↔Gy)">∃y∃z∀x((Fx→Gy)∧(Gz→Fx)) → ∀x∃y(Fx↔Gy)</a></li>
+    <li class="formula"><a href="#N(0) ∧ ∀i(N(i)→N(s(i))) → N(s(s(s(0))))">N(0) ∧ ∀i(N(i)→N(s(i))) → N(s(s(s(0))))</a></li>
+    <li class="formula"><a href="#∀y∃xFxy → ∃x∀yFxy">∀y∃xFxy → ∃x∀yFxy</a></li>
+    <li class="formula"><a href="#□(p→q)→□p→□q">□(p→q)→□p→□q</a></li>
+    <li class="formula"><a href="#∀x□Fx→□∀xFx">∀x□Fx→□∀xFx</a></li>
+    <li class="formula"><a href="#p∨q, ¬p |= q">p∨q, ¬p |= q</a></li>
   </ul>
 
   <h3>Entering formulas</h3>

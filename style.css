@@ -11,7 +11,8 @@ a { color:#007083; }
 
 #inputForm { background:#fce9ba; color:#000; margin:5px 0; padding:10px 10px 10px 12px; border:1px solid #cccaaa; border-radius:8px; }
 #symbolButtonRow { margin:0 0 5px 3px; font-size:1em; color:#456; }
-#symbolButtonRow .formula { color:#444; }
+#symbolButtons { display:inline-block; }
+#symbolButtons .formula { color:#444; }
 #accessibilityRow { margin: 10px 0 0 3px; color:#234; }
 #proveButton { width:70px; font-size:0.9em; padding:3px; }
 #flaField { width:calc(100% - 97px); }
@@ -27,6 +28,7 @@ a { color:#007083; }
 #intro p { margin:8px 0; line-height:1.5em; }
 #exampleList { list-style-type:none; margin:0 30px 20px; padding:0; }
 #exampleList li { padding:0.1em; cursor:pointer; }
+#exampleList a { text-decoration:none; color:#742; }
 #intro .formula { color:#742; }
 #intro h3 { font-size:1.1em; font-weight:600; color:#456; margin:20px 0 5px;}
 
