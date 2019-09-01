@@ -121,12 +121,12 @@ function startProof(input) {
         // The prover has finished. Show result:
         var conclusionSpan = "<span class='formula'>"+conclusion+"</span>";
         if (initFormulas.length == 1) {
-            var summary = conclusion + " is " + (treeClosed ? "valid." : "invalid.");
+            var summary = conclusionSpan + " is " + (treeClosed ? "valid." : "invalid.");
         }
         else {
             var summary = premises.map(function(f){
                 return "<span class='formula'>"+f+"</span>";
-            }).join(', ') + (treeClosed ? " entails " : " does not entail ") + conclusion + ".";
+            }).join(', ') + (treeClosed ? " entails " : " does not entail ") + conclusionSpan + ".";
         }
         document.getElementById("status").innerHTML = summary;
         // Translate the free-variable tableau into a sentence tableau:
