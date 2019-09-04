@@ -177,7 +177,17 @@ tests = {
         assert(mf.model.toString().indexOf('F: { 1 }') > 0);
         assert(mf.model.toString().indexOf('G: { 0 }') > 0);
     },
-               
+
+    countermodel10: function() {
+        var parser = new Parser();
+        var fs = [parser.parseFormula('p→p').normalize()];
+        var mf = new ModelFinder(fs, parser);
+        for (var i=0; i<5; i++) {
+            if (mf.nextStep()) break;
+        }
+        assert(i==0);
+    },
+     
     countermodel_shortestformulawith3individuals: function() {
         var parser = new Parser();
         var fs = [parser.parseFormula('∀y∃x(Ryx ∧ ¬Rxy)').normalize()];

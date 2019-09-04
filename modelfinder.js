@@ -185,6 +185,11 @@ ModelFinder.prototype.nextStep = function() {
     log("*** modelfinder"); 
     var model = this.model;
     var curConstraint = model.constraints[model.constraintPosition];
+    if (!curConstraint) {
+        // This happens when all clauses contain contradictory pairs, so every
+        // model is a countermodel.
+        return true;
+    }
     var prevConstraintPosition = model.prevConstraintPosition;
     model.prevConstraintPosition = model.constraintPosition; 
     var newTerms = model.constraintTerms[model.constraintPosition];
