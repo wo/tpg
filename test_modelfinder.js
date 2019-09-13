@@ -218,9 +218,9 @@ tests = {
             if (mf.nextStep()) break;
         }
         assertEqual(mf.model.worlds.length, 2);
-        assert(mf.model.toString().indexOf('w: 0') > 0);
-        assert(mf.model.toString().indexOf('R: { (0,1) }') > 0);
-        assert(mf.model.toString().indexOf('p: { 1 }') > 0);
+        assert(mf.model.toString().indexOf('@: w0') > 0);
+        assert(mf.model.toString().indexOf('R: { (w0,w1) }') > 0);
+        assert(mf.model.toString().indexOf('p: { w1 }') > 0);
     },
 
     countermodel_modal2: function() {
@@ -232,7 +232,7 @@ tests = {
             if (mf.nextStep()) break;
         }
         assertEqual(mf.model.worlds.length, 1);
-        assert(mf.model.toString().indexOf('R: { (0,0) }') > 0);
+        assert(mf.model.toString().indexOf('R: { (w0,w0) }') > 0);
     },
 
     countermodel_modal3: function() {
@@ -244,9 +244,8 @@ tests = {
             if (mf.nextStep()) break;
         }
         assertEqual(mf.model.worlds.length, 1);
-        assert(mf.model.toString().indexOf('w: 0') > 0);
-        assert(mf.model.toString().indexOf('R: { (0,0) }') > 0);
-        assert(mf.model.toString().indexOf('p: { 0 }') > 0);
+        assert(mf.model.toString().indexOf('R: { (w0,w0) }') > 0);
+        assert(mf.model.toString().indexOf('p: { w0 }') > 0);
     },
 
     countermodel_s5: function() {
@@ -262,7 +261,7 @@ tests = {
         }
         assertEqual(mf.model.worlds.length, 1);
         assertEqual(mf.model.toString().indexOf('R:'), -1);
-        assert(mf.model.toString().indexOf('p: { 0 }') >= 0);
+        assert(mf.model.toString().indexOf('p: { w0 }') >= 0);
     },
     
     countermodel_s52: function() {
@@ -278,6 +277,6 @@ tests = {
         }
         assertEqual(mf.model.worlds.length, 1);
         assertEqual(mf.model.toString().indexOf('R:'), -1);
-        assert(mf.model.toString().indexOf('p: { 0 }') >= 0);
+        assert(mf.model.toString().indexOf('p: { w0 }') >= 0);
     },
 }

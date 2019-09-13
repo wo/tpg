@@ -631,8 +631,12 @@ Model.prototype.extendToSatisfy = function(formula) {
 Model.prototype.toHTML = function() {
     var str = "<table>";
     if (this.parser.isModal) {
-        str += "<tr><td>Worlds: </td><td align='left'>{ ";
-        str += this.worlds.join(", ");
+        // change world names from '0', '1', .. to 'w0', 'w1', ..:
+        function w(num) {
+            return 'w<sub>'+num+'</sub>';
+        }
+        str += "<tr><td align='right'>Worlds: </td><td align='left'>{ ";
+        str += this.worlds.map(function(n){return w(n)}).join(", ");
         str += " }</td></tr>\n";
         if (!this.parser.isPropositional) {
             str += "<tr><td>Individuals: </td><td align='left'>{ ";
@@ -641,7 +645,7 @@ Model.prototype.toHTML = function() {
         }
     }
     else if (!this.parser.isPropositional) {
-        str += "<tr><td>Domain: </td><td align='left'>{ ";
+        str += "<tr><td align='right'>Domain: </td><td align='left'>{ ";
         str += this.domain.join(", ");
         str += " }</td></tr>\n";
     }
@@ -655,7 +659,8 @@ Model.prototype.toHTML = function() {
     for (var i=0; i<this.modelfinder.constants.length; i++) {
         var sym = this.modelfinder.constants[i];
         var ext = termExtensions[sym];
-        var val = ext;
+        var val = sym == this.parser.w ? w(ext) : ext;
+        if (sym == this.parser.w) sym = '@';
         str += "<tr><td align='right' class='formula'>" + sym + ": </td><td align='left'>" + val + "</td></tr>\n";
     }
     
@@ -682,7 +687,9 @@ Model.prototype.toHTML = function() {
     // G: { <0,0>, <1,1> }
 
     var predicateExtensions = this.getPredicateExtensions();
-    
+
+    var isModal = this.parser.isModal;
+    var R = this.parser.R;
     for (var i=0; i<this.modelfinder.predicates.length; i++) {
         var sym = this.modelfinder.predicates[i];
         var ext = predicateExtensions[sym];
@@ -692,17 +699,22 @@ Model.prototype.toHTML = function() {
         }
         else if (ext.length > 0 && !ext[0].isArray) {
             // ext is something like [1,2]
+            if (isModal) ext = ext.map(function(n){return w(n)});
             val = '{ '+ext.join(',')+' }';
         }
         else {
             // ext is something like [[0,1],[1,1]]
             val = '{ '+ext.map(function(tuple) {
+                if (isModal) {
+                    tuple[tuple.length-1] = w(tuple[tuple.length-1]);
+                    if (sym == R) tuple[0] = w(tuple[0]);
+                }
                 return '('+tuple.join(',')+')';
             }).join(', ')+' }';
         }
         str += "<tr><td align='right' class='formula'>" + sym + ": </td><td align='left'>" + val + "</td></tr>\n";
     }
-    
+
     str += "</table>";
     return str;
 }

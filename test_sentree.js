@@ -132,7 +132,7 @@ tests = {
         var sentenceTree = new SenTree(prover.tree, parser);
         var m = sentenceTree.getCounterModel();
         assertEqual(m.worlds.length, 2)
-        assert(m.toString().indexOf('R: { (0,1) }') >= 0);
+        assert(m.toString().indexOf('R: { (w0,w1) }') >= 0);
         assert(m.toString().indexOf('p: {  }') >= 0);
     },
     
