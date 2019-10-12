@@ -392,37 +392,6 @@ Prover.symmetry.needsPremise = true; // can only be applied if wRv is on the bra
 Prover.symmetry.premiseCanBeReflexive = false; // can be applied to wRw
 Prover.symmetry.toString = function() { return 'symmetry' }
 
-Prover.transitivity = function(branch, nodeList) {
-    log('applying transitivity rule');
-    // nodeList contains a newly added node of form wRv.
-    var R = branch.tree.parser.R;
-    var node = nodeList[0];
-    var nodeFla = node.formula;
-    // see if we can apply transitivity:
-    for (var i=0; i<branch.nodes.length-1; i++) {
-        var earlierFla = branch.nodes[i].formula;
-        if (earlierFla.predicate != R) continue;
-        var newFla = null;
-        if (earlierFla.terms[1] == nodeFla.terms[0]) {
-            // earlierFla uRw, nodeFla wRv
-            newFla = new AtomicFormula(R, [earlierFla.terms[0], nodeFla.terms[1]]);
-        }
-        else if (earlierFla.terms[0] == nodeFla.terms[1]) {
-            // earlierFla vRu, nodeFla wRv
-            newFla = new AtomicFormula(R, [nodeFla.terms[0], earlierFla.terms[1]]);
-        }
-        if (newFla) {
-            log('matches '+earlierFla+': adding '+newFla);
-            var newNode = new Node(newFla, Prover.transitivity, [branch.nodes[i], node]);
-            branch.addNode(newNode);
-        }
-    }
-}
-Prover.transitivity.priority = 3;
-Prover.transitivity.needsPremise = true; // can only be applied if wRv is on the branch
-Prover.transitivity.premiseCanBeReflexive = false; // can be applied to wRw
-Prover.transitivity.toString = function() { return 'transitivity' }
-
 Prover.euclidity = function(branch, nodeList) {
     log('applying euclidity rule');
     // nodeList contains a newly added node of form wRv.
@@ -455,9 +424,10 @@ Prover.euclidity = function(branch, nodeList) {
             if (newFla) {
                 log('adding '+newFla);
                 var newNode = new Node(newFla, Prover.euclidity, [branch.nodes[i], node]);
-                branch.addNode(newNode);
-                branch.todoList.unshift([Prover.euclidity, node]);
-                return;
+                if (branch.addNode(newNode)) {
+                    branch.todoList.unshift([Prover.euclidity, node]);
+                    return;
+                }
             }
         }
         if (branch.nodes[i] == node) break;
@@ -467,6 +437,41 @@ Prover.euclidity.priority = 3;
 Prover.euclidity.needsPremise = true; // can only be applied if wRv is on the branch
 Prover.euclidity.premiseCanBeReflexive = false; // can be applied to wRw
 Prover.euclidity.toString = function() { return 'euclidity' }
+
+Prover.transitivity = function(branch, nodeList) {
+    log('applying transitivity rule');
+    // nodeList contains a newly added node of form wRv.
+    var R = branch.tree.parser.R;
+    var node = nodeList[0];
+    var nodeFla = node.formula;
+    // see if we can apply transitivity:
+    for (var i=0; i<branch.nodes.length; i++) {
+        var earlierFla = branch.nodes[i].formula;
+        if (earlierFla.predicate != R) continue;
+        var newFla = null;
+        if (earlierFla.terms[1] == nodeFla.terms[0]) {
+            // earlierFla uRw, nodeFla wRv
+            newFla = new AtomicFormula(R, [earlierFla.terms[0], nodeFla.terms[1]]);
+        }
+        else if (earlierFla.terms[0] == nodeFla.terms[1]) {
+            // earlierFla vRu, nodeFla wRv
+            newFla = new AtomicFormula(R, [nodeFla.terms[0], earlierFla.terms[1]]);
+        }
+        if (newFla) {
+            log('matches '+earlierFla+': adding '+newFla);
+            var newNode = new Node(newFla, Prover.transitivity, [branch.nodes[i], node]);
+            if (branch.addNode(newNode)) {
+                branch.todoList.unshift([Prover.transitivity, node]);
+                return;
+            }
+        }
+        if (branch.nodes[i] == node) break;
+    }
+}
+Prover.transitivity.priority = 3;
+Prover.transitivity.needsPremise = true; // can only be applied if wRv is on the branch
+Prover.transitivity.premiseCanBeReflexive = false; // can be applied to wRw
+Prover.transitivity.toString = function() { return 'transitivity' }
 
 Prover.seriality = function(branch, nodeList) {
     log('applying seriality rule');
