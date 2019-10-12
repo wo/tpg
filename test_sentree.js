@@ -54,6 +54,17 @@ tests = {
         assertEqual(sentree.nodes[1].children[0].formula.string, 'A');
     },
 
+    emil: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('◇□A→(◇□B→◇□(A∧B))').negate();
+        var prover = new Prover([f], parser, ['reflexivity', 'symmetry', 'transitivity']);
+        prover.pauseLength = 0;
+        prover.start();
+        assertEqual(prover.tree.openBranches.length, 0);
+        var sentree = new SenTree(prover.tree, parser);
+        assertEqual(sentree.nodes.length, 19);
+    },    
+    
     nicenames: function() {
         var parser = new Parser();
         var f = parser.parseFormula('∃y∀x(Fy→Fx)').negate();

@@ -69,7 +69,16 @@ tests = {
         prover.pauseLength = 0;
         prover.start();
         assertEqual(prover.tree.openBranches.length, 1);
-    },    
+    },
+
+    // emil: function() {
+    //     var parser = new Parser();
+    //     var f = parser.parseFormula('◇□A→(◇□B→◇□(A∧B))').negate();
+    //     var prover = new Prover([f], parser, ['reflexivity', 'symmetry', 'transitivity']);
+    //     prover.pauseLength = 0;
+    //     prover.start();
+    //     assertEqual(prover.tree.openBranches.length, 0);
+    // },    
     
     invalidtest1: function() {
         var parser = new Parser();
