@@ -369,9 +369,8 @@ Prover.reflexivity = function(branch, nodeList) {
     var formula = new AtomicFormula(R, [worldName, worldName]);
     log('adding '+formula);
     var newNode = new Node(formula, Prover.reflexivity, nodeList || []);
-    if (branch.addNode(newNode)) {
-        branch.tryClose(newNode);
-    }
+    branch.addNode(newNode);
+    // No point calling branch.tryClose(newNode): ~Rwv won't be on the branch.
 }
 Prover.reflexivity.priority = 3;
 Prover.reflexivity.needsPremise = false; // can only be applied if wRv is on the branch
@@ -386,9 +385,7 @@ Prover.symmetry = function(branch, nodeList) {
     var formula = new AtomicFormula(R, [nodeFormula.terms[1], nodeFormula.terms[0]]);
     log('adding '+formula);
     var newNode = new Node(formula, Prover.symmetry, nodeList);
-    if (branch.addNode(newNode)) {
-        branch.tryClose(newNode);
-    }
+    branch.addNode(newNode);
 }
 Prover.symmetry.priority = 3;
 Prover.symmetry.needsPremise = true; // can only be applied if wRv is on the branch
@@ -417,9 +414,7 @@ Prover.transitivity = function(branch, nodeList) {
         if (newFla) {
             log('matches '+earlierFla+': adding '+newFla);
             var newNode = new Node(newFla, Prover.transitivity, [branch.nodes[i], node]);
-            if (branch.addNode(newNode)) {
-                branch.tryClose(newNode);
-            }
+            branch.addNode(newNode);
         }
     }
 }
@@ -433,10 +428,6 @@ Prover.euclidity = function(branch, nodeList) {
     // nodeList contains a newly added node of form wRv.
     var node = nodeList[0];
     var nodeFla = node.formula;
-    if (nodeFla.terms[0] == nodeFla.terms[1]) {
-        // nothing to do for vRv nodes
-        return;
-    }
     // When a wRv node has been added, euclidity always allows us to add vRv. In
     // addition, for each earlier wRu node, we can add uRv as well as
     // vRu. However, if we add all of these at once, they will be marked as
@@ -500,9 +491,7 @@ Prover.seriality = function(branch, nodeList) {
     var newFla = new AtomicFormula(R, [oldWorld, newWorld]);
     log('adding '+newFla);
     var newNode = new Node(newFla, Prover.seriality, []);
-    if (branch.addNode(newNode)) {
-        branch.tryClose(newNode);
-    }
+    branch.addNode(newNode);
 }
 Prover.seriality.priority = 10;
 Prover.seriality.needsPremise = false; // can only be applied if wRv is on the branch
