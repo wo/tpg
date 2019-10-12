@@ -253,30 +253,29 @@ Prover.modalGamma = function(branch, nodeList) {
     }
 
     var wRx = node.formula.matrix.sub1.sub;
-    var w = wRx.terms[0];
-    var wR = wRx.predicate + w;
-    log('looking for '+wR+'* nodes');
+    log('looking for '+wRx.predicate+wRx.terms[0]+'* nodes');
     // find wR* node for □A expansion:
     OUTERLOOP:
     for (var i=0; i<branch.literals.length; i++) {
-        if (branch.literals[i].formula.string.indexOf(wR) == 0) {
-            log('found '+branch.literals[i]);
-            var wRy = branch.literals[i];
+        // careful: must not match 'Rw10w12' when looking for 'Rw1*'.
+        var wRy = branch.literals[i].formula;
+        if (wRy.predicate == wRx.predicate && wRy.terms[0] == wRx.terms[0]) {
+            log('found '+wRy);
             // check if <node> has already been expanded with this wR* node:
             for (var j=0; j<branch.nodes.length; j++) {
                 if (branch.nodes[j].fromRule == Prover.modalGamma &&
                     branch.nodes[j].fromNodes[0] == node &&
-                    branch.nodes[j].fromNodes[1] == wRy) {
+                    branch.nodes[j].fromNodes[1] == branch.literals[i]) {
                     log('already used');
                     continue OUTERLOOP;
                 }
             }
             // expand <node> with found wR*:
             var modalMatrix = node.formula.matrix.sub2;
-            var v = wRy.formula.terms[1];
+            var v = wRy.terms[1];
             log('expanding: '+node.formula.variable+' => '+v);
             var newFormula = modalMatrix.substitute(node.formula.variable, v);
-            var newNode = new Node(newFormula, Prover.modalGamma, [node, wRy]);
+            var newNode = new Node(newFormula, Prover.modalGamma, [node, branch.literals[i]]);
             newNode.instanceTerm = v;
             branch.addNode(newNode);
             branch.tryClose(newNode);
@@ -772,7 +771,7 @@ Tree.prototype.toString = function() {
     
     function getTree(node) { 
         var recursionDepth = arguments[1] || 0;
-        if (++recursionDepth > 50) return "<b>...<br>[max recursion]</b>";
+        if (++recursionDepth > 100) return "<b>...<br>[max recursion]</b>";
         var children = [];
         for (var i=0; i<branches.length; i++) {
             for (var j=0; j<branches[i].nodes.length; j++) {
