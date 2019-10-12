@@ -356,9 +356,9 @@ Prover.modalDelta.toString = function() { return 'modalDelta' }
 
 Prover.reflexivity = function(branch, nodeList) {
     log('applying reflexivity rule');
-    // nodeList is either empty or contains a node of form wRv
-    // wherein v might have been newly introduced
-    if (nodeList.length==0) {
+    // nodeList is either empty or contains a node of form wRv where v might
+    // have been newly introduced
+    if (nodeList.length == 0) {
         // applied to initial world w:
         var worldName = branch.tree.parser.w;
     }
@@ -369,19 +369,18 @@ Prover.reflexivity = function(branch, nodeList) {
     var formula = new AtomicFormula(R, [worldName, worldName]);
     log('adding '+formula);
     var newNode = new Node(formula, Prover.reflexivity, nodeList || []);
-    branch.addNode(newNode);
-    branch.tryClose(newNode);
+    if (branch.addNode(newNode)) {
+        branch.tryClose(newNode);
+    }
 }
 Prover.reflexivity.priority = 3;
+Prover.reflexivity.needsPremise = false; // can only be applied if wRv is on the branch
+Prover.reflexivity.premiseCanBeReflexive = false; // can be applied to wRw
 Prover.reflexivity.toString = function() { return 'reflexivity' }
 
 Prover.symmetry = function(branch, nodeList) {
     log('applying symmetry rule');
-    // nodeList is either empty or contains a node of form wRv.
-    if (nodeList.length == 0) {
-        // applied to initial world w; nothing to do.
-        return;
-    }
+    // nodeList contains a node of form wRv.
     var nodeFormula = nodeList[0].formula;
     var R = branch.tree.parser.R;
     var formula = new AtomicFormula(R, [nodeFormula.terms[1], nodeFormula.terms[0]]);
@@ -392,15 +391,13 @@ Prover.symmetry = function(branch, nodeList) {
     }
 }
 Prover.symmetry.priority = 3;
+Prover.symmetry.needsPremise = true; // can only be applied if wRv is on the branch
+Prover.symmetry.premiseCanBeReflexive = false; // can be applied to wRw
 Prover.symmetry.toString = function() { return 'symmetry' }
 
 Prover.transitivity = function(branch, nodeList) {
     log('applying transitivity rule');
-    // nodeList is either empty or contains a newly added node of form wRv.
-    if (nodeList.length == 0) {
-        // applied to initial world w; nothing to do.
-        return;
-    }
+    // nodeList contains a newly added node of form wRv.
     var R = branch.tree.parser.R;
     var node = nodeList[0];
     var nodeFla = node.formula;
@@ -418,7 +415,7 @@ Prover.transitivity = function(branch, nodeList) {
             newFla = new AtomicFormula(R, [nodeFla.terms[0], earlierFla.terms[1]]);
         }
         if (newFla) {
-            log('adding '+newFla);
+            log('matches '+earlierFla+': adding '+newFla);
             var newNode = new Node(newFla, Prover.transitivity, [branch.nodes[i], node]);
             if (branch.addNode(newNode)) {
                 branch.tryClose(newNode);
@@ -427,15 +424,13 @@ Prover.transitivity = function(branch, nodeList) {
     }
 }
 Prover.transitivity.priority = 3;
+Prover.transitivity.needsPremise = true; // can only be applied if wRv is on the branch
+Prover.transitivity.premiseCanBeReflexive = false; // can be applied to wRw
 Prover.transitivity.toString = function() { return 'transitivity' }
 
 Prover.euclidity = function(branch, nodeList) {
     log('applying euclidity rule');
-    // nodeList is either empty or contains a newly added node of form wRv.
-    if (nodeList.length == 0) {
-        // applied to initial world w; nothing to do.
-        return;
-    }
+    // nodeList contains a newly added node of form wRv.
     var node = nodeList[0];
     var nodeFla = node.formula;
     if (nodeFla.terms[0] == nodeFla.terms[1]) {
@@ -478,6 +473,8 @@ Prover.euclidity = function(branch, nodeList) {
     }
 }
 Prover.euclidity.priority = 3;
+Prover.euclidity.needsPremise = true; // can only be applied if wRv is on the branch
+Prover.euclidity.premiseCanBeReflexive = false; // can be applied to wRw
 Prover.euclidity.toString = function() { return 'euclidity' }
 
 Prover.seriality = function(branch, nodeList) {
@@ -508,6 +505,8 @@ Prover.seriality = function(branch, nodeList) {
     }
 }
 Prover.seriality.priority = 10;
+Prover.seriality.needsPremise = false; // can only be applied if wRv is on the branch
+Prover.seriality.premiseCanBeReflexive = false; // can be applied to wRw
 Prover.seriality.toString = function() { return 'seriality' }
 
 
@@ -993,10 +992,6 @@ Branch.prototype.expandTodoList = function(node) {
 	this.todoList.insert([expansionRule, node], i);
     }
     if (this.tree.parser.isModal) {
-        // Whenever a new world is first mentioned on a branch, rules like
-        // seriality, transitivity etc. can potentially be applied with that
-        // world. So we add these rules to todoList. 
-        // symmetry can also be applied if vRu is first added for old worlds!
         if (this.nodes.length == 1) {
             // add accessibility rules for initial world:
             this.addAccessibilityRuleApplications();
@@ -1010,14 +1005,27 @@ Branch.prototype.expandTodoList = function(node) {
 Branch.prototype.addAccessibilityRuleApplications = function(node) {
     // Whenever a new world is first mentioned on a branch, rules like
     // seriality, transitivity etc. can potentially be applied with that
-    // world. So we add these rules to todoList.
+    // world. So we add these rules to todoList. Some rules like symmetry can
+    // also be applied when wRv is first added for old worlds. 
     for (var i=0; i<this.tree.prover.accessibilityRules.length; i++) {
         var rule = this.tree.prover.accessibilityRules[i];
         for (var j=0; j<this.todoList.length; j++) {
             if (rule.priority <= this.todoList[j][0].priority) break;
         }
-        if (node) this.todoList.insert([rule, node], j);
-        else this.todoList.insert([rule], j);
+        if (node) {
+            // Many accessibility rules don't meaningfully extend nodes of type
+            // wRw.
+            if (node.formula.terms[0] != node.formula.terms[1] || rule.premiseCanBeReflexive) {
+                this.todoList.insert([rule, node], j);
+            }
+        }
+        else {
+            // Many accessibility rules don't meaningfully apply without any
+            // premises of form wRv.
+            if (!rule.needsPremise) {
+                this.todoList.insert([rule], j);
+            }
+        }
     }
 }
 
