@@ -86,7 +86,8 @@ document.querySelectorAll('.symbutton').forEach(function(el) {
 });
 
 var prover = null;
-function startProof(input) {
+function startProof() {
+    var input = document.forms[0].flaField.value;
     var parser = new Parser();
     try {
         var parsedInput = parser.parseInput(input);
@@ -156,13 +157,14 @@ function startProof(input) {
 }
    
 onload = function(e) {
-    document.forms[0].flaField.onkeyup = updateInput;
     // in case the browser has automatically filled in some value into the
-    // field (e.g. on Reload):
+    // field (e.g. on reload):
     updateInput();
+    // register event handlers:
+    document.forms[0].flaField.onkeyup = updateInput;
     document.forms[0].onsubmit = function(e) {
-        setHash(this.flaField.value);
-        startProof(this.flaField.value);
+        setHash();
+        startProof();
         return false;
     }
     // start proof submitted via URL (e.g. from back button):
@@ -171,22 +173,32 @@ onload = function(e) {
     }
 }
 
-
 var hashSetByScript = false;
-function setHash(str) {
-    hashSetByScript = true;
-    location.hash = str;
+function setHash() {
+    // store input in URL when submitting the form:
+    hashSetByScript = true; // prevent hashChange()
+    var hash = document.forms[0].flaField.value;
+    var accessibilityConstraints = [];
+    document.querySelectorAll('.accCheckbox').forEach(function(el) {
+        if (el.checked) {
+            accessibilityConstraints.push(el.id);
+        }
+    });
+    if (accessibilityConstraints.length > 0) {
+        hash += '||'+accessibilityConstraints.join('|');
+    }
+    location.hash = hash;
 }
 
 window.onhashchange = hashChange;
 
 function hashChange() {
-    // input submitted via URL or through back button; in the last case there
-    // might be a prover running.
     if (hashSetByScript) {
         hashSetByScript = false;
         return;
     }
+    // input submitted via URL or through back button; in the second case there
+    // might be a prover running.
     if (prover) prover.stop();
     if (location.hash.length == 0) {
         document.getElementById("intro").style.display = "block";
@@ -196,10 +208,15 @@ function hashChange() {
         document.getElementById("status").style.display = "none";
     }
     else {
-        var input = decodeURIComponent(location.hash.substr(1).replace(/\+/g, '%20'));
-        document.forms[0].flaField.value = input;
+        var hash = decodeURIComponent(location.hash.substr(1).replace(/\+/g, '%20'));
+        var hashparts = hash.split('||');
+        document.forms[0].flaField.value = hashparts[0];
+        var accessibilityConstraints = hashparts[1] ? hashparts[1].split('|') : [];
+        document.querySelectorAll('.accCheckbox').forEach(function(el) {
+            el.checked = accessibilityConstraints.includes(el.id); 
+        });
         toggleAccessibilityRow();
-        startProof(input);
+        startProof();
     }
 }
 
