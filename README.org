@@ -10,7 +10,7 @@ browser.
 
 ** Run locally
 
-The index.html file that serves the prover contains a few lines of php for
+The index.php file that serves the prover contains a few lines of php for
 turning debugging features on/off. To run the page locally, use
 
 #+BEGIN_SRC bash
@@ -34,7 +34,7 @@ classifications as valid or invalid.
 
 * Overview
 
-Textbook tableau rules are a little inefficient for automated proving. Behind
+Textbook tableau rules are inefficient for automated proving. Behind
 the scenes, we therefore use somewhat different rules. Once a closed tableau is
 found, we translate it back into the textbook rules to display on the page.
 
@@ -145,7 +145,7 @@ research.]
 ** The Modelfinder
 
 Often there are simple countermodels that are hard to find through the tableau
-method. We therefore run a separate algorithm to find shortest countermodels.
+method. We therefore run a separate algorithm to find smallest countermodels.
 
 In outline, this works as follows.
 
