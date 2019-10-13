@@ -626,8 +626,13 @@ Tree.prototype.pruneBranch = function(branch, complementary1, complementary2) {
                 }
                 else {
                     log("pruning branch "+obranches[j]+": unused expansion of "+branch.nodes[i].fromNodes[0]);
-                    if (obranches[j].closed) this.closedBranches.remove(obranches[j]);
-                    else this.openBranches.remove(obranches[j]);
+                    if (obranches[j].closed) {
+                        this.closedBranches.remove(obranches[j]);
+                        branch.nodes[i].fromNodes[0].used = false;
+                    }
+                    else {
+                        this.openBranches.remove(obranches[j]);
+                    }
                     // We don't remove the beta expansion result on this branch;
                     // it'll be removed in the displayed sentence tree because
                     // it has .used == false
