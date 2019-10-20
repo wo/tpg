@@ -142,6 +142,7 @@ print "<script type='text/javascript' src='$allscripts.js'></script>\n";
 
 <tr><td>mod2</td><td class="formula">◇(p ∨ q)↔(◇p ∨ ◇q)</td><td></td></tr>
     
+<tr><td>s5</td><td class="formula">p→◇p||universality</td><td></td></tr>
     
 </table>
 
@@ -179,6 +180,10 @@ print "<script type='text/javascript' src='$allscripts.js'></script>\n";
 
 <tr><td>conpos2</td><td class="formula">∀x(Px↔∀y(Iy→Cxy))→∀y(Iy→∀x(Px↔Cxy))</td><td></td></tr>
 
+<tr><td>T_in_K</td><td class="formula">p→◇p</td><td></td></tr>
+
+<tr><td>emil_in_K4</td><td class="formula">◇□A → (◇□B → ◇□(A ∧ B))||transitivity</a></td></tr>
+    
 <tr><td>infinity</td><td class="formula">¬(∀x∃yFxy ∧ ∀x∀y∀z(Fxy∧Fyz→Fxz) ∧ ∀x¬Fxx)</td><td></td></tr>
 
 </table>
@@ -200,10 +205,15 @@ var stopTimer;
 var provingAll;
 function prove(fla, resEl) {
     var parser = new Parser();
+    var accessibilityConstraints = null;
+    if (fla.indexOf('||') > 0) {
+        accessibilityConstraints = fla.split('||')[1].split('|');
+        fla = fla.split('||')[0];
+    }
     var formula = parser.parseFormula(fla);
     console.log('testing '+fla);
     var startTime = performance.now();
-    prover = new Prover([formula.negate()], parser);
+    prover = new Prover([formula.negate()], parser, accessibilityConstraints);
     prover.onfinished = function(status) {
         var endTime = performance.now();
         console.log('done with '+fla);
