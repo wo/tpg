@@ -43,9 +43,9 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
     log('normalized initFormulas: '+this.initFormulasNormalized);
     
     // init prover:
-    this.pauseLength = 10; // ms pause between calculations
-    log('increasing pauseLength to '+(this.pauseLength = 100));
-    this.maxStepDuration = 20; // ms before setTimeout pause
+    this.breakLength = 10; // ms pause between calculations
+    log('increasing breakLength to '+(this.breakLength = 100));
+    this.computationLength = 20; // ms before setTimeout pause
     this.step = 0; // counter of calculation steps
     this.depthLimit = 2; // how many free variables may occur on the tree before
                          // backtracking; in addition, depthLimit * 4 is the
@@ -82,6 +82,7 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
     this.counterModel = null;
 
     this.start = function() {
+        this.lastBreakTime = performance.now();
         this.nextStep();
     };
 
@@ -101,7 +102,6 @@ Prover.prototype.nextStep = function() {
     // itself again until proof is complete.
     this.step++;
     log('*** prover step '+this.step);
-    var stepStartTime = performance.now();
     
     // (todoList items look like this: [Prover.alpha, node])
     log(this.tree.openBranches[0].todoList);
@@ -145,18 +145,19 @@ Prover.prototype.nextStep = function() {
         this.depthLimit--;
     }
     
-    log(this.step == 10000 && (this.stopTimeout=true) && 'proof halted');
-    var stepDuration = performance.now() - stepStartTime;
+    log(this.step == 100000 && (this.stopTimeout=true) && 'proof halted');
+    var timeSinceBreak = performance.now() - this.lastBreakTime;
     if (this.stopTimeout) {
         // proof manually interrupted
         this.stopTimeout = false;
     }
-    else if (this.pauseLength && stepDuration > this.maxStepDuration) {
+    else if (this.breakLength && timeSinceBreak > this.computationLength) {
         // continue with next step after short break to display status message
         // and not get killed by browsers
         setTimeout(function(){
+            this.lastBreakTime = performance.now();
             this.nextStep();
-        }.bind(this), this.pauseLength*this.tree.numNodes/10);
+        }.bind(this), this.breakLength*this.tree.numNodes/10);
     }
     else {
         this.nextStep();
