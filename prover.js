@@ -43,8 +43,8 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
     log('normalized initFormulas: '+this.initFormulasNormalized);
     
     // init prover:
-    this.breakLength = 10; // ms pause between calculations
-    log('increasing breakLength to '+(this.breakLength = 100));
+    this.pauseLength = 10; // ms pause between calculations
+    log('increasing pauseLength to '+(this.pauseLength = 100));
     this.computationLength = 20; // ms before setTimeout pause
     this.step = 0; // counter of calculation steps
     this.depthLimit = 2; // how many free variables may occur on the tree before
@@ -151,13 +151,13 @@ Prover.prototype.nextStep = function() {
         // proof manually interrupted
         this.stopTimeout = false;
     }
-    else if (this.breakLength && timeSinceBreak > this.computationLength) {
+    else if (this.pauseLength && timeSinceBreak > this.computationLength) {
         // continue with next step after short break to display status message
         // and not get killed by browsers
         setTimeout(function(){
             this.lastBreakTime = performance.now();
             this.nextStep();
-        }.bind(this), this.breakLength*this.tree.numNodes/10);
+        }.bind(this), this.pauseLength*this.tree.numNodes/100);
     }
     else {
         this.nextStep();
