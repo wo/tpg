@@ -236,7 +236,7 @@ function AtomicFormula(predicate, terms) {
     this.type = 'literal';
     this.predicate = predicate;
     this.terms = terms; // a,b,f(a,g(c),d) => a,b,[f,a,[g,c],d]
-    this.string = this.predicate + AtomicFormula.terms2string(this.terms);
+    this.string = predicate + AtomicFormula.terms2string(terms);
 }
 
 AtomicFormula.terms2string = function(list) {
@@ -320,7 +320,7 @@ function BinaryFormula(operator, sub1, sub2) {
     this.sub1 = sub1;
     this.sub2 = sub2;
     this.type = operator == '∧' ? 'alpha' : 'beta';
-    this.string = '(' + this.sub1 + this.operator + this.sub2 + ')';
+    this.string = '(' + sub1 + operator + sub2 + ')';
 }
 
 BinaryFormula.prototype = Object.create(Formula.prototype);
@@ -338,7 +338,7 @@ function ModalFormula(operator, sub) {
     this.operator = operator;
     this.sub = sub;
     this.type = operator == '□' ? 'modalGamma' : 'modalDelta';
-    this.string = this.operator + this.sub;
+    this.string = operator + sub;
 }
 
 ModalFormula.prototype = Object.create(Formula.prototype);
@@ -355,7 +355,7 @@ function NegatedFormula(sub) {
     this.operator = '¬';
     this.sub = sub;
     this.type = NegatedFormula.computeType(sub);
-    this.string = '¬' + this.sub;
+    this.string = '¬' + sub;
 }
 
 NegatedFormula.computeType = function(sub) {
