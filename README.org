@@ -160,33 +160,20 @@ In outline, this works as follows.
    terms and predicates is initially empty. For each domain choice, we do the
    following:
 
-3. We replace free variables in the constraints by elements of the domain. So if
-   the domain is {0,1}, then a constraint Fx, coming from ∀xFx, is replaced by
-   two constraints, F0 and F1. (Numerals in input formulas are never interpreted
-   as terms, so there can be no clash.)
+3. We replace free variables in the constraints by numbers. So for domain [0,1],
+   Fx would replaced by two constraints, F0 and F1. [Numerals in formulas are
+   never interpreted as terms, so there can be no clash.]
 
-4. Now we go through all the constraints (which are lists of literals,
-   interpreted disjunctively). If a constraint contains uninterpreted terms,
-   we also go through all ways of assigning to them members of the domain as
-   referents. (We don't assign a full meaning to function symbols here, only
-   to complete terms like f(a,g(b)) and to their parts.) For each of these
-   assignments, we try to satisfy the constraint by extending the
-   interpretation of the predicates. (For example, if we need to satisfy F0,
-   we check if |F| is already defined for 0; if not, we set |F|(0)=true; 
-   if |F| is defined and |F|(0)=true, we continue; if |F|(0)=false, we give 
-   up.) Whenever the constraint is satisfied, we move on to the next
-   constraint. If satisfaction is impossible, we backtrack and try another
-   interpretation of the individuals.
+4. We process the list of constraints from left to right. At each step, we look
+   at one literal (disjunct) in one clause, with the aim of making it true. If
+   it can't be made true, we remove it from the list.  If it can be made true,
+   we simplify the remaining clauses by substituting all occurrences of newly
+   interpreted terms by their values (e.g. turning Ac into A0), removing
+   constraints for which any literal (disjunct) is known to be true, and
+   removing constraints that known to be false.
 
 Models for originally modal formulas have two domains, W and D. The elements of
-W are also natural numbers starting with 0. (That's OK: nothing in the
-definition of a Kripke model requires that the worlds must be distinct from the
-individuals; note that we can still have more worlds than individuals or more
-individuals than worlds.) When breaking down the initial formulas into
-constraints, we take into account which variables quantify over worlds and which
-over individuals. Accessibility conditions like reflexivity are added to the
-formulas for which we want to find a model. In modal models, all predicates take
-a world as their last argument; 'R' takes two worlds, function terms only take
-individuals.
+W are also natural numbers starting with 0. Accessibility conditions like
+reflexivity are added to the formulas for which we want to find a model.
 
 

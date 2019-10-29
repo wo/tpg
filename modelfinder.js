@@ -11,7 +11,7 @@
 //    we do the following:
 //
 // 3. We replace free variables in the list of clauses by numbers. So for domain
-//    [0,1], Fx would replaced by two constraints, F0 and F1. [Numerals in
+//    [0,1], [Fx] would replaced by two clauses, [F0] and [F1]. [Numerals in
 //    formulas are never interpreted as terms, so there can be no clash.]
 //
 // 4. We process the list of clauses from left to right, starting with an empty
