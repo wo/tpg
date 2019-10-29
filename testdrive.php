@@ -143,6 +143,8 @@ print "<script type='text/javascript' src='$allscripts.js'></script>\n";
 <tr><td>mod2</td><td class="formula">◇(p ∨ q)↔(◇p ∨ ◇q)</td><td></td></tr>
     
 <tr><td>s5</td><td class="formula">p→◇p||universality</td><td></td></tr>
+
+<tr><td>narrow_D</td><td class="formula">(p→□r)→((p∧q)→□r)||seriality</td><td></td></tr>
     
 </table>
 

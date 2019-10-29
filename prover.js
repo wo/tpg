@@ -209,7 +209,7 @@ Prover.beta = function(branch, nodeList) {
     branch.tryClose(subnode1);
     branch.tree.openBranches[0].tryClose(subnode2);
 }
-Prover.beta.priority = 10;
+Prover.beta.priority = 9;
 Prover.beta.toString = function() { return 'beta' }
 
 Prover.gamma = function(branch, nodeList, matrix) {
@@ -232,7 +232,7 @@ Prover.gamma = function(branch, nodeList, matrix) {
     branch.addNode(newNode);
     branch.tryClose(newNode);
 }
-Prover.gamma.priority = 8;
+Prover.gamma.priority = 7;
 Prover.gamma.toString = function() { return 'gamma' }
 
 Prover.modalGamma = function(branch, nodeList) {
@@ -286,7 +286,7 @@ Prover.modalGamma = function(branch, nodeList) {
         }
     }
 }
-Prover.modalGamma.priority = 9;
+Prover.modalGamma.priority = 8;
 Prover.modalGamma.toString = function() { return 'modalGamma' }
     
 Prover.delta = function(branch, nodeList, matrix) {
