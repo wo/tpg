@@ -559,6 +559,8 @@ SenTree.prototype.getCounterModel = function() {
     // that the countermodel for a tree with a 'pw' node (modalized, 'p')
     // assigns to 'p' a set of worlds rather than a truth-value.)
 
+    // This function is currently unused.
+
     // First, find an open branch:
     var endNode = null;
     for (var i=0; i<this.nodes.length; i++) {
@@ -579,19 +581,18 @@ SenTree.prototype.getCounterModel = function() {
     // the intepretation of ti (i.e. the string "ti"). For all other arguments
     // not occuring on the branch as arguments of f, the value of F is
     // arbitrary. If we find f(t1...tn) on a branch, we simply set
-    // model.denotations["f(t1...tn)"] to a new element of the domain.  (Note
-    // that in a complete canonical tableau, GAMMA formulas are expanded for all
+    // model.interpretation["f(t1...tn)"] to a new element of the domain.  (Note
+    // that in a complete canonical tableau, gamma formulas are expanded for all
     // terms on the branch. So if ∀x¬Gf(x) & Ga is on the branch, then so are
-    // ¬Gf(a), ¬Gf(f(a)), etc.  All open branches on a complete canonical
-    // tableaux containing functional terms are thus infinite. The current tree
-    // will never be infinite, so it's always by luck if it finds a model in
-    // this case.)
+    // ¬Gf(a), ¬Gf(f(a)), etc.  Open branches on a complete canonical tableaux
+    // containing functional terms are therefore often infinite. We never read
+    // off countermodels from infinite trees.)
 
     var node = endNode;
     if (this.parser.isModal) {
         // make sure 'w' is assigned world 0:
         model.worlds = [0];
-        model.denotations['w'] = 0;
+        model.interpretation['w'] = 0;
     }
     do {
         var fla = node.formula;
@@ -600,22 +601,30 @@ SenTree.prototype.getCounterModel = function() {
             fla = fla.sub.sub;
         }
         var atom = (fla.operator == '¬') ? fla.sub : fla;
-        if (!atom.predicate) continue; 
+        if (!atom.predicate) continue;
         var terms = atom.terms.copy();
         for (var t=0; t<terms.length; t++) {
-            var term = terms[t].toString();
-            if (term in model.denotations) continue;
+            if (terms[t].isArray) {
+                for (var i=1; i<terms[t].length; i++) {
+                    terms.push(terms[t][i]);
+                }
+            }
+        }
+        terms.sort(function(a,b) {
+            return a.toString().length < b.toString().length;
+        });
+        for (var t=0; t<terms.length; t++) {
+            var term = terms[t];
+            var rterm = model.reduceArguments(terms[t]).toString();
+            if (rterm in model.interpretation) continue;
             var domain = this.fvParser.expressionType[term] &&
-                this.fvParser.expressionType[term].indexOf('world') > -1 ?
+                this.fvParser.expressionType[term].indexOf('world') > -1 ? // xxx does this work for function terms?
                 model.worlds : model.domain;
             log("adding "+domain.length+" to domain for "+term);
             domain.push(domain.length);
-            model.denotations[term] = domain.length-1;
-            if (terms[t].isArray) {
-                for (var i=1; i<terms[t].length; i++) terms.push(terms[t][i]);
-            }
+            model.interpretation[rterm] = domain.length-1;
         }
-        if (!model.extendToSatisfy(fla)) {
+        if (!model.satisfy(fla)) {
             log("!!! model doesn't satisfy "+fla);
             return null;
         }

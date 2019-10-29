@@ -134,13 +134,13 @@ function startProof() {
         var sentree = new SenTree(this.tree, parser); 
         if (!treeClosed) {
             // Tree is open. Display a countermodel if one is known:
-            if (!this.counterModel) this.counterModel = sentree.getCounterModel();
+            // if (!this.counterModel) this.counterModel = sentree.getCounterModel();
             if (this.counterModel) {
                 document.getElementById("model").style.display = "block";
                 document.getElementById("model").innerHTML = "<b>Countermodel:</b><br>" +
                     this.counterModel.toHTML();
-                return; // shouldn't display tree because if the model was found by the modelfinder, the tree is unfinished
             }
+            return; 
         }
         if (parser.isModal) {
             sentree.modalize();

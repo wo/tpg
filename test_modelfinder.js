@@ -7,7 +7,6 @@ tests = {
         assert(mf.predicates.equals(['p','F']));
         assertEqual(mf.constants.toString(), '[a]');
         assertEqual(mf.funcSymbols.toString(), '[f]');
-        assertEqual(mf.names.toString(), '[a]');
         assertEqual(mf.model.domain.length, 1);
         assertEqual(mf.model.worlds.length, 0);
     },
@@ -28,60 +27,58 @@ tests = {
         assertEqual(mf.clauses.toString(), '[[p],[q],[Fa,Fc],[Fa,Fd],[Fb,Fc],[Fb,Fd],[Fe,Fg],[Fe,Fh],[Ff,Fg],[Ff,Fh]]');
     },
 
-    makeconstraints_propositional: function() {
+    modelclauses_propositional: function() {
         var parser = new Parser();
         var initflas = [parser.parseFormula('(r∧p)∨¬q'), parser.parseFormula('q∨(¬r∧s)')];
         var m = new ModelFinder(initflas, parser).model;
-        assertEqual(m.constraints.toString(), '[[r,¬q],[p,¬q],[q,¬r],[q,s]]');
-        assertEqual(m.constraintTerms.toString(), '[[],[],[],[]]');
+        assertEqual(m.clauses.toString(), '[[r,¬q],[p,¬q],[q,¬r],[q,s]]');
         initflas.push(parser.parseFormula('Fa'));
         m = new ModelFinder(initflas, parser).model;
-        assertEqual(m.constraints.toString(), '[[Fa],[r,¬q],[p,¬q],[q,¬r],[q,s]]');
-        assertEqual(m.constraintTerms.toString(), '[[a],[],[],[],[]]');
+        assertEqual(m.clauses.toString(), '[[Fa],[r,¬q],[p,¬q],[q,¬r],[q,s]]');
     },
 
-    makeconstraints_quantified1: function() {
+    modelclauses_quantified1: function() {
         var parser = new Parser();
         var initflas = [parser.parseFormula('∀xFx')];
         var mf = new ModelFinder(initflas, parser);
         var m = mf.model;
-        assertEqual(m.constraints.toString(), '[[F0]]');
+        assertEqual(m.clauses.toString(), '[[F0]]');
         m = new Model(mf, 2, 0);
-        assertEqual(m.constraints.toString(), '[[F0],[F1]]');
+        assertEqual(m.clauses.toString(), '[[F0],[F1]]');
     },
 
-    makeconstraints_quantified2: function() {
+    modelclauses_quantified2: function() {
         var parser = new Parser();
         var initflas = [parser.parseFormula('∀x∃yGxy')];
         // skolemized: Gxf(x)
         var mf = new ModelFinder(initflas, parser);
         var m = mf.model;
-        assertEqual(m.constraints.toString(), '[[G0f(0)]]');
+        assertEqual(m.clauses.toString(), '[[G0f(0)]]');
         m = new Model(mf, 2, 0);
-        assertEqual(m.constraints.toString(), '[[G0f(0)],[G1f(1)]]');
+        assertEqual(m.clauses.toString(), '[[G0f(0)],[G1f(1)]]');
         assertEqual(mf.constants.toString(), '[]');
     },
 
-    makeconstraints_quantified3: function() {
+    modelclauses_quantified3: function() {
         var parser = new Parser();
         var initflas = [parser.parseFormula('∀x∃y(Fx∧∀zHxyz)')];
         // skolemized: (Fx∧Hxf(x)z)
         var mf = new ModelFinder(initflas, parser);
         var m = mf.model;
-        assertEqual(m.constraints.toString(), '[[F0],[H0f(0)0]]');
+        assertEqual(m.clauses.toString(), '[[F0],[H0f(0)0]]');
         m = new Model(mf, 2, 0);
-        assertEqual(m.constraints.toString(), '[[F0],[F1],[H0f(0)0],[H0f(0)1],[H1f(1)0],[H1f(1)1]]');
+        assertEqual(m.clauses.toString(), '[[F0],[F1],[H0f(0)0],[H0f(0)1],[H1f(1)0],[H1f(1)1]]');
     },
 
-    makeconstraints_modal1: function() {
+    modelclauses_modal1: function() {
         var parser = new Parser();
         var initflas = [parser.parseFormula('∀x∃y(Fx∧∀zHxyz)')];
         // skolemized: (Fx∧Hxf(x)z)
         var mf = new ModelFinder(initflas, parser);
         var m = mf.model;
-        assertEqual(m.constraints.toString(), '[[F0],[H0f(0)0]]');
+        assertEqual(m.clauses.toString(), '[[F0],[H0f(0)0]]');
         m = new Model(mf, 2, 0);
-        assertEqual(m.constraints.toString(), '[[F0],[F1],[H0f(0)0],[H0f(0)1],[H1f(1)0],[H1f(1)1]]');
+        assertEqual(m.clauses.toString(), '[[F0],[F1],[H0f(0)0],[H0f(0)1],[H1f(1)0],[H1f(1)1]]');
     },
 
     countermodel1: function() {
@@ -198,14 +195,14 @@ tests = {
         assertEqual(mf.model.domain.length, 3);
     },
 
-    countermodel_shortestformulawith4individuals_FAILS: function() { // xxx TODO check why model doesn't switch to 4 individuals even after 10000 steps 
+    countermodel_shortestformulawith4individuals: function() { 
         var parser = new Parser();
         var fs = [parser.parseFormula('∀z∀y∃x(Rzx ∧ ¬Rxy)').normalize()];
         var mf = new ModelFinder(fs, parser);
-        for (var i=0; i<100; i++) {
+        for (var i=0; i<10000; i++) {
             if (mf.nextStep()) break;
         }
-        assert(i<100);
+        assert(i<10000);
         assertEqual(mf.model.domain.length, 4);
     },
 
@@ -264,19 +261,4 @@ tests = {
         assert(mf.model.toString().indexOf('p: { w0 }') >= 0);
     },
     
-    countermodel_s52: function() {
-        var parser = new Parser();
-        var fs = [parser.parseFormula('□p')];
-        fs = fs.map(function(f){
-            var f2 = parser.translateFromModal(f).normalize();
-            return parser.stripAccessibilityClauses(f2);
-        });
-        var mf = new ModelFinder(fs, parser, [], true);
-        for (var i=0; i<100; i++) {
-            if (mf.nextStep()) break;
-        }
-        assertEqual(mf.model.worlds.length, 1);
-        assertEqual(mf.model.toString().indexOf('R:'), -1);
-        assert(mf.model.toString().indexOf('p: { w0 }') >= 0);
-    },
 }

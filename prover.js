@@ -106,24 +106,26 @@ Prover.prototype.nextStep = function() {
     // (todoList items look like this: [Prover.alpha, node])
     log(this.tree.openBranches[0].todoList);
     var todo = this.tree.openBranches[0].todoList.shift();
-    if (!todo) {
-        log('tree open and complete');
-        return this.onfinished(0);
-    }
-    var nextRule = todo.shift();
-    var args = todo;
-    nextRule(this.tree.openBranches[0], args);
-    log(this.tree);
-    
-    if (this.tree.openBranches.length == 0) {
-        log('tree closed');
-        return this.onfinished(1);
-    }
-    
-    if (this.tree.openBranches[0].nodes.length > this.depthLimit * 4) {
-        log('reached complexity limit for backtracking');
-        this.limitReached();
-    }
+    if (todo) {
+        var nextRule = todo.shift();
+        var args = todo;
+        nextRule(this.tree.openBranches[0], args);
+        log(this.tree);
+
+        if (this.tree.openBranches.length == 0) {
+            log('tree closed');
+            return this.onfinished(1);
+        }
+
+        if (this.tree.openBranches[0].nodes.length > this.depthLimit * 4) {
+            log('reached complexity limit for backtracking');
+            this.limitReached();
+        }
+    } 
+    // If <todo> is undefined, the tree is open and finished. We still wait for
+    // modelfinder to come up with a countermodel. I used to read off a
+    // countermodel from the open tree, but that got rarely used and often
+    // produced a needlessly complicated model (ex.: ¬F(f(ab))).
     
     // search for a countermodel:
     if (this.modelfinder.nextStep()) {
@@ -145,7 +147,7 @@ Prover.prototype.nextStep = function() {
         this.depthLimit--;
     }
     
-    log(this.step == 100000 && (this.stopTimeout=true) && 'proof halted');
+    log((this.step == 10000 && (this.stopTimeout=true) && 'proof halted') || '');
     var timeSinceBreak = performance.now() - this.lastBreakTime;
     if (this.stopTimeout) {
         // proof manually interrupted

@@ -74,6 +74,11 @@ Array.getArrayOfZeroes = function(length) {
     return a;
 }
 
+Array.getArrayOfNumbers = function(length) {
+    for (var i = 0, a = new Array(length); i < length; i++) a[i] = i;
+    return a;
+}
+
 Array.prototype.copy = function() {
     // returns a shallow copy of this array.
     var result = [];

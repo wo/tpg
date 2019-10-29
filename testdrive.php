@@ -182,7 +182,7 @@ print "<script type='text/javascript' src='$allscripts.js'></script>\n";
 
 <tr><td>T_in_K</td><td class="formula">p→◇p</td><td></td></tr>
 
-<tr><td>emil_in_K4</td><td class="formula">◇□A → (◇□B → ◇□(A ∧ B))||transitivity</a></td></tr>
+<tr><td>emil_in_K4</td><td class="formula">◇□A → (◇□B → ◇□(A ∧ B))||transitivity</a></td><td></td></tr>
     
 <tr><td>infinity</td><td class="formula">¬(∀x∃yFxy ∧ ∀x∀y∀z(Fxy∧Fyz→Fxz) ∧ ∀x¬Fxx)</td><td></td></tr>
 
