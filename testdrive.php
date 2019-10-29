@@ -145,7 +145,9 @@ print "<script type='text/javascript' src='$allscripts.js'></script>\n";
 <tr><td>s5</td><td class="formula">p→◇p||universality</td><td></td></tr>
 
 <tr><td>narrow_D</td><td class="formula">(p→□r)→((p∧q)→□r)||seriality</td><td></td></tr>
-    
+
+    <tr><td>04vsG0_S4</td><td class="formula">((A ∧ ¬□A)→□¬□A) ∧ ((¬A ∧ ◇A) →□◇A) → (◇□A→□◇A)||reflexivity|transitivity</td><td></td></tr>
+ 
 </table>
 
     <h3>Invalid Formulas</h3>
@@ -188,7 +190,7 @@ print "<script type='text/javascript' src='$allscripts.js'></script>\n";
 
 <tr><td>T_in_K</td><td class="formula">p→◇p</td><td></td></tr>
 
-<tr><td>04vsG0_K4</td><td class="formula">((A ∧ ¬□A)→□¬□A ∧ (¬A ∧ ◇A) →□◇A) → (◇□A→□◇A)</td><td></td></tr>
+    <tr><td>04vsG0_K4</td><td class="formula">((A ∧ ¬□A)→□¬□A) ∧ ((¬A ∧ ◇A) →□◇A) → (◇□A→□◇A)||transitivity</td><td></td></tr>
     
 <tr><td>infinity</td><td class="formula">¬(∀x∃yFxy ∧ ∀x∀y∀z(Fxy∧Fyz→Fxz) ∧ ∀x¬Fxx)</td><td></td></tr>
 

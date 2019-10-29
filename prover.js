@@ -260,7 +260,6 @@ Prover.modalGamma = function(branch, nodeList) {
     // find wR* node for □A expansion:
     OUTERLOOP:
     for (var i=0; i<branch.literals.length; i++) {
-        // careful: must not match 'Rw10w12' when looking for 'Rw1*'.
         var wRy = branch.literals[i].formula;
         if (wRy.predicate == wRx.predicate && wRy.terms[0] == wRx.terms[0]) {
             log('found '+wRy);
@@ -280,9 +279,11 @@ Prover.modalGamma = function(branch, nodeList) {
             var newFormula = modalMatrix.substitute(node.formula.variable, v);
             var newNode = new Node(newFormula, Prover.modalGamma, [node, branch.literals[i]]);
             newNode.instanceTerm = v;
-            branch.addNode(newNode);
-            branch.tryClose(newNode);
-            break;
+            if (branch.addNode(newNode)) {
+                branch.tryClose(newNode);
+                break;
+            }
+            // <node> can't be expanded with this wR* node; try a different one:
         }
     }
 }
