@@ -52,7 +52,8 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
                          // upper bound for number of nodes on a branch before
                          // backtracking; value empirically chosen
     this.tree = new Tree(this);
-    this.alternatives = []; // alternative trees stored for backtracking
+    this.alternatives = [this.tree]; // alternative trees for backtracking
+    this.curAlternativeIndex = 0; 
 
     // init modelfinder:
     var mfParser = this.parser.copy();
@@ -167,17 +168,18 @@ Prover.prototype.nextStep = function() {
 }
 
 Prover.prototype.limitReached = function() {
-    if (this.alternatives.length) {
+    if (this.curAlternativeIndex < this.alternatives.length-1) {
         log(" * limit reached, trying stored alternative * ");
-        log(this.alternatives.length+' alternatives');
-        this.tree = this.alternatives.pop();
-        log(this.tree);
+        this.curAlternativeIndex++;
     }
     else {
         this.depthLimit++;
         log("----- increasing depthLimit to " + this.depthLimit + " -----");
-        // this.tree = new Tree(this);
+        this.curAlternativeIndex = 0;
     }
+    this.tree = this.alternatives[this.curAlternativeIndex];
+    log("alternative "+(this.curAlternativeIndex+1)+" of "+this.alternatives.length);
+    log(this.tree);
 }
 
 // Rules for expanding the tableau:
@@ -227,7 +229,8 @@ Prover.gamma = function(branch, nodeList, matrix) {
     var newVariable = branch.newVariable(matrix);
     var matrix = matrix || node.formula.matrix;
     var newFormula = matrix.substitute(node.formula.variable, newVariable);
-    var newNode = new Node(newFormula, Prover.gamma, nodeList); // this sets fromRule to gamma even for s5 modalGamma nodes
+    var newNode = new Node(newFormula, Prover.gamma, nodeList);
+    // NB: The last line sets fromRule to gamma even for s5 modalGamma nodes
     newNode.instanceTerm = newVariable; // used in sentree
     branch.addNode(newNode);
     branch.tryClose(newNode);
@@ -540,6 +543,7 @@ Tree.prototype.pruneAlternatives = function() {
     var alternatives = this.prover.alternatives.copy();
     ALTLOOP:
     for (var i=0; i<alternatives.length; i++) {
+        if (i == this.prover.curAlternativeIndex) continue;
         var altTree = alternatives[i];
         for (var j=0; j<this.openBranches.length; j++) {
             var openBranch = this.openBranches[j];
@@ -548,7 +552,8 @@ Tree.prototype.pruneAlternatives = function() {
                 continue ALTLOOP
             }
         }
-        log('alternative '+i+' contains all open branch of this tree; removing');
+        log('alternative '+i+' contains all open branches of this tree; removing');
+        if (i < this.prover.curAlternativeIndex) this.prover.curAlternativeIndex--;
         this.prover.alternatives.remove(altTree);
     }
 }
@@ -667,8 +672,8 @@ Tree.prototype.closeCloseableBranches = function() {
                     if (n1.formula.sub.equals(n2.formula)) closed = true;
                 }
                 if (closed) {
-                    this.closeBranch(branch, n1, n2);
                     log("+++ branch closed +++");
+                    this.closeBranch(branch, n1, n2);
                     break BRANCHLOOP;
                 }
             }
@@ -848,8 +853,8 @@ Branch.prototype.tryClose = function(node) {
     var negatedFormula = (node.formula.operator == '¬') ? node.formula.sub : node.formula.negate();
     for (var i=0; i<this.nodes.length; i++) {
         if (this.nodes[i].formula.equals(negatedFormula)) {
-            this.tree.closeBranch(this, node, this.nodes[i]);
             log("+++ branch closed +++");
+            this.tree.closeBranch(this, node, this.nodes[i]);
             return true;
         }
     }
