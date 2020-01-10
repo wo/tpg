@@ -163,7 +163,7 @@ Prover.prototype.nextStep = function() {
         setTimeout(function(){
             this.lastBreakTime = performance.now();
             this.nextStep();
-        }.bind(this), this.pauseLength*this.tree.numNodes/100);
+        }.bind(this), this.pauseLength*this.tree.numNodes/1000);
     }
     else {
         this.nextStep();

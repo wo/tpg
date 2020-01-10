@@ -209,13 +209,22 @@ ModelFinder.prototype.nextStep = function() {
         return true;
     }
     var literal = this.model.clauses[0][0];
-    
-    // If the first clause contains no more literals, it can't be satisfied; we
-    // need to backtrack:
     if (!literal) {
+        // If the first clause contains no more literals, it can't be satisfied; we
+        // need to backtrack:
         this.backtrack();
         return false;
     }
+    while (this.model.clauses[0].length == 1 &&
+           (literal.isTseitinLetter || (literal.sub && literal.sub.isTseitinLetter))) {
+        // We ultimately don't care about the interpretation of tseitin letters,
+        // and if they occur in a unit clause, we have no choice of how to
+        // interpret them.
+        log('applying unit resolution to '+literal);
+        this.model.unitResolve(literal);
+        return false;
+    }
+
     log("trying to satisfy "+literal);
 
     // If we're processing this literal for the first time, we need to set up a
@@ -480,11 +489,11 @@ Model.prototype.tseitinCNF = function(formula) {
     subformulas.sort(function(a,b) {
         return tseitinComplexity(a) - tseitinComplexity(b);
     });
-    // introduce a new propositional constant p for each non-atomic subformula:
+    // introduce a new propositional constant p for each non-literal subformula:
     if (!this.tseitsinFormulas) {
-        this.tseitsinFormulas = {}; // subformula => atomic tseitsin formula, so
-                                    // that we use the same tseitsin formula for
-                                    // the same subformula in different formulas
+        this.tseitsinFormulas = {}; // subformula => tseitsin letter, so that we
+                                    // use the same tseitsin letter for the same
+                                    // subformula in different formulas
     }
     conjuncts = [];
     while (subformulas.length) {
@@ -492,7 +501,7 @@ Model.prototype.tseitinCNF = function(formula) {
         log('  subformula '+subf)
         var p = this.tseitsinFormulas[subf.string];
         if (!p) {
-            var pSym = this.parser.getNewSymbol('p', 'tseitsin proposition letter', 0);
+            var pSym = this.parser.getNewSymbol('$', 'tseitsin proposition letter', 0);
             p = new AtomicFormula(pSym, []);
             p.isTseitinLetter = true;
             this.tseitsinFormulas[subf.string] = p;
@@ -517,9 +526,9 @@ Model.prototype.tseitinCNF = function(formula) {
 
     function tseitinComplexity (formula) {
         // return degree of complexity of <formula>, for sorting
-        if (formula.sub) {
-            return 1 + tseitinComplexity(formula.sub);
-        }
+        // if (formula.sub) {
+        //     return 1 + tseitinComplexity(formula.sub);
+        // }
         if (formula.sub1) {
             return 1 + Math.max(tseitinComplexity(formula.sub1),
                                 tseitinComplexity(formula.sub2));
@@ -530,12 +539,12 @@ Model.prototype.tseitinCNF = function(formula) {
 }
 
 Model.prototype.tseitinSubFormulas = function(formulas) {
-    // return non-atomic subformulas of <formulas>
+    // return non-literal subformulas of <formulas>
     var res = []
     for (var i=0; i<formulas.length; i++) {
-        var subformulas = formulas[i].sub ? [formulas[i].sub] :
-            formulas[i].sub1 ? [formulas[i].sub1, formulas[i].sub2] : null;
-        if (subformulas) {
+        if (formulas[i].type != 'literal') {
+            var subformulas = formulas[i].sub ? [formulas[i].sub] :
+                formulas[i].sub1 ? [formulas[i].sub1, formulas[i].sub2] : null;
             res = res.concat(this.tseitinSubFormulas(subformulas));
             res.unshift(formulas[i]);
         }
@@ -1011,6 +1020,36 @@ Model.prototype.simplifyRemainingClauses = function() {
                 else nclause.push(new NegatedFormula(redAtom));
             }
             else nclause.push(literal);
+        }
+        nclauses.push(nclause);
+    }
+    nclauses.sort(function(a,b) {
+        // process tseitin letters first:
+        if (a.length == 1 && b.length == 1) {
+            return b[0].isTseitinLetter && !a[0].isTseitinLetter;
+        }
+        return a.length > b.length;
+    });
+    log(nclauses.toString());
+    this.clauses = nclauses;
+}
+
+Model.prototype.unitResolve = function(literal) {
+    // <literal> is a tseitin letter in a unit clause; it can't have been
+    // interpreted before, so we can interpret it as true and simplify the
+    // remaining clauses accordingly.
+    var negLiteralString = (literal.sub && literal.sub.string) || '¬'+literal.string;
+    var nclauses = [];
+    CLAUSELOOP:
+    for (var i=1; i<this.clauses.length; i++) {
+        var nclause = [];
+        for (var j=0; j<this.clauses[i].length; j++) {
+            if (this.clauses[i][j].string == literal.string) {
+                continue CLAUSELOOP;
+            }
+            if (this.clauses[i][j].string != negLiteralString) {
+                nclause.push(this.clauses[i][j]);
+            }
         }
         nclauses.push(nclause);
     }

@@ -104,7 +104,7 @@ function startProof() {
     document.getElementById("rootAnchor").style.display = "none";
     document.getElementById("backtostartpage").style.display = "block";
     document.getElementById("status").style.display = "block";
-    document.getElementById("status").innerHTML = "starting";
+    document.getElementById("status").innerHTML = "something went wrong: please email wo@umsu.de and tell me what you did";
     
     // Now a free-variable tableau is created. When the proof is finished,
     // prover.finished() is called.
