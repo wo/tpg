@@ -103,6 +103,9 @@ Prover.prototype.nextStep = function() {
     // itself again until proof is complete.
     this.step++;
     log('*** prover step '+this.step);
+    this.status('step '+this.step+': '+this.tree.numNodes+' nodes, countermodel size'
+                +this.modelfinder.model.domain.length+'/'
+                +this.modelfinder.model.worlds.length);
     
     // (todoList items look like this: [Prover.alpha, node])
     log(this.tree.openBranches[0].todoList);

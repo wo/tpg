@@ -1,6 +1,9 @@
 
 tests = {
 
+    // Recall that Prover takes the /negated/ sentence that is to be proved
+    // as input; i.e. Prover is really a Refuter.
+    
     pruneBranch: function() {
         var parser = new Parser();
         var f = parser.parseFormula('(¬R∧¬S∧((R∧¬S)∨(¬R∧S))∧(Q∨P))').normalize();

@@ -10,7 +10,7 @@ alltests = {};
 testnames = [];
   
 function showtests(filename) {
-    document.write('<h3>'+filename+'<h3>');
+    document.write('<h3>'+filename+'</h3>');
     for (var name in tests) {
         if (Array.prototype[name]) continue;
         testnames.push(name);
@@ -39,7 +39,7 @@ function runalltests() {
 
 function assertEqual(x,y) {
     if (x==y) print('.');
-    else print(' <b>fail: '+x+' != '+y+'<b> ');
+    else print(' <b>fail: '+x+' should be '+y+'<b> ');
 }
 
 function assert(x) {

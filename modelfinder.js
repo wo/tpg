@@ -3,16 +3,16 @@
 //
 // In outline, this works as follows.
 //
-// 1. We transform the formulas for which we want to find a model (in
-//    demodalized NNF) into Clausal Normal Form.
+// 1. We transform the (demodalized) formulas for which we want to find a model
+//    into clausal normal form, using prenexing and skolemization to remove
+//    quantifiers.
 //
-// 2. Now we start with a domain of size 1, namely [0]. If no countermodel is
-//    found, we increase the domain to [0,1], and so on. For each domain choice,
-//    we do the following:
+// 2. We now start with a domain of size 1, namely [0], which we increase until
+//    a model is found. For each domain choice, we do the following:
 //
-// 3. We replace free variables in the list of clauses by numbers. So for domain
-//    [0,1], [Fx] would replaced by two clauses, [F0] and [F1]. [Numerals in
-//    formulas are never interpreted as terms, so there can be no clash.]
+// 3. We replace free (i.e. universal) variables in the list of clauses by
+//    numbers. So for domain [0,1], [Fx] would replaced by two clauses, [F0] and
+//    [F1].
 //
 // 4. We process the list of clauses from left to right, starting with an empty
 //    interpretation relative to which all literals are neither true nor false.
@@ -35,7 +35,7 @@ function ModelFinder(initFormulas, parser, accessibilityConstraints, s5) {
     // to find a model; <accessibilityConstraints> is another such list, for
     // modal models; <s5> is boolean.
     log("*** creating ModelFinder");
-
+    
     this.parser = parser;
     this.s5 = s5;
     
@@ -55,11 +55,11 @@ function ModelFinder(initFormulas, parser, accessibilityConstraints, s5) {
     if (parser.isModal) {
         this.constants.unshift(parser.w);
     }
-
+    
     // break down initFormulas and accessibilityConstraints into clauses:
-    initFormulas = initFormulas.concat(accessibilityConstraints || []);
-    this.clauses = this.getClauses(initFormulas);
-
+    this.initFormulas = initFormulas.concat(accessibilityConstraints || []);
+    this.normalizeInitFormulas();
+    
     // initialize model:
     var numIndividuals = 1;
     var numWorlds = this.parser.isModal ? 1 : 0;
@@ -69,77 +69,130 @@ function ModelFinder(initFormulas, parser, accessibilityConstraints, s5) {
     this.alternativeModels = [];
 }
 
+ModelFinder.prototype.normalizeInitFormulas = function() {
+    // skolemize initFormulas and remove quantifiers. (We can't convert to CNF
+    // here if we use tseitin CNFs: consider ∃xFx → ∃xGx: skolemized, this
+    // becomes ¬Fx ∨ Ga. The tseitin transform of that is (p ↔ ¬Fx) ∧ (p ∨ Ga).
+    // But ∀x(¬Fx ∨ Ga) is not equisatisfiable with ∀x((p ↔ ¬Fx) ∧ (p ∨ Ga)).
+    // So we convert to CNF only after instantiating variables on a
+    // given domain.)
+    for (var i=0; i<this.initFormulas.length; i++) {
+        var formula = this.initFormulas[i];
+        log('normalizing '+formula);
+        var distinctVars = this.makeVariablesDistinct(formula);
+        log('distinctVars: '+distinctVars);
+        var skolemized = this.skolemize(distinctVars);
+        log('skolemized: '+skolemized);
+        var quantifiersRemoved = skolemized.removeQuantifiers();
+        log('qantifiers removed: '+quantifiersRemoved);
+        // associate formula with property 'variables' listing all free
+        // variables in the formula:
+        quantifiersRemoved.variables = this.parser.getVariables(quantifiersRemoved);
+        this.initFormulas[i] = quantifiersRemoved;
+    }
+}
+ 
 ModelFinder.prototype.getClauses = function(formulas) {
+    // xxx del
     // convert <formulas> into clausal normal form and return combined list of
-    // clauses
+    // clauses. A clausal normal form is a list (interpreted as conjunction) of
+    // "clauses", each of which is a list (interpreted as disjunction) of
+    // literals. Variables are understood as universal; existential quantifiers
+    // are skolemized away.
     var res = [];
     for (var i=0; i<formulas.length; i++) {
         var formula = formulas[i]; 
         log('getting clauses from '+formula);
-        var clauses = this.parser.clausalNormalForm(formula);
+        var distinctVars = this.makeVariablesDistinct(formula);
+        log('distinctVars: '+distinctVars);
+        var skolemized = this.skolemize(distinctVars);
+        log('skolemized: '+skolemized);
+        var quantifiersRemoved = skolemized.removeQuantifiers();
+        log('qantifiers removed: '+quantifiersRemoved);
+        var clauses = this.tseitinCNF(quantifiersRemoved);
+        log('cnf: '+clauses);
         res = res.concatNoDuplicates(clauses);
     }
+    // order clauses by length (number of disjuncts):
+    res.sort(function(a,b){ return a.length > b.length; });
     log('all clauses: '+res);
     res = this.simplifyClauses(res);
     log('simplified clauses: '+res);
     return res;
 }
 
-ModelFinder.prototype.simplifyClauses = function(clauseList) {
-    // simplify <clauseList>
+ModelFinder.prototype.makeVariablesDistinct = function(formula) {
+    // return formula that doesn't reuse the same variable (for conversion to
+    // prenex normal form); formula must be in NNF.
+    var usedVariables = arguments[1] || [];
+    var parser = this.parser;
+    // log('making variables distinct in '+formula+' (used '+usedVariables+')');
+    if (formula.matrix) {
+        var nmatrix = formula.matrix;
+        var nvar = formula.variable;
+        if (usedVariables.includes(formula.variable)) {
+            // log('need new variable instead of '+formula.variable);
+            nvar = parser.expressionType[nvar] == 'world variable' ?
+                parser.getNewWorldVariable() : parser.getNewVariable();
+            nmatrix = nmatrix.substitute(formula.variable, nvar);
+        }
+        usedVariables.push(nvar);
+        nmatrix = this.makeVariablesDistinct(nmatrix, usedVariables);
+        // log('back at '+formula+': new matrix is '+nmatrix);
+        if (nmatrix == formula.matrix) return formula;
+        return new QuantifiedFormula(formula.quantifier, nvar, nmatrix, formula.overWorlds);
+    }
+    if (formula.sub1) {
+        var nsub1 = this.makeVariablesDistinct(formula.sub1, usedVariables);
+        var nsub2 = this.makeVariablesDistinct(formula.sub2, usedVariables);
+        if (formula.sub1 == nsub1 && formula.sub2 == nsub2) return formula;
+        return new BinaryFormula(formula.operator, nsub1, nsub2);
+    }
+    // literal:
+    return formula;
+}
 
-    // remove clauses that contain contradictory formulas, e.g. [p,q,¬p]:
-    var nl = clauseList.filter(function(clause) {
-        for (var i=0; i<clause.length; i++) {
-            for (var j=i+1; j<clause.length; j++) {
-                if (clause[i].sub && clause[i].sub.string == clause[j].string ||
-                    clause[j].sub && clause[j].sub.string == clause[i].string) {
-                    return false;
-                }
-            }
+ModelFinder.prototype.skolemize = function(formula) {
+    // return formula with existential quantifiers skolemized away
+    log('skolemizing '+formula);
+    var boundVars = arguments[1] ? arguments[1].copy() : [];
+    // log(formula.string+' bv: '+boundVars);
+    var parser = this.parser;
+    if (formula.quantifier == '∃') {
+        // skolemize on variables that are bound at this point and that occur in
+        // the matrix (ignoring formula.variable)
+        var skolemVars = [];
+        boundVars.forEach(function(v) {
+            if (formula.matrix.string.indexOf(v) > -1) skolemVars.push(v);
+        });
+        var skolemTerm;
+        if (skolemVars.length > 0) {
+            var funcSymbol = parser.getNewFunctionSymbol(skolemVars.length);
+            var skolemTerm = skolemVars;
+            skolemTerm.unshift(funcSymbol);
         }
-        return true;
-    });
-    // remove repetitions in clauses, as in [p,p,q]: (xxx and sort clause alphabetically??)
-    var nl = nl.map(function(clause) {
-        return clause.removeDuplicates();
-    });
-    // order clauses by length (number of disjuncts):
-    nl.sort(function(a,b){ return a.length > b.length; });
-    // If clause A is a subset of (or equal to) clause B, clause B can be
-    // removed (e.g. [[p],[p,q]] => [[p]] or [[q,s],[p,q,r,s]] => [[q,s]]. The
-    // naive way to test this is O(n!). The following still takes too long if we
-    // have a lot of clauses.
-    if (nl.length > 5000) return nl;
-    nl2 = nl.copy();
-    // We store which clauses contain which literals: q => [c1,c2],...
-    var literals2clauses = {};
-    for (var i=0; i<nl.length; i++) {
-        for (var k=0; k<nl[i].length; k++) {
-            var lit = nl[i][k].string;
-            if (!literals2clauses[lit]) literals2clauses[lit] = [nl[i]];
-            else literals2clauses[lit].push(nl[i]);
-        }
+        else skolemTerm = parser.expressionType[formula.variable] == 'variable' ?
+            parser.getNewConstant() : parser.getNewWorldName();
+        var nmatrix = formula.matrix.substitute(formula.variable, skolemTerm); 
+        // nmatrix.constants.push(skolemVars.length > 0 ? funcSymbol : skolemTerm);
+        nmatrix = this.skolemize(nmatrix, boundVars);
+        return nmatrix;
     }
-    // We look for supersets of each clause:
-    for (var i=0; i<nl.length; i++) {
-        var clause = nl[i];
-        var lit = clause[0].string;
-        var supersets = literals2clauses[lit];
-        // log(clause+': supsersets from first literal: '+supersets);
-        for (var k=1; k<clause.length && supersets.length; k++) {
-            lit = clause[k].string;
-            supersets.intersect(literals2clauses[lit]);
-            // log(clause+': supsersets from next literal: '+supersets);
-        }
-        // log(clause+' is contained in '+supersets);
-        for (var k=0; k<supersets.length; k++) {
-            if (nl.indexOf(supersets[k]) > nl.indexOf(clause)) {
-                nl2.remove(supersets[k]);
-            }
-        }
+    if (formula.quantifier) { // ∀
+        boundVars.push(formula.variable);
+        var nmatrix = this.skolemize(formula.matrix, boundVars);
+        if (nmatrix == formula.matrix) return formula;
+        return new QuantifiedFormula(formula.quantifier, formula.variable, nmatrix,
+                                     formula.overWorlds);
     }
-    return nl2;
+    if (formula.sub1) {
+        var nsub1 = this.skolemize(formula.sub1, boundVars);
+        var nsub2 = this.skolemize(formula.sub2, boundVars);
+        if (formula.sub1 == nsub1 && formula.sub2 == nsub2) return formula;
+        return new BinaryFormula(formula.operator, nsub1, nsub2);
+    }
+    // literal:
+    return formula;
 }
 
 ModelFinder.prototype.nextStep = function() {
@@ -149,10 +202,13 @@ ModelFinder.prototype.nextStep = function() {
     // clause. If we succeed, we remove the entire clause and simplify the
     // remaining clauses.
 
-    if (this.model.clauses.length == 0) return true;
-    var literal = this.model.clauses[0][0];
     log("** modelfinder: "+this.model.clauses);
     log(this.model.curIntToString());
+    if (this.model.clauses.length == 0) {
+        log('done');
+        return true;
+    }
+    var literal = this.model.clauses[0][0];
     
     // If the first clause contains no more literals, it can't be satisfied; we
     // need to backtrack:
@@ -172,6 +228,7 @@ ModelFinder.prototype.nextStep = function() {
     else {
         if (!this.model.iterateTermValues()) {
             log("no more term interpretations to try: giving up");
+            // try next disjunct in first clause on next attempt:
             this.model.clauses[0].shift();
             this.model.termValues = null;
             return false;
@@ -212,7 +269,7 @@ ModelFinder.prototype.nextStep = function() {
             this.model.termValues = null;
             this.model.clauses.shift();
             this.model.simplifyRemainingClauses();
-            return this.model.clauses.length == 0;
+            return false;
         }
     }
 }
@@ -280,6 +337,377 @@ function Model(modelfinder, numIndividuals, numWorlds) {
     // tentative combined interpretation:
     this.curInt = {};
 }
+
+Model.prototype.getDomainClauses = function() {
+    // instantiate variables in initFormulas and convert to CNF
+    log('creating domain clauses');
+    var res = [];
+    for (var i=0; i<this.modelfinder.initFormulas.length; i++) {
+        var initFormula = this.modelfinder.initFormulas[i];
+        log('converting '+initFormula);
+        formulas = this.instantiateFormula(initFormula);
+        for (var j=0; j<formulas.length; j++) {
+            log('instance: '+formulas[j]);
+            var clauses = this.tseitinCNF(formulas[j]);
+            log('cnf: '+clauses);
+            res = res.concatNoDuplicates(clauses);
+        }
+    }
+    // order clauses by length (number of disjuncts):
+    res.sort(function(a,b){ return a.length > b.length; });
+    log('all clauses: '+res);
+    res = this.simplifyClauses(res);
+    log('simplified clauses: '+res);
+    return res;
+}
+
+Model.prototype.instantiateFormula = function(formula) {
+    // replace free variables in <formula> by numerals, for each element of the
+    // domain(s); returns list of instantiated formulas;
+    if (formula.variables.length == 0) {
+        // log('    adding clause to constraint');
+        return [formula];
+    }
+    var res = [];
+    // get all possible interpretations of the variables:
+    var interpretations = this.getVariableAssignments(formula.variables);
+    // log('    variables: '+formula.variables+', interpretations: '+interpretations);
+    // e.g. [[0,0],[0,1],[1,0],[1,1]] for two variables and domain [0,1]
+    for (var i=0; i<interpretations.length; i++) {
+        var interpretation = interpretations[i];
+        // log('    adding clause for interpretation '+interpretation);
+        var nformula = formula;
+        for (var j=0; j<formula.variables.length; j++) {
+            nformula = nformula.substitute(formula.variables[j], interpretation[j]);
+        }
+        // log(nformula.string);
+        res.push(nformula);
+    }
+    return res;
+}
+
+Model.prototype.xxxgetDomainClauses = function() {
+    // xxx del
+    // turn modelfinder.clauses into a variable-free list of clauses that serves
+    // as constraints on interpretations. If the domain is [0,1], then a clause
+    // ['Fx','xRy'] is turned into ['F0','0R0'], ['F0','0R1'], ['F1','1R0'],
+    // ['F1','1R1'].
+    res = [];
+    log('creating clauses for current domain(s)');
+    for (var c=0; c<this.modelfinder.clauses.length; c++) {
+        var clause = this.modelfinder.clauses[c];
+        // log('  clause '+clause);
+        // collect all variables in the clause:
+        var variables = [];
+        for (var i=0; i<clause.length; i++) {
+            variables = variables.concatNoDuplicates(this.parser.getVariables(clause[i]));
+        }
+        if (variables.length == 0) {
+            // log('    adding clause to constraint');
+            res.push(clause.copy());
+            continue;
+        }
+        // get all possible interpretations of the variables:
+        var interpretations = this.getVariableAssignments(variables);
+        // log('    variables: '+variables+', interpretations: '+interpretations);
+        // e.g. [[0,0],[0,1],[1,0],[1,1]] for two variables and domain [0,1]
+        for (var i=0; i<interpretations.length; i++) {
+            var interpretation = interpretations[i];
+            // log('    adding clause for interpretation '+interpretation);
+            var nclause = clause.map(function(formula) {
+                var nformula = formula;
+                for (var i=0; i<variables.length; i++) {
+                    nformula = nformula.substitute(variables[i], interpretation[i]);
+                }
+                // log(nformula.string);
+                return nformula;
+            });
+            res.push(nclause);
+        }
+    }
+    log('           clauses: '+res);
+    res = this.modelfinder.simplifyClauses(res);
+    log('simplified clauses: '+res);
+    return res;
+}
+
+Model.prototype.getVariableAssignments = function(variables) {
+    // list all interpretations of <variables> on the model's domain(s), as
+    // sequences; e.g. [[0,0],[0,1],[1,0],[1,1]] for domain=[0,1] and two
+    // individual variables.
+    var res = [];
+    var tuple = Array.getArrayOfZeroes(variables.length);
+    res.push(tuple.copy());
+    var maxValues = [];
+    for (var i=0; i<variables.length; i++) {
+        maxValues.push(this.parser.expressionType[variables[i]] == 'variable' ?
+                       this.domain.length-1 : this.worlds.length-1);
+    }
+    while (Model.iterateTuple(tuple, maxValues)) { // optimise?
+        res.push(tuple.copy());
+    }
+    return res;
+}
+
+Model.iterateTuple = function(tuple, maxValues) {
+    // changes tuple to the next tuple in the list of all tuples of the same
+    // length whose i-the element is one of {0..maxValues[i]}
+    for (var i=tuple.length-1; i>=0; i--) {
+        if (tuple[i] < maxValues[i]) {
+            tuple[i]++;
+            return true;
+        }
+        tuple[i] = 0;
+    }
+    return false;
+    // Example 1: tuple = 011, all maxValues 2.
+    //   at i=2, tuple -> 012, return true
+    // Example 2: tuple = 011, maxValues 1.
+    //   at i=2, tuple -> 010
+    //   at i=1, tuple -> 000
+    //   at i=0, tuple -> 100, return true
+}
+
+Model.prototype.tseitinCNF = function(formula) {
+    // convert <formula> into equisatisfiable CNF
+    if (formula.type == 'literal') {
+        return [[formula]];
+    }
+    log('creating tseitin transform of '+formula);
+    // collect all non-atomic subformulas:
+    var subformulas = this.tseitinSubFormulas([formula]).removeDuplicates();
+    // sort by increasing complexity:
+    subformulas.sort(function(a,b) {
+        return tseitinComplexity(a) - tseitinComplexity(b);
+    });
+    // introduce a new propositional constant p for each non-atomic subformula:
+    if (!this.tseitsinFormulas) {
+        this.tseitsinFormulas = {}; // subformula => atomic tseitsin formula, so
+                                    // that we use the same tseitsin formula for
+                                    // the same subformula in different formulas
+    }
+    conjuncts = [];
+    while (subformulas.length) {
+        var subf = subformulas.shift();
+        log('  subformula '+subf)
+        var p = this.tseitsinFormulas[subf.string];
+        if (!p) {
+            var pSym = this.parser.getNewSymbol('p', 'tseitsin proposition letter', 0);
+            p = new AtomicFormula(pSym, []);
+            p.isTseitinLetter = true;
+            this.tseitsinFormulas[subf.string] = p;
+            // add 'p <-> S':
+            var bicond = new BinaryFormula('↔', p, subf);
+            conjuncts = conjuncts.concatNoDuplicates(this.cnf(bicond));
+            log('  adding clause for '+bicond+': '+conjuncts);
+        }
+        // else log('subformula already known');
+        if (subformulas.length == 0) {
+            // add p itself:
+            conjuncts = conjuncts.concatNoDuplicates([[p]]);
+            log('  adding sentence letter '+p);
+        }
+        // replace all occurrences of sentence in the list by p:
+        for (var i=0; i<subformulas.length; i++) {
+            subformulas[i] = this.tseitinReplace(subformulas[i], subf, p);
+        }
+    }
+    conjuncts.sort(function(a,b){ return a.length > b.length; });
+    return conjuncts;
+
+    function tseitinComplexity (formula) {
+        // return degree of complexity of <formula>, for sorting
+        if (formula.sub) {
+            return 1 + tseitinComplexity(formula.sub);
+        }
+        if (formula.sub1) {
+            return 1 + Math.max(tseitinComplexity(formula.sub1),
+                                tseitinComplexity(formula.sub2));
+        }
+        return 0;
+    }
+
+}
+
+Model.prototype.tseitinSubFormulas = function(formulas) {
+    // return non-atomic subformulas of <formulas>
+    var res = []
+    for (var i=0; i<formulas.length; i++) {
+        var subformulas = formulas[i].sub ? [formulas[i].sub] :
+            formulas[i].sub1 ? [formulas[i].sub1, formulas[i].sub2] : null;
+        if (subformulas) {
+            res = res.concat(this.tseitinSubFormulas(subformulas));
+            res.unshift(formulas[i]);
+        }
+    }
+    return res;
+}
+
+Model.prototype.tseitinReplace = function(formula, f1, f2) {
+    // replace all occurrences of f1 in formula by f2:
+    if (formula.equals(f1)) return f2;
+    if (formula.sub) {
+        var nsub = this.tseitinReplace(formula.sub, f1, f2);
+        if (nsub == formula.sub) return formula;
+        return new NegatedFormula(nsub);
+    }
+    if (formula.sub1) {
+        var nsub1 = this.tseitinReplace(formula.sub1, f1, f2);
+        var nsub2 = this.tseitinReplace(formula.sub2, f1, f2);
+        if (formula.sub1 == nsub1 && formula.sub2 == nsub2) return formula;
+        return new BinaryFormula(formula.operator, nsub1, nsub2);
+    }
+    return formula;
+}
+
+Model.prototype.cnf = function(formula) {
+    // convert <formula> to CNF; formula need not be in NNF (because of tseitin
+    // transformations).
+    if (formula.type == 'literal') {
+        // return CNF with 1 clause containing 1 literal:
+        return [[formula]];
+    }
+    // xxx optimize: remove creation of negated formulas through negate() etc.?
+    var con, dis;
+    switch (formula.operator) {
+    case '∧': {
+        con = [this.cnf(formula.sub1), this.cnf(formula.sub2)];
+        break;
+    }
+    case '∨': {
+        dis = [this.cnf(formula.sub1), this.cnf(formula.sub2)];
+        break;
+    }
+    case '→': {
+        dis = [this.cnf(formula.sub1.negate()), this.cnf(formula.sub2)];
+        break;
+    }
+    case '↔' : {
+        con1 = this.cnf(new BinaryFormula('→', formula.sub1, formula.sub2));
+        con2 = this.cnf(new BinaryFormula('→', formula.sub2, formula.sub1));
+        con = [con1, con2];
+        break;
+    }
+    case '¬' : {
+        var sub = formula.sub;
+        switch (sub.operator) {
+        case '∧': {
+            dis = [this.cnf(sub.sub1.negate()), this.cnf(sub.sub2.negate())];
+            break;
+        }
+        case '∨': {
+            con = [this.cnf(sub.sub1.negate()), this.cnf(sub.sub2.negate())];
+            break;
+        }
+        case '→': {
+            con = [this.cnf(sub.sub1), this.cnf(sub.sub2.negate())];
+            break;
+        }
+        case '↔' : {
+            // dis1 = this.cnf(new BinaryFormula('∧', sub.sub1, sub.sub2.negate()));
+            // dis2 = this.cnf(new BinaryFormula('∧', sub.sub1.negate(), sub.sub2));
+            // dis = [dis1, dis2];
+            con1 = this.cnf(new BinaryFormula('∨', sub.sub1, sub.sub2));
+            con2 = this.cnf(new BinaryFormula('∨', sub.sub1.negate(), sub.sub2.negate()));
+            con = [con1, con2];
+            break;
+        }
+        case '¬' : {
+            return this.cnf(sub.sub);
+        }
+        }
+    }
+    }
+    var res = [];
+    if (con) {
+        // log('∧: concatenating clauses of '+formula.sub1+' and '+formula.sub2);
+        // con1 is [C1, C2 ...], con2 is [D1, D2, ...], where the elements are
+        // clauses; return [C1, C2, ..., D1, D2, ...]:
+        // log('back up at ∧: concatenating clauses of '+con[0]+' and '+con[1]);
+        // log('which are '+con[0]+' and '+con[1]);
+        res = con[0].concatNoDuplicates(con[1]);
+    }
+    else if (dis) {
+        // log('∨: combining clauses of '+formula.sub1+' and '+formula.sub2);
+        // dis1 is [C1, C2 ...], dis2 is [D1, D2, ...], where the elements are
+        // disjunctions of literals; (C1 & C2 & ...) v (D1 & D2 & ..) is
+        // equivalent to (C1 v D1) & (C1 v D2) & ... (C2 v D1) & (C2 V D2) &
+        // ...; so return [C1+D1, C1+D2, ..., C2+D1, C2+D2, ...]:
+        // log('back up at ∨: combining clauses of '+formula.sub1+' and '+formula.sub2);
+        // log('which are '+dis[0]+' and '+dis[1]);
+        for (var i=0; i<dis[0].length; i++) {
+            for (var j=0; j<dis[1].length; j++) {
+                // dis[0][i] and dis[1][j] are clauses, we want to combine them
+                // log('adding '+dis[0][i].concat(dis[1][j]));
+                res.push(dis[0][i].concatNoDuplicates(dis[1][j]).sort());
+                // (sort each clause so that we can remove duplicate clauses)
+            }
+        }
+    }
+    res.sort(function(a,b){ return a.length > b.length; });
+    return res;
+}
+
+Model.prototype.simplifyClauses = function(clauseList) {
+    // simplify <clauseList>
+
+    // remove clauses that contain contradictory formulas, e.g. [p,q,¬p]:
+    var nl = clauseList.filter(function(clause) {
+        for (var i=0; i<clause.length; i++) {
+            for (var j=i+1; j<clause.length; j++) {
+                if (clause[i].sub && clause[i].sub.string == clause[j].string ||
+                    clause[j].sub && clause[j].sub.string == clause[i].string) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    });
+
+    // TODO: if an atom occurs only positively/negatively in the list of
+    // clauses, it can be set as true/false;
+
+    
+    // // remove repetitions in clauses, as in [p,p,q]:
+    // var nl = nl.map(function(clause) {
+    //     return clause.removeDuplicates();
+    // });
+
+    // If clause A is a subset of (or equal to) clause B, clause B can be
+    // removed (e.g. [[p],[p,q]] => [[p]] or [[q,s],[p,q,r,s]] => [[q,s]]. The
+    // naive way to test this is O(n!). The following still takes too long if we
+    // have a lot of clauses.
+    nl2 = nl.copy();
+    // We store which clauses contain which literals: q => [c1,c2],...
+    var literals2clauses = {};
+    for (var i=0; i<nl.length; i++) {
+        for (var k=0; k<nl[i].length; k++) {
+            var lit = nl[i][k].string;
+            if (!literals2clauses[lit]) literals2clauses[lit] = [nl[i]];
+            else literals2clauses[lit].push(nl[i]);
+        }
+    }
+    // We look for supersets of each clause:
+    for (var i=0; i<nl.length; i++) {
+        var clause = nl[i];
+        var lit = clause[0].string;
+        var supersets = literals2clauses[lit];
+        // log(clause+': supsersets from first literal: '+supersets);
+        for (var k=1; k<clause.length && supersets.length; k++) {
+            lit = clause[k].string;
+            supersets.intersect(literals2clauses[lit]);
+            // log(clause+': supsersets from next literal: '+supersets);
+        }
+        // log(clause+' is contained in '+supersets);
+        for (var k=0; k<supersets.length; k++) {
+            if (nl.indexOf(supersets[k]) > nl.indexOf(clause)) {
+                nl2.remove(supersets[k]);
+            }
+        }
+    }
+    return nl2;
+}
+
 
 Model.prototype.initTermValues = function(literal) {
     // this.termValues is a list of quadruples, one for each non-numerical term
@@ -429,7 +857,7 @@ Model.prototype.initTermValues = function(literal) {
     }
 
     this.termValues = terms;
-    log(this.termValues);
+    log(this.termValues.toString());
 }
 
 Model.prototype.reduceArguments = function(term) {
@@ -510,7 +938,7 @@ Model.prototype.iterateTermValues = function() {
                 this.termValues[j][3] = null;
             }
         }
-        log(this.termValues);
+        log(this.termValues.toString());
         return true;
     }
     return false;
@@ -530,86 +958,6 @@ Model.prototype.satisfy = function(literal) {
     return true;
 }
 
-Model.prototype.getDomainClauses = function() {
-    // turn modelfinder.clauses into a variable-free list of clauses that serves
-    // as constraints on interpretations. If the domain is [0,1], then a clause
-    // ['Fx','xRy'] is turned into ['F0','0R0'], ['F0','0R1'], ['F1','1R0'],
-    // ['F1','1R1'].
-    res = [];
-    log('creating clauses for current domain(s)');
-    for (var c=0; c<this.modelfinder.clauses.length; c++) {
-        var clause = this.modelfinder.clauses[c];
-        // log('  clause '+clause);
-        // collect all variables in the clause:
-        var variables = [];
-        for (var i=0; i<clause.length; i++) {
-            variables = variables.concatNoDuplicates(this.parser.getVariables(clause[i]));
-        }
-        if (variables.length == 0) {
-            // log('    adding clause to constraint');
-            res.push(clause);
-            continue;
-        }
-        // get all possible interpretations of the variables:
-        var interpretations = this.getVariableAssignments(variables);
-        // log('    variables: '+variables+', interpretations: '+interpretations);
-        // e.g. [[0,0],[0,1],[1,0],[1,1]] for two variables and domain [0,1]
-        for (var i=0; i<interpretations.length; i++) {
-            var interpretation = interpretations[i];
-            // log('    adding clause for interpretation '+interpretation);
-            var nclause = clause.map(function(formula) {
-                var nformula = formula;
-                for (var i=0; i<variables.length; i++) {
-                    nformula = nformula.substitute(variables[i], interpretation[i]);
-                }
-                // log(nformula.string);
-                return nformula;
-            });
-            res.push(nclause);
-        }
-    }
-    log('           clauses: '+res);
-    res = this.modelfinder.simplifyClauses(res);
-    log('simplified clauses: '+res);
-    return res;
-}
-
-Model.prototype.getVariableAssignments = function(variables) {
-    // list all interpretations of <variables> on the model's domain(s), as
-    // sequences; e.g. [[0,0],[0,1],[1,0],[1,1]] for domain=[0,1] and two
-    // individual variables.
-    var res = [];
-    var tuple = Array.getArrayOfZeroes(variables.length);
-    res.push(tuple.copy());
-    var maxValues = [];
-    for (var i=0; i<variables.length; i++) {
-        maxValues.push(this.parser.expressionType[variables[i]] == 'variable' ?
-                       this.domain.length-1 : this.worlds.length-1);
-    }
-    while (Model.iterateTuple(tuple, maxValues)) { // optimise?
-        res.push(tuple.copy());
-    }
-    return res;
-}
-
-Model.iterateTuple = function(tuple, maxValues) {
-    // changes tuple to the next tuple in the list of all tuples of the same
-    // length whose i-the element is one of {0..maxValues[i]}
-    for (var i=tuple.length-1; i>=0; i--) {
-        if (tuple[i] < maxValues[i]) {
-            tuple[i]++;
-            return true;
-        }
-        tuple[i] = 0;
-    }
-    return false;
-    // Example 1: tuple = 011, all maxValues 2.
-    //   at i=2, tuple -> 012, return true
-    // Example 2: tuple = 011, maxValues 1.
-    //   at i=2, tuple -> 010
-    //   at i=1, tuple -> 000
-    //   at i=0, tuple -> 100, return true
-}
 
 Model.prototype.simplifyRemainingClauses = function() {
     // After a clause has been satisfied by extending the interpretion function,
@@ -633,8 +981,8 @@ Model.prototype.simplifyRemainingClauses = function() {
     //
     // (c) Finally, we re-order the future clauses by number of literals.
 
-    log("simplifying remaining clauses");
-    log(this.clauses);
+    log("simplifying remaining clauses:");
+    log(this.clauses.toString());
     
     var nclauses = [];
     CLAUSELOOP:
@@ -656,17 +1004,24 @@ Model.prototype.simplifyRemainingClauses = function() {
                     continue;
                 }
             }
-            // replace literal by interpreted literal:
-            var redAtom = new AtomicFormula(atom.predicate, nterms);
-            if (atom==literal) nclause.push(redAtom);
-            else nclause.push(new NegatedFormula(redAtom));
+            if (atom.terms.length) {
+                // replace literal by interpreted literal:
+                var redAtom = new AtomicFormula(atom.predicate, nterms);
+                if (atom==literal) nclause.push(redAtom);
+                else nclause.push(new NegatedFormula(redAtom));
+            }
+            else nclause.push(literal);
         }
         nclauses.push(nclause);
     }
     nclauses.sort(function(a,b) {
+        // process tseitin letters first:
+        if (a.length == 1 && b.length == 1) {
+            return b[0].isTseitinLetter && !a[0].isTseitinLetter;
+        }
         return a.length > b.length;
     });
-    log(nclauses);
+    log(nclauses.toString());
     this.clauses = nclauses;
 }
 

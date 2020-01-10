@@ -104,7 +104,7 @@ function startProof() {
     document.getElementById("rootAnchor").style.display = "none";
     document.getElementById("backtostartpage").style.display = "block";
     document.getElementById("status").style.display = "block";
-    document.getElementById("status").innerHTML = "<div id='working'>working</div>";
+    document.getElementById("status").innerHTML = "starting";
     
     // Now a free-variable tableau is created. When the proof is finished,
     // prover.finished() is called.
@@ -149,6 +149,9 @@ function startProof() {
         document.getElementById("rootAnchor").style.display = "block";
         self.painter = new TreePainter(sentree, document.getElementById("rootAnchor"));
         self.painter.paintTree();
+    }
+    prover.status = function(txt) {
+        document.getElementById("status").innerHTML = txt;
     }
     setTimeout(function(){
         prover.start();

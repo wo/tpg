@@ -86,17 +86,20 @@ Parser.prototype.getNewWorldVariable = function() {
 
 Parser.prototype.getNewWorldName = function() {
     // for □/◇ instances in sentrees and cnf skolemization 
-    return this.getNewSymbol('vutsrqponm', 'world constant', 0);
+    return this.getNewSymbol('vutsr', 'world constant', 0);
 }
 
 Parser.prototype.getVariables = function(formula) {
-    // return all variables in <formula>; used in model.getconstraints()
+    // return all variables in <formula>
     var variables = this.getSymbols('variable');
     var res = [];
     var dupe = {};
+    var num_re = /[0-9]/;
     for (var i=0; i<variables.length; i++) {
         var variable = variables[i];
-        if (formula.string.indexOf(variable) > -1 && !dupe[variable]) {
+        // (Make sure we don't find 'x2' if the formula contains 'x21'.)
+        var pos = formula.string.indexOf(variable);
+        if (pos > -1 && !num_re.test(formula[pos+1]) && !dupe[variable]) {
             dupe[variable] = true;
             res.push(variable);
         }
@@ -230,140 +233,6 @@ Parser.prototype.translateToModal = function(formula) {
         res.world = nsub.world;
     }
     return res;
-}
-
-Parser.prototype.skolemize = function(formula) {
-    // return formula with existential quantifiers skolemized away; formula
-    // must be in NNF.
-    log('skolemizing '+formula);
-    var boundVars = arguments[1] ? arguments[1].copy() : [];
-    // log(formula.string+' bv: '+boundVars);
-    if (formula.quantifier == '∃') {
-        // skolemize on variables that are bound at this point and that occur in
-        // the matrix (ignoring formula.variable)
-        var skolemVars = [];
-        boundVars.forEach(function(v) {
-            if (formula.matrix.string.indexOf(v) > -1) skolemVars.push(v);
-        });
-        var skolemTerm;
-        if (skolemVars.length > 0) {
-            var funcSymbol = this.getNewFunctionSymbol(skolemVars.length);
-            var skolemTerm = skolemVars;
-            skolemTerm.unshift(funcSymbol);
-        }
-        else skolemTerm = this.expressionType[formula.variable] == 'variable' ?
-            this.getNewConstant() : this.getNewWorldName();
-        var nmatrix = formula.matrix.substitute(formula.variable, skolemTerm); 
-        // nmatrix.constants.push(skolemVars.length > 0 ? funcSymbol : skolemTerm);
-        nmatrix = this.skolemize(nmatrix, boundVars);
-        return nmatrix;
-    }
-    if (formula.quantifier) { // ∀
-        boundVars.push(formula.variable);
-        var nmatrix = this.skolemize(formula.matrix, boundVars);
-        if (nmatrix == formula.matrix) return formula;
-        return new QuantifiedFormula(formula.quantifier, formula.variable, nmatrix,
-                                     formula.overWorlds);
-    }
-    if (formula.sub1) {
-        var nsub1 = this.skolemize(formula.sub1, boundVars);
-        var nsub2 = this.skolemize(formula.sub2, boundVars);
-        if (formula.sub1 == nsub1 && formula.sub2 == nsub2) return formula;
-        return new BinaryFormula(formula.operator, nsub1, nsub2);
-    }
-    // literal:
-    return formula;
-}
-
-
-Parser.prototype.clausalNormalForm = function(formula) {
-    // return clausal normal form of formula (must be normalized); a clausal
-    // normal form is a list (interpreted as conjunction) of "clauses", each of
-    // which is a list (interpreted as disjunction) of literals. Variables are
-    // understood as universal; existential quantifiers are skolemized away.
-
-    // see http://cs.jhu.edu/~jason/tutorials/convert-to-CNF and
-    // http://www8.cs.umu.se/kurser/TDBB08/vt98b/Slides4/norm1_4.pdf
-
-    var distinctVars = this.makeVariablesDistinct(formula);
-    log('distinctVars: '+distinctVars);
-    var skolemized = this.skolemize(distinctVars);
-    log('skolemized: '+skolemized);
-    var quantifiersRemoved = skolemized.removeQuantifiers();
-    log('qs removed: '+quantifiersRemoved);
-    var cnf = this.cnf(quantifiersRemoved);
-    log('cnf: '+cnf);
-    return cnf;
-}
-
-Parser.prototype.cnf = function(formula) {
-    // see this.clausalNormalForm
-    if (formula.type == 'literal') {
-        // return CNF with 1 clause containing 1 literal:
-        return [[formula]];
-    }
-    if (formula.operator == '∧') {
-        // log('∧: concatenating clauses of '+formula.sub1+' and '+formula.sub2);
-        var con1 = this.cnf(formula.sub1);
-        var con2 = this.cnf(formula.sub2);
-        // con1 is [C1, C2 ...], con2 is [D1, D2, ...], where the elements are
-        // clauses; return [C1, C2, ..., D1, D2, ...]:
-        // log('back up at ∧: concatenating clauses of '+formula.sub1+' and '+formula.sub2);
-        // log('which are '+con1+' and '+con2);
-        return con1.concatNoDuplicates(con2);
-    }
-    if (formula.operator == '∨') {
-        // log('∨: combining clauses of '+formula.sub1+' and '+formula.sub2);
-        var res = [];
-        var dis1 = this.cnf(formula.sub1);
-        var dis2 = this.cnf(formula.sub2);
-        // dis1 is [C1, C2 ...], dis2 is [D1, D2, ...], where the elements are
-        // disjunctions of literals; (C1 & C2 & ...) v (D1 & D2 & ..) is
-        // equivalent to (C1 v D1) & (C1 v D2) & ... (C2 v D1) & (C2 V D2) &
-        // ...; so return [C1+D1, C1+D2, ..., C2+D1, C2+D2, ...]:
-        // log('back up at ∨: combining clauses of '+formula.sub1+' and '+formula.sub2);
-        // log('which are '+dis1+' and '+dis2);
-        for (var i=0; i<dis1.length; i++) {
-            for (var j=0; j<dis2.length; j++) {
-                // dis1[i] and dis2[j] are clauses, we want to combine them
-                // log('adding '+dis1[i].concat(dis2[j]));
-                res.push(dis1[i].concatNoDuplicates(dis2[j]));
-            }
-        }
-        return res;
-        // res contains redundant clauses; see modelfinder.simplifyClauses()
-    }
-    throw formula;
-}
-
-Parser.prototype.makeVariablesDistinct = function(formula) {
-    // return formula that doesn't reuse the same variable (for prenex normal
-    // form); formula must be in NNF ("normalise()d").
-    var usedVariables = arguments[1] || [];
-    // log('making variables distinct in '+formula+' (used '+usedVariables+')');
-    if (formula.matrix) {
-        var nmatrix = formula.matrix;
-        var nvar = formula.variable;
-        if (usedVariables.includes(formula.variable)) {
-            // log('need new variable instead of '+formula.variable);
-            nvar = this.expressionType[nvar] == 'world variable' ?
-                this.getNewWorldVariable() : this.getNewVariable();
-            nmatrix = nmatrix.substitute(formula.variable, nvar);
-        }
-        usedVariables.push(nvar);
-        nmatrix = this.makeVariablesDistinct(nmatrix, usedVariables);
-        // log('back at '+formula+': new matrix is '+nmatrix);
-        if (nmatrix == formula.matrix) return formula;
-        return new QuantifiedFormula(formula.quantifier, nvar, nmatrix, formula.overWorlds);
-    }
-    if (formula.sub1) {
-        var nsub1 = this.makeVariablesDistinct(formula.sub1, usedVariables);
-        var nsub2 = this.makeVariablesDistinct(formula.sub2, usedVariables);
-        if (formula.sub1 == nsub1 && formula.sub2 == nsub2) return formula;
-        return new BinaryFormula(formula.operator, nsub1, nsub2);
-    }
-    // literal:
-    return formula;
 }
 
 
