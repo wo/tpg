@@ -820,13 +820,7 @@ Model.prototype.initTermValues = function(literal) {
         var termStr = atom.terms[i].toString();
         if (termIsOld[termStr]) continue;
         termIsOld[termStr] = true;
-        var maxValue = this.domain.length - 1;
-        if (this.parser.isModal) {
-            // adjust max value for modal terms:
-            if (i == atom.terms.length-1 || atom.predicate == this.parser.R) {
-                maxValue = this.worlds.length - 1;
-            }
-        }
+        var maxValue = this.getMaxValue(atom.terms[i], atom);
         terms.push([atom.terms[i], termStr, maxValue, null]);
     }
 
@@ -867,6 +861,28 @@ Model.prototype.initTermValues = function(literal) {
 
     this.termValues = terms;
     log(this.termValues.toString());
+}
+
+Model.prototype.getMaxValue = function(term, atom) {
+    // We want to avoid redundant permutations. There's no point trying |a|=0,
+    // |b|=1 and later |a|=1, |b|=0. So we fix the first constant to always
+    // denote 0. The second either denotes 0 or (if available) 1, but never 2.
+    // And so on. (TODO: can we also do this for functional terms?)
+    if (!this.constants) {
+        // this includes constants introduced in skolemization:
+        this.constants = this.parser.getSymbols('individual constant');
+        this.worldConstants = this.parser.getSymbols('world constant');
+    }
+    var maxValue = this.domain.length - 1;
+    if (this.parser.isModal) {
+        if (term == atom.terms[atom.terms.length-1] || atom.predicate == this.parser.R) {
+            maxValue = this.worlds.length - 1;
+        }
+    }
+    var pos = this.constants.indexOf(term);
+    if (pos == -1) pos = this.worldConstants.indexOf(term);
+    if (pos > -1) return Math.min(pos, maxValue);
+    return maxValue;
 }
 
 Model.prototype.reduceArguments = function(term) {
@@ -935,7 +951,7 @@ Model.prototype.iterateTermValues = function() {
         tv[3]++;
         var redTerm = this.reduceArguments(tv[0]).toString();
         this.curInt[redTerm] = tv[3];
-        log('set '+redTerm+' to '+tv[3]);
+        log('setting '+redTerm+' to '+tv[3]);
         // Now recompute/reset the values of terms to the right:
         for (var j=i+1; j<this.termValues.length; j++) {
             var redTerm = this.reduceArguments(this.termValues[j][0]).toString();

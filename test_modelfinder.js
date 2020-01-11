@@ -302,8 +302,8 @@ tests = {
         }
         assert(i<500);
         assertEqual(mf.model.domain.length, 2);
-        assert(mf.model.toString().indexOf('F: { 0 }') > 0);
-        assert(mf.model.toString().indexOf('G: { 1 }') > 0);
+        assert(mf.model.toString().indexOf('F: { 1 }') > 0);
+        assert(mf.model.toString().indexOf('G: { 0 }') > 0);
     },
 
     countermodel8: function() {
