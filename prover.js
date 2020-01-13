@@ -103,7 +103,7 @@ Prover.prototype.nextStep = function() {
     // itself again until proof is complete.
     this.step++;
     log('*** prover step '+this.step);
-    this.status('step '+this.step+': '+this.tree.numNodes+' nodes, countermodel size'
+    this.status('step '+this.step+': '+this.tree.numNodes+' nodes, model size '
                 +this.modelfinder.model.domain.length+'/'
                 +this.modelfinder.model.worlds.length);
     
