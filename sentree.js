@@ -71,6 +71,25 @@ SenTree.prototype.transferNodes = function() {
             par = this.transferNode(node, par);
         }
     }
+    // insert double negation elimination steps (best done here, after all alpha
+    // steps have been completed):
+    for (var i=0; i<this.nodes.length; i++) {
+        var node = this.nodes[i];
+        if (node.used && node.formula.type == 'doublenegation') {
+            var par = node; // par is the node after which we insert the DNE nodes
+            while (par.children[0] && par.children[0].expansionStep == par.expansionStep) {
+                par = par.children[0];
+            }
+            this.expandDoubleNegation(node, par);
+        }
+        if (!node.dneNode) {
+            for (var j=0; j<node.fromNodes.length; j++) {
+                var from = node.fromNodes[j];
+                while (from.dneTo) from = from.dneTo;
+                node.fromNodes[j] = from;
+            }
+        }
+    }
 }
 
 SenTree.prototype.transferNode = function(node, par) {
@@ -91,25 +110,22 @@ SenTree.prototype.transferNode = function(node, par) {
     
     var nodeFormula = node.formula;
 
-    // first insert double negation elimination steps:
+    // adjust fromNodes for double negation elimination:
     for (var i=0; i<node.fromNodes.length; i++) {
-        if (node.fromNodes[i].formula.type == 'doublenegation') {
-            this.expandDoubleNegation(node.fromNodes[i]);
+        if (node.fromNodes[i].dneTo) {
             log('setting fromNode '+i+' of '+node+' to '+node.fromNodes[i].dneTo);
-            node.fromNodes[i] = node.fromNodes[i].dneTo; // this also changes
-                                                         // fromNodes of other
-                                                         // nodes with
-                                                         // same fromNodes!
+            node.fromNodes[i] = node.fromNodes[i].dneTo;
         }
     }
-    if (par.dneTo) par = par.dneTo;
-        
+    
     switch (node.fromRule) {
     case Prover.alpha : {
         var from = node.fromNodes[0];
         log("transferring "+node+" (alpha from "+from+")");
-        var f1 = from.formula.alpha(1);
-        var f2 = from.formula.alpha(2);
+        var fromFormula = from.formula;
+        while (fromFormula.sub && fromFormula.sub.sub) fromFormula = fromFormula.sub.sub;
+        var f1 = fromFormula.alpha(1);
+        var f2 = fromFormula.alpha(2);
         log("alpha1 "+f1+" alpha2 "+f2);
 
         // if <from> is the result of a biconditional application, reset
@@ -132,15 +148,17 @@ SenTree.prototype.transferNode = function(node, par) {
             // node formula matches both alpha1 and alpha2: if previous node
             // also originates from <from> by the alpha rule, this one must be
             // the second.
-            node.formula = (par.fromNodes[0] && par.fromNodes[0] == from) ? f2 : f1;
+            log('both match');
+            node.formula = (par.expansionStep == node.expansionStep && !par.biconditionalExpansion) ? f2 : f1;
         }
         this.appendChild(par, node);
         // restore correct order of alpha expansions:
+        var lastNode = node;
         if (par.fromNodes[0] && par.fromNodes[0] == from && node.formula == f1) {
             this.reverse(par, node);
-            return par;
+            lastNode = par;
         }
-        else return node;
+        return lastNode;
         
         // <>A = (Ev)(wRv & Av) is expanded to wRv & Av. 
         
@@ -149,8 +167,10 @@ SenTree.prototype.transferNode = function(node, par) {
     case Prover.beta: {
         var from = node.fromNodes[0];
         log("transferring "+node+" (beta from "+from+")");
-        var f1 = from.formula.beta(1);
-        var f2 = from.formula.beta(2);
+        var fromFormula = from.formula;
+        while (fromFormula.sub && fromFormula.sub.sub) fromFormula = fromFormula.sub.sub;
+        var f1 = fromFormula.beta(1);
+        var f2 = fromFormula.beta(2);
         log("beta1 "+f1+" beta2 "+f2);
         if (!nodeFormula.equals(f1.normalize())) node.formula = f2;
         else if (!nodeFormula.equals(f2.normalize())) node.formula = f1;
@@ -161,8 +181,9 @@ SenTree.prototype.transferNode = function(node, par) {
         }
         // if <node> is the result of a biconditional application, mark it
         // unused for removal (A<->B is expanded to A&B | ~A&~B):
-        if (from.formula.operator == '↔' ||
-            (from.formula.operator == '¬' && from.formula.sub.operator == '↔')) {
+        if (fromFormula.operator == '↔' ||
+            (fromFormula.operator == '¬' && fromFormula.sub.operator == '↔')) {
+            log('marking '+node+' as unused');
             node.biconditionalExpansion = true;
             node.used = false;
             // NB: after normalizing initNodes, we can't have a fvTree with
@@ -182,17 +203,19 @@ SenTree.prototype.transferNode = function(node, par) {
         // quantified formula (or a modal formula in S5).
         var from = node.fromNodes[0];
         log("transferring "+node+" (gamma/delta from "+from+")");
-        var matrix = from.formula.matrix || from.formula.sub.matrix;
+        var fromFormula = from.formula;
+        while (fromFormula.sub && fromFormula.sub.sub) fromFormula = fromFormula.sub.sub;
+        var matrix = fromFormula.matrix || fromFormula.sub.matrix;
         if (this.fvTree.prover.s5 && matrix.sub1 &&
             matrix.sub1.predicate == this.fvParser.R) {
             // in S5, ∀x(¬wRxvAx) and ∃x(wRx∧Ax) are expanded directly to Ax;
             // ¬∀x(¬wRxvAx) and ¬∃x(wRx∧Ax) to ¬Ax.
-            var newFla = from.formula.sub ? matrix.sub2.negate() : matrix.sub2;
+            var newFla = fromFormula.sub ? matrix.sub2.negate() : matrix.sub2;
         }
         else {
-            var newFla = from.formula.sub ? matrix.negate() : matrix;
+            var newFla = fromFormula.sub ? matrix.negate() : matrix;
         }
-        var boundVar = from.formula.sub ? from.formula.sub.variable : from.formula.variable;
+        var boundVar = fromFormula.sub ? fromFormula.sub.variable : fromFormula.variable;
         log(boundVar + ' is instantiated (in '+newFla+') by '+node.instanceTerm);
         if (node.instanceTerm) {
             node.formula = newFla.substitute(boundVar, node.instanceTerm);
@@ -208,13 +231,15 @@ SenTree.prototype.transferNode = function(node, par) {
         // <node> is the result of expanding a □ or ¬◇ formula.
         var from = node.fromNodes[0];
         log("transferring "+node+" (modalGamma from "+from+")");
-        if (from.formula.sub) { // from = ¬◇A = ¬∃v(wRv ∧ Av)
-            var newFla = from.formula.sub.matrix.sub2.negate();
-            var boundVar = from.formula.sub.variable;
+        var fromFormula = from.formula;
+        while (fromFormula.sub && fromFormula.sub.sub) fromFormula = fromFormula.sub.sub;
+        if (fromFormula.sub) { // from = ¬◇A = ¬∃v(wRv ∧ Av)
+            var newFla = fromFormula.sub.matrix.sub2.negate();
+            var boundVar = fromFormula.sub.variable;
         }
         else { // from = □A = ∀v(wRv → Av)
-            var newFla = from.formula.matrix.sub2;
-            var boundVar = from.formula.variable;
+            var newFla = fromFormula.matrix.sub2;
+            var boundVar = fromFormula.variable;
         }
         log(boundVar + ' is instantiated (in '+newFla+') by '+node.instanceTerm);
         node.formula = newFla.substitute(boundVar, node.instanceTerm);
@@ -227,17 +252,19 @@ SenTree.prototype.transferNode = function(node, par) {
         // formula ¬∀v(wRv → Av); so <node> is either wRv or Av/¬Av.
         var from = node.fromNodes[0];
         log("transferring "+node+" (modalDelta from "+from+")");
+        var fromFormula = from.formula;
+        while (fromFormula.sub && fromFormula.sub.sub) fromFormula = fromFormula.sub.sub;
         if (node.formula.predicate == this.fvParser.R) {
             this.appendChild(par, node);
         }
         else {
-            if (from.formula.sub) { 
-                var newFla = from.formula.sub.matrix.sub2.negate();
-                var boundVar = from.formula.sub.variable;
+            if (fromFormula.sub) { 
+                var newFla = fromFormula.sub.matrix.sub2.negate();
+                var boundVar = fromFormula.sub.variable;
             }
             else {
-                var newFla = from.formula.matrix.sub2;
-                var boundVar = from.formula.variable;
+                var newFla = fromFormula.matrix.sub2;
+                var boundVar = fromFormula.variable;
             }
             node.formula = newFla.substitute(boundVar, node.instanceTerm);
             this.appendChild(par, node);
@@ -268,27 +295,30 @@ SenTree.prototype.addInitNodes = function() {
     }
 }
 
-SenTree.prototype.expandDoubleNegation = function(node) {
-    // expand doublenegation node <node> on current tree
-    if (node.dneTo) return;
+SenTree.prototype.expandDoubleNegation = function(node, parent) {
+    // expand doublenegation node <node>, inserting the new nodes after <parent>
     log("expanding double negation "+node);
     var newNode = new Node(node.formula.sub.sub, null, [node]);
     this.makeNode(newNode);
-    node.dneTo = newNode;
-    // if <node> is first result of alpha expansion, dne node must be inserted
-    // after second result:
-    var dnePar = node;
-    if (node.children[0] && node.children[0].fromNodes[0] == node.fromNodes[0]) {
-        dnePar = node.children[0];
-    }
-    newNode.parent = dnePar;
-    newNode.children = dnePar.children;
-    dnePar.children = [newNode];
+    newNode.parent = parent;
+    newNode.children = parent.children;
+    parent.children = [newNode];
     for (var i=0; i<newNode.children.length; i++) {
         newNode.children[i].parent = newNode;
     }
+    if (parent.closedEnd) {
+        parent.closedEnd = false;
+        newNode.closedEnd = true;
+    }
     newNode.used = node.used;
+    newNode.dneNode = true;
+    node.dneTo = newNode;
     this.nodes.push(newNode);
+    // if (newNode.formula.sub && newNode.formula.sub.sub) {
+    //     // original node was quadruply negated
+    //     node.dneTo = this.expandDoubleNegation(newNode);
+    // }
+    // return node.dneTo;
 } 
 
 SenTree.prototype.replaceFreeVariablesAndSkolemTerms = function() {

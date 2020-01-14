@@ -195,40 +195,42 @@ Formula.prototype.removeQuantifiers = function() {
 
 Formula.prototype.alpha = function(n) {
     // return first/second subformula for sentree alpha expansion
-    if (this.operator == '∧') {
-        return n == 1 ? this.sub1 : this.sub2;
+    var f = this;
+    if (f.operator == '∧') {
+        return n == 1 ? f.sub1 : f.sub2;
     }
     // formula is negated
-    if (this.sub.operator == '∨') {
-        return n == 1 ? this.sub.sub1.negate() : this.sub.sub2.negate();
+    if (f.sub.operator == '∨') {
+        return n == 1 ? f.sub.sub1.negate() : f.sub.sub2.negate();
     }
-    if (this.sub.operator == '→') {
-        return n == 1 ? this.sub.sub1 : this.sub.sub2.negate();
+    if (f.sub.operator == '→') {
+        return n == 1 ? f.sub.sub1 : f.sub.sub2.negate();
     }
 }
 
 Formula.prototype.beta = function(n) {
     // return first/second subformula for sentree beta expansion
-    if (this.operator == '∨') {
-        return n == 1 ? this.sub1 : this.sub2;
+    var f = this;
+    if (f.operator == '∨') {
+        return n == 1 ? f.sub1 : f.sub2;
     }
-    if (this.operator == '→') {
-        return n == 1 ? this.sub1.negate() : this.sub2;
+    if (f.operator == '→') {
+        return n == 1 ? f.sub1.negate() : f.sub2;
     }
     // We treat A <-> B as expanding to (A&B) | (~A&~B), and ~(A<->B) to
     // (A&~B) | (~A&B); these intermediate notes will be removed before
     // displaying trees.
-    if (this.operator == '↔') {
-        return n == 1 ? new BinaryFormula('∧', this.sub1, this.sub2) :
-            new BinaryFormula('∧', this.sub1.negate(), this.sub2.negate())
+    if (f.operator == '↔') {
+        return n == 1 ? new BinaryFormula('∧', f.sub1, f.sub2) :
+            new BinaryFormula('∧', f.sub1.negate(), f.sub2.negate())
     }
     // formula is negated
-    if (this.sub.operator == '∧') {
-        return n == 1 ? this.sub.sub1.negate() : this.sub.sub2.negate();
+    if (f.sub.operator == '∧') {
+        return n == 1 ? f.sub.sub1.negate() : f.sub.sub2.negate();
     }
-    if (this.sub.operator == '↔') {
-        return n == 1 ? new BinaryFormula('∧', this.sub.sub1, this.sub.sub2.negate()) :
-            new BinaryFormula('∧', this.sub.sub1.negate(), this.sub.sub2)
+    if (f.sub.operator == '↔') {
+        return n == 1 ? new BinaryFormula('∧', f.sub.sub1, f.sub.sub2.negate()) :
+            new BinaryFormula('∧', f.sub.sub1.negate(), f.sub.sub2)
     }
 }
 

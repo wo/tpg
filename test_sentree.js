@@ -42,6 +42,49 @@ tests = {
         var sentree = new SenTree(prover.tree, parser);
         assertEqual(sentree.nodes.length, 9);
     },
+
+    dne3: function() {
+        // handle triply and quadruply negated formulas
+        var parser = new Parser();
+        var f = parser.parseFormula('¬¬¬∃x(Fx∧Gx)↔∀x¬(Fx∧Gx)').negate();
+        var prover = new Prover([f], parser);
+        prover.pauseLength = 0;
+        prover.start();
+        var sentree = new SenTree(prover.tree, parser);
+        assertEqual(sentree.nodes.length, 21);
+    },
+
+    dne4: function() {
+        // don't branch for DNE
+        var parser = new Parser();
+        var f = parser.parseFormula('¬∃x(Fx∧Gx)↔∀x¬(Fx∧Gx)').negate();
+        var prover = new Prover([f], parser);
+        prover.pauseLength = 0;
+        prover.start();
+        var sentree = new SenTree(prover.tree, parser);
+        assertEqual(sentree.nodes[3].children.length, 1);
+    },
+    
+    dne5: function() {
+        // expand DNE nodes that are only needed for closing a branch (not in any fromNodes)
+        var parser = new Parser();
+        var f = parser.parseFormula('¬¬¬¬¬¬p→p').negate();
+        var prover = new Prover([f], parser);
+        prover.pauseLength = 0;
+        prover.start();
+        var sentree = new SenTree(prover.tree, parser);
+        assertEqual(sentree.nodes.length, 6);
+    },
+    
+    dne6: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('¬¬¬¬((A↔A)↔(A↔¬¬¬¬A))').negate();
+        var prover = new Prover([f], parser);
+        prover.pauseLength = 0;
+        prover.start();
+        var sentree = new SenTree(prover.tree, parser);
+        assertEqual(sentree.nodes.length, 27);
+    },
     
     bicondAndDn: function() {
         var parser = new Parser();
@@ -50,8 +93,8 @@ tests = {
         prover.pauseLength = 0;
         prover.start();
         var sentree = new SenTree(prover.tree, parser);
-        assertEqual(sentree.nodes.length, 6);
-        assertEqual(sentree.nodes[1].children[0].formula.string, 'A');
+        assertEqual(sentree.nodes.length, 7);
+        assertEqual(sentree.nodes[0].children[0].children[0].formula.string, 'A');
     },
 
     emil: function() {
