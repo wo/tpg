@@ -57,8 +57,8 @@ function ModelFinder(initFormulas, parser, accessibilityConstraints, s5) {
     }
     
     // break down initFormulas and accessibilityConstraints into clauses:
-    this.initFormulas = initFormulas.concat(accessibilityConstraints || []);
-    this.normalizeInitFormulas();
+    initFormulas = initFormulas.concat(accessibilityConstraints || []);
+    this.clauses = this.getClauses(initFormulas);
     
     // initialize model:
     var numIndividuals = 1;
@@ -70,12 +70,8 @@ function ModelFinder(initFormulas, parser, accessibilityConstraints, s5) {
 }
 
 ModelFinder.prototype.normalizeInitFormulas = function() {
-    // skolemize initFormulas and remove quantifiers. (We can't convert to CNF
-    // here if we use tseitin CNFs: consider ∃xFx → ∃xGx: skolemized, this
-    // becomes ¬Fx ∨ Ga. The tseitin transform of that is (p ↔ ¬Fx) ∧ (p ∨ Ga).
-    // But ∀x(¬Fx ∨ Ga) is not equisatisfiable with ∀x((p ↔ ¬Fx) ∧ (p ∨ Ga)).
-    // So we convert to CNF only after instantiating variables on a
-    // given domain.)
+    // del xxx
+    // skolemize initFormulas, remove quantifiers, and convert to CNF
     for (var i=0; i<this.initFormulas.length; i++) {
         var formula = this.initFormulas[i];
         log('normalizing '+formula);
@@ -93,7 +89,6 @@ ModelFinder.prototype.normalizeInitFormulas = function() {
 }
  
 ModelFinder.prototype.getClauses = function(formulas) {
-    // xxx del
     // convert <formulas> into clausal normal form and return combined list of
     // clauses. A clausal normal form is a list (interpreted as conjunction) of
     // "clauses", each of which is a list (interpreted as disjunction) of
@@ -195,6 +190,255 @@ ModelFinder.prototype.skolemize = function(formula) {
     return formula;
 }
 
+ModelFinder.prototype.tseitinCNF = function(formula) {
+    // convert <formula> into CNF. We use a kind of tseitin transform to reduce
+    // the number of clauses in bad cases. But we have to be careful with free
+    // variables. Consider ∃xFx → ∃xGx. Skolemized, this becomes ¬Fx ∨ Ga.
+    // The tseitin transform of that is (p ↔ ¬Fx) ∧ (p ∨ Ga). But if we
+    // instantiate (p ↔ ¬Fx) ∧ (p ∨ Ga) as (p ↔ ¬F0) ∧ (p ∨ Ga) and (p ↔ ¬F1) ∧
+    // (p ∨ Ga), we wrongly require F0 ↔ F1. So we don't use new proposition
+    // letters p, but first-order formulas: with Px instead of p, the transform
+    // is (Px ↔ ¬Fx) ∧ (Px ∨ Ga); instances are (P0 ↔ ¬F0) ∧ (P0 ∨ Ga) and (P1 ↔
+    // ¬F1) ∧ (P1 ∨ Ga).
+    if (formula.type == 'literal') {
+        return [[formula]];
+    }
+    log('creating tseitin transform of '+formula);
+    // collect all non-atomic subformulas:
+    var subformulas = this.tseitinSubFormulas([formula]).removeDuplicates();
+    // sort by increasing complexity:
+    subformulas.sort(function(a,b) {
+        return tseitinComplexity(a) - tseitinComplexity(b);
+    });
+    // Now introduce a new atomic formula for each non-literal subformula.
+    if (!this.tseitsinFormulas) {
+        this.tseitsinFormulas = {}; // subformula => formula, so that we use the
+                                    // same tseitsin formula for the same
+                                    // subformula in different <formula>s
+    }
+    clauses = [];
+    while (subformulas.length) {
+        var subf = subformulas.shift();
+        log('  subformula '+subf)
+        var p = this.tseitsinFormulas[subf.string];
+        if (!p) {
+            var vars = this.parser.getVariables(subf); // xxx optimise!
+            var pSym = this.parser.getNewSymbol('$', 'tseitin predicate', vars.length);
+            p = new AtomicFormula(pSym, vars);
+            p.isTseitinFormula = true;
+            this.tseitsinFormulas[subf.string] = p;
+            // add 'p <-> S':
+            var bicond = new BinaryFormula('↔', p, subf);
+            clauses = clauses.concatNoDuplicates(this.cnf(bicond));
+            log('  adding clause for '+bicond+': '+clauses);
+        }
+        // else log('subformula already known');
+        if (subformulas.length == 0) {
+            // add p itself:
+            clauses = clauses.concatNoDuplicates([[p]]);
+            log('  adding tseitin formula '+p);
+        }
+        // replace all occurrences of sentence in the list by p:
+        for (var i=0; i<subformulas.length; i++) {
+            subformulas[i] = this.tseitinReplace(subformulas[i], subf, p);
+        }
+    }
+    clauses.sort(function(a,b){ return a.length > b.length; });
+    return clauses;
+
+    function tseitinComplexity(formula) {
+        // return degree of complexity of <formula>, for sorting
+        if (formula.sub) {
+            return 1 + tseitinComplexity(formula.sub);
+        }
+        if (formula.sub1) {
+            return 1 + Math.max(tseitinComplexity(formula.sub1),
+                                tseitinComplexity(formula.sub2));
+        }
+        return 0;
+    }
+
+}
+
+ModelFinder.prototype.tseitinSubFormulas = function(formulas) {
+    // return non-literal subformulas of <formulas>
+    var res = []
+    for (var i=0; i<formulas.length; i++) {
+        if (formulas[i].type != 'literal') {
+            var subformulas = formulas[i].sub ? [formulas[i].sub] :
+                formulas[i].sub1 ? [formulas[i].sub1, formulas[i].sub2] : null;
+            res = res.concat(this.tseitinSubFormulas(subformulas));
+            res.unshift(formulas[i]);
+        }
+    }
+    return res;
+}
+
+ModelFinder.prototype.tseitinReplace = function(formula, f1, f2) {
+    // replace all occurrences of f1 in formula by f2:
+    if (formula.equals(f1)) return f2;
+    if (formula.sub) {
+        var nsub = this.tseitinReplace(formula.sub, f1, f2);
+        if (nsub == formula.sub) return formula;
+        return new NegatedFormula(nsub);
+    }
+    if (formula.sub1) {
+        var nsub1 = this.tseitinReplace(formula.sub1, f1, f2);
+        var nsub2 = this.tseitinReplace(formula.sub2, f1, f2);
+        if (formula.sub1 == nsub1 && formula.sub2 == nsub2) return formula;
+        return new BinaryFormula(formula.operator, nsub1, nsub2);
+    }
+    return formula;
+}
+
+ModelFinder.prototype.cnf = function(formula) {
+    // convert <formula> to CNF; formula need not be in NNF (because of tseitin
+    // transformations).
+    if (formula.type == 'literal') {
+        // return CNF with 1 clause containing 1 literal:
+        return [[formula]];
+    }
+    // xxx optimize: remove creation of negated formulas through negate() etc.?
+    var con, dis;
+    switch (formula.operator) {
+    case '∧': {
+        con = [this.cnf(formula.sub1), this.cnf(formula.sub2)];
+        break;
+    }
+    case '∨': {
+        dis = [this.cnf(formula.sub1), this.cnf(formula.sub2)];
+        break;
+    }
+    case '→': {
+        dis = [this.cnf(formula.sub1.negate()), this.cnf(formula.sub2)];
+        break;
+    }
+    case '↔' : {
+        con1 = this.cnf(new BinaryFormula('→', formula.sub1, formula.sub2));
+        con2 = this.cnf(new BinaryFormula('→', formula.sub2, formula.sub1));
+        con = [con1, con2];
+        break;
+    }
+    case '¬' : {
+        var sub = formula.sub;
+        switch (sub.operator) {
+        case '∧': {
+            dis = [this.cnf(sub.sub1.negate()), this.cnf(sub.sub2.negate())];
+            break;
+        }
+        case '∨': {
+            con = [this.cnf(sub.sub1.negate()), this.cnf(sub.sub2.negate())];
+            break;
+        }
+        case '→': {
+            con = [this.cnf(sub.sub1), this.cnf(sub.sub2.negate())];
+            break;
+        }
+        case '↔' : {
+            // dis1 = this.cnf(new BinaryFormula('∧', sub.sub1, sub.sub2.negate()));
+            // dis2 = this.cnf(new BinaryFormula('∧', sub.sub1.negate(), sub.sub2));
+            // dis = [dis1, dis2];
+            con1 = this.cnf(new BinaryFormula('∨', sub.sub1, sub.sub2));
+            con2 = this.cnf(new BinaryFormula('∨', sub.sub1.negate(), sub.sub2.negate()));
+            con = [con1, con2];
+            break;
+        }
+        case '¬' : {
+            return this.cnf(sub.sub);
+        }
+        }
+    }
+    }
+    var res = [];
+    if (con) {
+        // log('∧: concatenating clauses of '+formula.sub1+' and '+formula.sub2);
+        // con1 is [C1, C2 ...], con2 is [D1, D2, ...], where the elements are
+        // clauses; return [C1, C2, ..., D1, D2, ...]:
+        // log('back up at ∧: concatenating clauses of '+con[0]+' and '+con[1]);
+        // log('which are '+con[0]+' and '+con[1]);
+        res = con[0].concatNoDuplicates(con[1]);
+    }
+    else if (dis) {
+        // log('∨: combining clauses of '+formula.sub1+' and '+formula.sub2);
+        // dis1 is [C1, C2 ...], dis2 is [D1, D2, ...], where the elements are
+        // disjunctions of literals; (C1 & C2 & ...) v (D1 & D2 & ..) is
+        // equivalent to (C1 v D1) & (C1 v D2) & ... (C2 v D1) & (C2 V D2) &
+        // ...; so return [C1+D1, C1+D2, ..., C2+D1, C2+D2, ...]:
+        // log('back up at ∨: combining clauses of '+formula.sub1+' and '+formula.sub2);
+        // log('which are '+dis[0]+' and '+dis[1]);
+        for (var i=0; i<dis[0].length; i++) {
+            for (var j=0; j<dis[1].length; j++) {
+                // dis[0][i] and dis[1][j] are clauses, we want to combine them
+                // log('adding '+dis[0][i].concat(dis[1][j]));
+                res.push(dis[0][i].concatNoDuplicates(dis[1][j]).sort());
+                // (sort each clause so that we can remove duplicate clauses)
+            }
+        }
+    }
+    res.sort(function(a,b){ return a.length > b.length; });
+    return res;
+}
+
+ModelFinder.prototype.simplifyClauses = function(clauseList) {
+    // simplify <clauseList>
+
+    // remove clauses that contain contradictory formulas, e.g. [p,q,¬p]:
+    var nl = clauseList.filter(function(clause) {
+        for (var i=0; i<clause.length; i++) {
+            for (var j=i+1; j<clause.length; j++) {
+                if (clause[i].sub && clause[i].sub.string == clause[j].string ||
+                    clause[j].sub && clause[j].sub.string == clause[i].string) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    });
+
+    // TODO: if an atom occurs only positively/negatively in the list of
+    // clauses, it can be set as true/false;
+
+    
+    // // remove repetitions in clauses, as in [p,p,q]:
+    // var nl = nl.map(function(clause) {
+    //     return clause.removeDuplicates();
+    // });
+
+    // If clause A is a subset of (or equal to) clause B, clause B can be
+    // removed (e.g. [[p],[p,q]] => [[p]] or [[q,s],[p,q,r,s]] => [[q,s]]. The
+    // naive way to test this is O(n!). The following still takes too long if we
+    // have a lot of clauses.
+    nl2 = nl.copy();
+    // We store which clauses contain which literals: q => [c1,c2],...
+    var literals2clauses = {};
+    for (var i=0; i<nl.length; i++) {
+        for (var k=0; k<nl[i].length; k++) {
+            var lit = nl[i][k].string;
+            if (!literals2clauses[lit]) literals2clauses[lit] = [nl[i]];
+            else literals2clauses[lit].push(nl[i]);
+        }
+    }
+    // We look for supersets of each clause:
+    for (var i=0; i<nl.length; i++) {
+        var clause = nl[i];
+        var lit = clause[0].string;
+        var supersets = literals2clauses[lit];
+        // log(clause+': supsersets from first literal: '+supersets);
+        for (var k=1; k<clause.length && supersets.length; k++) {
+            lit = clause[k].string;
+            supersets.intersect(literals2clauses[lit]);
+            // log(clause+': supsersets from next literal: '+supersets);
+        }
+        // log(clause+' is contained in '+supersets);
+        for (var k=0; k<supersets.length; k++) {
+            if (nl.indexOf(supersets[k]) > nl.indexOf(clause)) {
+                nl2.remove(supersets[k]);
+            }
+        }
+    }
+    return nl2;
+}
+
 ModelFinder.prototype.nextStep = function() {
     // Each call of this function tries to extend the interpretation function of
     // this.model so that it satisfies the first literal in the first clause
@@ -216,7 +460,7 @@ ModelFinder.prototype.nextStep = function() {
         return false;
     }
     while (this.model.clauses[0].length == 1 &&
-           (literal.isTseitinLetter || (literal.sub && literal.sub.isTseitinLetter))) {
+           (literal.isTseitinFormula || (literal.sub && literal.sub.isTseitinFormula))) {
         // We ultimately don't care about the interpretation of tseitin letters,
         // and if they occur in a unit clause, we have no choice of how to
         // interpret them.
@@ -317,7 +561,6 @@ ModelFinder.prototype.backtrack = function() {
     }
 }
 
-
 function Model(modelfinder, numIndividuals, numWorlds) {
     // A (partial) model; also serves as a modelfinder state for backtracking
 
@@ -332,7 +575,7 @@ function Model(modelfinder, numIndividuals, numWorlds) {
     this.domain = Array.getArrayOfNumbers(numIndividuals);
     this.worlds = Array.getArrayOfNumbers(numWorlds);
     this.isModal = numWorlds > 0;
-    log('model domain '+this.domain+', worlds '+this.worlds);
+    console.log('model domain '+this.domain+', worlds '+this.worlds);
 
     // initialize interpretation function:
     this.interpretation = {}; // e.g. 'a' => 0, '[f,0]' => 2, 'F[0]' => true
@@ -347,8 +590,8 @@ function Model(modelfinder, numIndividuals, numWorlds) {
     this.curInt = {};
 }
 
-Model.prototype.getDomainClauses = function() {
-    // instantiate variables in initFormulas and convert to CNF
+Model.prototype.getDomainClausesXXX = function() {
+    // instantiate variables in modelfinder.clauses
     log('creating domain clauses');
     var res = [];
     for (var i=0; i<this.modelfinder.initFormulas.length; i++) {
@@ -370,7 +613,7 @@ Model.prototype.getDomainClauses = function() {
     return res;
 }
 
-Model.prototype.instantiateFormula = function(formula) {
+Model.prototype.instantiateFormulaxxxdel = function(formula) {
     // replace free variables in <formula> by numerals, for each element of the
     // domain(s); returns list of instantiated formulas;
     if (formula.variables.length == 0) {
@@ -395,8 +638,7 @@ Model.prototype.instantiateFormula = function(formula) {
     return res;
 }
 
-Model.prototype.xxxgetDomainClauses = function() {
-    // xxx del
+Model.prototype.getDomainClauses = function() {
     // turn modelfinder.clauses into a variable-free list of clauses that serves
     // as constraints on interpretations. If the domain is [0,1], then a clause
     // ['Fx','xRy'] is turned into ['F0','0R0'], ['F0','0R1'], ['F1','1R0'],
@@ -409,7 +651,7 @@ Model.prototype.xxxgetDomainClauses = function() {
         // collect all variables in the clause:
         var variables = [];
         for (var i=0; i<clause.length; i++) {
-            variables = variables.concatNoDuplicates(this.parser.getVariables(clause[i]));
+            variables = variables.concatNoDuplicates(this.parser.getVariables(clause[i])); // xxx optimise
         }
         if (variables.length == 0) {
             // log('    adding clause to constraint');
@@ -475,246 +717,6 @@ Model.iterateTuple = function(tuple, maxValues) {
     //   at i=2, tuple -> 010
     //   at i=1, tuple -> 000
     //   at i=0, tuple -> 100, return true
-}
-
-Model.prototype.tseitinCNF = function(formula) {
-    // convert <formula> into equisatisfiable CNF
-    if (formula.type == 'literal') {
-        return [[formula]];
-    }
-    log('creating tseitin transform of '+formula);
-    // collect all non-atomic subformulas:
-    var subformulas = this.tseitinSubFormulas([formula]).removeDuplicates();
-    // sort by increasing complexity:
-    subformulas.sort(function(a,b) {
-        return tseitinComplexity(a) - tseitinComplexity(b);
-    });
-    // introduce a new propositional constant p for each non-literal subformula:
-    if (!this.tseitsinFormulas) {
-        this.tseitsinFormulas = {}; // subformula => tseitsin letter, so that we
-                                    // use the same tseitsin letter for the same
-                                    // subformula in different formulas
-    }
-    conjuncts = [];
-    while (subformulas.length) {
-        var subf = subformulas.shift();
-        log('  subformula '+subf)
-        var p = this.tseitsinFormulas[subf.string];
-        if (!p) {
-            var pSym = this.parser.getNewSymbol('$', 'tseitsin proposition letter', 0);
-            p = new AtomicFormula(pSym, []);
-            p.isTseitinLetter = true;
-            this.tseitsinFormulas[subf.string] = p;
-            // add 'p <-> S':
-            var bicond = new BinaryFormula('↔', p, subf);
-            conjuncts = conjuncts.concatNoDuplicates(this.cnf(bicond));
-            log('  adding clause for '+bicond+': '+conjuncts);
-        }
-        // else log('subformula already known');
-        if (subformulas.length == 0) {
-            // add p itself:
-            conjuncts = conjuncts.concatNoDuplicates([[p]]);
-            log('  adding sentence letter '+p);
-        }
-        // replace all occurrences of sentence in the list by p:
-        for (var i=0; i<subformulas.length; i++) {
-            subformulas[i] = this.tseitinReplace(subformulas[i], subf, p);
-        }
-    }
-    conjuncts.sort(function(a,b){ return a.length > b.length; });
-    return conjuncts;
-
-    function tseitinComplexity (formula) {
-        // return degree of complexity of <formula>, for sorting
-        // if (formula.sub) {
-        //     return 1 + tseitinComplexity(formula.sub);
-        // }
-        if (formula.sub1) {
-            return 1 + Math.max(tseitinComplexity(formula.sub1),
-                                tseitinComplexity(formula.sub2));
-        }
-        return 0;
-    }
-
-}
-
-Model.prototype.tseitinSubFormulas = function(formulas) {
-    // return non-literal subformulas of <formulas>
-    var res = []
-    for (var i=0; i<formulas.length; i++) {
-        if (formulas[i].type != 'literal') {
-            var subformulas = formulas[i].sub ? [formulas[i].sub] :
-                formulas[i].sub1 ? [formulas[i].sub1, formulas[i].sub2] : null;
-            res = res.concat(this.tseitinSubFormulas(subformulas));
-            res.unshift(formulas[i]);
-        }
-    }
-    return res;
-}
-
-Model.prototype.tseitinReplace = function(formula, f1, f2) {
-    // replace all occurrences of f1 in formula by f2:
-    if (formula.equals(f1)) return f2;
-    if (formula.sub) {
-        var nsub = this.tseitinReplace(formula.sub, f1, f2);
-        if (nsub == formula.sub) return formula;
-        return new NegatedFormula(nsub);
-    }
-    if (formula.sub1) {
-        var nsub1 = this.tseitinReplace(formula.sub1, f1, f2);
-        var nsub2 = this.tseitinReplace(formula.sub2, f1, f2);
-        if (formula.sub1 == nsub1 && formula.sub2 == nsub2) return formula;
-        return new BinaryFormula(formula.operator, nsub1, nsub2);
-    }
-    return formula;
-}
-
-Model.prototype.cnf = function(formula) {
-    // convert <formula> to CNF; formula need not be in NNF (because of tseitin
-    // transformations).
-    if (formula.type == 'literal') {
-        // return CNF with 1 clause containing 1 literal:
-        return [[formula]];
-    }
-    // xxx optimize: remove creation of negated formulas through negate() etc.?
-    var con, dis;
-    switch (formula.operator) {
-    case '∧': {
-        con = [this.cnf(formula.sub1), this.cnf(formula.sub2)];
-        break;
-    }
-    case '∨': {
-        dis = [this.cnf(formula.sub1), this.cnf(formula.sub2)];
-        break;
-    }
-    case '→': {
-        dis = [this.cnf(formula.sub1.negate()), this.cnf(formula.sub2)];
-        break;
-    }
-    case '↔' : {
-        con1 = this.cnf(new BinaryFormula('→', formula.sub1, formula.sub2));
-        con2 = this.cnf(new BinaryFormula('→', formula.sub2, formula.sub1));
-        con = [con1, con2];
-        break;
-    }
-    case '¬' : {
-        var sub = formula.sub;
-        switch (sub.operator) {
-        case '∧': {
-            dis = [this.cnf(sub.sub1.negate()), this.cnf(sub.sub2.negate())];
-            break;
-        }
-        case '∨': {
-            con = [this.cnf(sub.sub1.negate()), this.cnf(sub.sub2.negate())];
-            break;
-        }
-        case '→': {
-            con = [this.cnf(sub.sub1), this.cnf(sub.sub2.negate())];
-            break;
-        }
-        case '↔' : {
-            // dis1 = this.cnf(new BinaryFormula('∧', sub.sub1, sub.sub2.negate()));
-            // dis2 = this.cnf(new BinaryFormula('∧', sub.sub1.negate(), sub.sub2));
-            // dis = [dis1, dis2];
-            con1 = this.cnf(new BinaryFormula('∨', sub.sub1, sub.sub2));
-            con2 = this.cnf(new BinaryFormula('∨', sub.sub1.negate(), sub.sub2.negate()));
-            con = [con1, con2];
-            break;
-        }
-        case '¬' : {
-            return this.cnf(sub.sub);
-        }
-        }
-    }
-    }
-    var res = [];
-    if (con) {
-        // log('∧: concatenating clauses of '+formula.sub1+' and '+formula.sub2);
-        // con1 is [C1, C2 ...], con2 is [D1, D2, ...], where the elements are
-        // clauses; return [C1, C2, ..., D1, D2, ...]:
-        // log('back up at ∧: concatenating clauses of '+con[0]+' and '+con[1]);
-        // log('which are '+con[0]+' and '+con[1]);
-        res = con[0].concatNoDuplicates(con[1]);
-    }
-    else if (dis) {
-        // log('∨: combining clauses of '+formula.sub1+' and '+formula.sub2);
-        // dis1 is [C1, C2 ...], dis2 is [D1, D2, ...], where the elements are
-        // disjunctions of literals; (C1 & C2 & ...) v (D1 & D2 & ..) is
-        // equivalent to (C1 v D1) & (C1 v D2) & ... (C2 v D1) & (C2 V D2) &
-        // ...; so return [C1+D1, C1+D2, ..., C2+D1, C2+D2, ...]:
-        // log('back up at ∨: combining clauses of '+formula.sub1+' and '+formula.sub2);
-        // log('which are '+dis[0]+' and '+dis[1]);
-        for (var i=0; i<dis[0].length; i++) {
-            for (var j=0; j<dis[1].length; j++) {
-                // dis[0][i] and dis[1][j] are clauses, we want to combine them
-                // log('adding '+dis[0][i].concat(dis[1][j]));
-                res.push(dis[0][i].concatNoDuplicates(dis[1][j]).sort());
-                // (sort each clause so that we can remove duplicate clauses)
-            }
-        }
-    }
-    res.sort(function(a,b){ return a.length > b.length; });
-    return res;
-}
-
-Model.prototype.simplifyClauses = function(clauseList) {
-    // simplify <clauseList>
-
-    // remove clauses that contain contradictory formulas, e.g. [p,q,¬p]:
-    var nl = clauseList.filter(function(clause) {
-        for (var i=0; i<clause.length; i++) {
-            for (var j=i+1; j<clause.length; j++) {
-                if (clause[i].sub && clause[i].sub.string == clause[j].string ||
-                    clause[j].sub && clause[j].sub.string == clause[i].string) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    });
-
-    // TODO: if an atom occurs only positively/negatively in the list of
-    // clauses, it can be set as true/false;
-
-    
-    // // remove repetitions in clauses, as in [p,p,q]:
-    // var nl = nl.map(function(clause) {
-    //     return clause.removeDuplicates();
-    // });
-
-    // If clause A is a subset of (or equal to) clause B, clause B can be
-    // removed (e.g. [[p],[p,q]] => [[p]] or [[q,s],[p,q,r,s]] => [[q,s]]. The
-    // naive way to test this is O(n!). The following still takes too long if we
-    // have a lot of clauses.
-    nl2 = nl.copy();
-    // We store which clauses contain which literals: q => [c1,c2],...
-    var literals2clauses = {};
-    for (var i=0; i<nl.length; i++) {
-        for (var k=0; k<nl[i].length; k++) {
-            var lit = nl[i][k].string;
-            if (!literals2clauses[lit]) literals2clauses[lit] = [nl[i]];
-            else literals2clauses[lit].push(nl[i]);
-        }
-    }
-    // We look for supersets of each clause:
-    for (var i=0; i<nl.length; i++) {
-        var clause = nl[i];
-        var lit = clause[0].string;
-        var supersets = literals2clauses[lit];
-        // log(clause+': supsersets from first literal: '+supersets);
-        for (var k=1; k<clause.length && supersets.length; k++) {
-            lit = clause[k].string;
-            supersets.intersect(literals2clauses[lit]);
-            // log(clause+': supsersets from next literal: '+supersets);
-        }
-        // log(clause+' is contained in '+supersets);
-        for (var k=0; k<supersets.length; k++) {
-            if (nl.indexOf(supersets[k]) > nl.indexOf(clause)) {
-                nl2.remove(supersets[k]);
-            }
-        }
-    }
-    return nl2;
 }
 
 
@@ -1040,9 +1042,9 @@ Model.prototype.simplifyRemainingClauses = function() {
         nclauses.push(nclause);
     }
     nclauses.sort(function(a,b) {
-        // process tseitin letters first:
+        // process tseitin formulas first:
         if (a.length == 1 && b.length == 1) {
-            return b[0].isTseitinLetter && !a[0].isTseitinLetter;
+            return b[0].isTseitinFormula && !a[0].isTseitinFormula;
         }
         return a.length > b.length;
     });
@@ -1051,9 +1053,8 @@ Model.prototype.simplifyRemainingClauses = function() {
 }
 
 Model.prototype.unitResolve = function(literal) {
-    // <literal> is a tseitin letter in a unit clause; it can't have been
-    // interpreted before, so we can interpret it as true and simplify the
-    // remaining clauses accordingly.
+    // <literal> is a tseitin formula in a unit clause; we can interpret it as true
+    // and simplify the remaining clauses accordingly.
     var negLiteralString = (literal.sub && literal.sub.string) || '¬'+literal.string;
     var nclauses = [];
     CLAUSELOOP:
@@ -1070,9 +1071,9 @@ Model.prototype.unitResolve = function(literal) {
         nclauses.push(nclause);
     }
     nclauses.sort(function(a,b) {
-        // process tseitin letters first:
+        // process tseitin formulas first:
         if (a.length == 1 && b.length == 1) {
-            return b[0].isTseitinLetter && !a[0].isTseitinLetter;
+            return b[0].isTseitinFormula && !a[0].isTseitinFormula;
         }
         return a.length > b.length;
     });
