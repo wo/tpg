@@ -575,13 +575,14 @@ function Model(modelfinder, numIndividuals, numWorlds) {
     this.domain = Array.getArrayOfNumbers(numIndividuals);
     this.worlds = Array.getArrayOfNumbers(numWorlds);
     this.isModal = numWorlds > 0;
-    console.log('model domain '+this.domain+', worlds '+this.worlds);
+    log('model domain '+this.domain+', worlds '+this.worlds);
 
     // initialize interpretation function:
     this.interpretation = {}; // e.g. 'a' => 0, '[f,0]' => 2, 'F[0]' => true
 
     // initialize clauses we need to satisfy:
     this.clauses = this.getDomainClauses();
+    log(this.clauses.length+" clauses");
     
     // tentative interpretation of terms in current literal:
     this.termValues = null;
