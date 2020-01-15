@@ -339,6 +339,7 @@ function Model(modelfinder, numIndividuals, numWorlds) {
 
     // initialize clauses we need to satisfy:
     this.clauses = this.getDomainClauses();
+    log(this.clauses.length+" clauses");
     
     // tentative interpretation of terms in current literal:
     this.termValues = null;
