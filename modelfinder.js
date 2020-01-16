@@ -225,7 +225,6 @@ ModelFinder.prototype.tseitinCNF = function(formula) {
             var vars = this.parser.getVariables(subf); // xxx optimise!
             var pSym = this.parser.getNewSymbol('$', 'tseitin predicate', vars.length);
             p = new AtomicFormula(pSym, vars);
-            p.isTseitinFormula = true;
             this.tseitsinFormulas[subf.string] = p;
             // add 'p <-> S':
             var bicond = new BinaryFormula('↔', p, subf);
@@ -459,11 +458,10 @@ ModelFinder.prototype.nextStep = function() {
         this.backtrack();
         return false;
     }
-    while (this.model.clauses[0].length == 1 &&
-           (literal.isTseitinFormula || (literal.sub && literal.sub.isTseitinFormula))) {
-        // We ultimately don't care about the interpretation of tseitin letters,
-        // and if they occur in a unit clause, we have no choice of how to
-        // interpret them.
+    while (this.model.clauses[0].length == 1 && this.parser.isTseitinLiteral(literal)) {
+        // We ultimately don't care about the interpretation of tseitin
+        // formulas, and if they occur in a unit clause, we have no choice of
+        // how to interpret them.
         log('applying unit resolution to '+literal);
         this.model.unitResolve(literal);
         return false;
@@ -671,12 +669,20 @@ Model.prototype.getDomainClauses = function() {
                 for (var i=0; i<variables.length; i++) {
                     nformula = nformula.substitute(variables[i], interpretation[i]);
                 }
-                // log(nformula.string);
                 return nformula;
             });
             res.push(nclause);
         }
     }
+    // label tseitin literals for sorting clauses: xxx optimise we can check for tseitinliterals with indexOf('$')
+    for (var i=0; i<res.length; i++) {
+        for (var j=0; j<res[i].length; j++) {
+            if (this.parser.isTseitinLiteral(res[i][j])) {
+                res[i][j].isTseitinLiteral = true;
+            }
+        }
+    }
+
     log('           clauses: '+res);
     res = this.modelfinder.simplifyClauses(res);
     log('simplified clauses: '+res);
@@ -900,7 +906,7 @@ Model.prototype.reduceArguments = function(term) {
 }
 
 Model.prototype.reduceTerms = function(terms, startIndex) {
-    // replace each term and subterm in <terms>, by its numerical value, as per
+    // replace each term and subterm in <terms> by its numerical value, as per
     // this.curInt. E.g., if curInt['a']=0, and '[f,a]' and 'b' are not in
     // curInt, then a => 0, b => b, [f,a] => [f,0].
     var res = [];
@@ -1032,20 +1038,21 @@ Model.prototype.simplifyRemainingClauses = function() {
                     continue;
                 }
             }
-            if (atom.terms.length) {
+            if (atom.terms.toString() != nterms.toString()) {
                 // replace literal by interpreted literal:
                 var redAtom = new AtomicFormula(atom.predicate, nterms);
-                if (atom==literal) nclause.push(redAtom);
-                else nclause.push(new NegatedFormula(redAtom));
+                var nlit = atom == literal ? redAtom : new NegatedFormula(redAtom);
+                nlit.isTseitinLiteral = literal.isTseitinLiteral;
+                nclause.push(nlit);
             }
             else nclause.push(literal);
         }
         nclauses.push(nclause);
     }
     nclauses.sort(function(a,b) {
-        // process tseitin formulas first:
+        // process unit clauses with tseitin formulas first:
         if (a.length == 1 && b.length == 1) {
-            return b[0].isTseitinFormula && !a[0].isTseitinFormula;
+            return !a[0].isTseitinLiteral && b[0].isTseitinLiteral;
         }
         return a.length > b.length;
     });
@@ -1072,13 +1079,12 @@ Model.prototype.unitResolve = function(literal) {
         nclauses.push(nclause);
     }
     nclauses.sort(function(a,b) {
-        // process tseitin formulas first:
+        // process unit clauses with tseitin formulas first:
         if (a.length == 1 && b.length == 1) {
-            return b[0].isTseitinFormula && !a[0].isTseitinFormula;
+            return !a[0].isTseitinLiteral && b[0].isTseitinLiteral;
         }
         return a.length > b.length;
     });
-    log(nclauses.toString());
     this.clauses = nclauses;
 }
 
@@ -1092,7 +1098,7 @@ Model.prototype.copy = function() {
     nmodel.isModal = this.isModal;
     nmodel.interpretation = this.interpretation;
     nmodel.termValues = this.termValues;
-    nmodel.clauses = this.clauses.copy();
+    nmodel.clauses = this.clauses.copyDeep();
     // curInt isn't copied (contains later predicate interpretations)
     return nmodel;
 }
