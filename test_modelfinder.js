@@ -136,16 +136,23 @@ tests = {
         assertEqual(cnf, '[[p],[q],[Fa,Fc],[Fa,Fd],[Fb,Fc],[Fb,Fd],[Fe,Fg],[Fe,Fh],[Ff,Fg],[Ff,Fh]]');
     },
 
-    tseitin1_fails_because_in_cnf: function() {
+    tseitin1: function() {
         var parser1 = new Parser();
         var parser2 = new Parser();
         var m1 = new ModelFinder([parser1.parseFormula('p')], parser1);
         var m2 = new ModelFinder([parser2.parseFormula('p')], parser2);
         var f = parser1.parseFormula('((p∨q)∧r)→¬s');
+        // var tseitin = parser2.parseFormula('($↔¬s)∧($↔(p∨q))∧($2↔($∧r))∧($3↔($2→$3))∧$3');
+        // [[$3],[$,¬p],[$,¬q],[$,¬$2],[r,¬$2],[$2,$3],[$3,s],[p,q,¬$],[$2,¬$,¬r],[¬$2,¬$3,¬s]]
         var res = m1.tseitinCNF(f);
-        var tseitin = parser2.parseFormula('($3↔¬s)∧($↔(p∨q))∧($2↔($∧r))∧($3↔($2→$3))∧$3');
+        var tseitin = parser2.parseFormula('($↔(p∨q))∧($2↔(¬s∧r))∧($3↔($→$2))∧$3');
+        // ($3↔¬s)∧($↔(p∨q))∧($2↔($∧r))∧($3↔($2→$3))∧$3
+        // ($3 -> ¬s), (~s -> $3), ($ -> (p∨q)), ((pvq) -> $), ($2 -> ($∧r)), (($∧r) -> $2), ($3 -> ($2→$3)), (($2→$3) -> $3), $3
+        // [~$3, ¬s], [s, ~$3], [~$, p, q], [~(pvq), $], [~$2, ($∧r)], [~($∧r), $2], [~$3, ($2→$3)], [~($2→$3), $3], [$3]
+        // [~$3, ¬s], [s, ~$3], [~$, p, q], [~p, $], [~q, $], [~$2, $], [~$2, r], [~$, ~r, $2], [~$3, ~$2, $3], [$2, $3], [~$3, $3], [$3]
+        // [~$, ¬s], [s, $], [~$, p, q], [~p, $], [~q, $], [~$2, $], [~$2, r], [~$, ~r, $2], [$3]
         var cnf = m2.simplifyClauses(m2.cnf(tseitin));
-        assertEqual(res.toString(), cnf.toString()); 
+        assertEqual(res.toString(), cnf.toString());
     },
 
     tseitin2_fails_because_in_cnf: function() {
