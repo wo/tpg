@@ -69,25 +69,6 @@ function ModelFinder(initFormulas, parser, accessibilityConstraints, s5) {
     this.alternativeModels = [];
 }
 
-ModelFinder.prototype.normalizeInitFormulas = function() {
-    // del xxx
-    // skolemize initFormulas, remove quantifiers, and convert to CNF
-    for (var i=0; i<this.initFormulas.length; i++) {
-        var formula = this.initFormulas[i];
-        log('normalizing '+formula);
-        var distinctVars = this.makeVariablesDistinct(formula);
-        log('distinctVars: '+distinctVars);
-        var skolemized = this.skolemize(distinctVars);
-        log('skolemized: '+skolemized);
-        var quantifiersRemoved = skolemized.removeQuantifiers();
-        log('qantifiers removed: '+quantifiersRemoved);
-        // associate formula with property 'variables' listing all free
-        // variables in the formula:
-        quantifiersRemoved.variables = this.parser.getVariables(quantifiersRemoved);
-        this.initFormulas[i] = quantifiersRemoved;
-    }
-}
- 
 ModelFinder.prototype.getClauses = function(formulas) {
     // convert <formulas> into clausal normal form and return combined list of
     // clauses. A clausal normal form is a list (interpreted as conjunction) of
@@ -587,54 +568,6 @@ function Model(modelfinder, numIndividuals, numWorlds) {
 
     // tentative combined interpretation:
     this.curInt = {};
-}
-
-Model.prototype.getDomainClausesXXX = function() {
-    // instantiate variables in modelfinder.clauses
-    log('creating domain clauses');
-    var res = [];
-    for (var i=0; i<this.modelfinder.initFormulas.length; i++) {
-        var initFormula = this.modelfinder.initFormulas[i];
-        log('converting '+initFormula);
-        formulas = this.instantiateFormula(initFormula);
-        for (var j=0; j<formulas.length; j++) {
-            log('instance: '+formulas[j]);
-            var clauses = this.tseitinCNF(formulas[j]);
-            log('cnf: '+clauses);
-            res = res.concatNoDuplicates(clauses);
-        }
-    }
-    // order clauses by length (number of disjuncts):
-    res.sort(function(a,b){ return a.length > b.length; });
-    log('all clauses: '+res);
-    res = this.simplifyClauses(res);
-    log('simplified clauses: '+res);
-    return res;
-}
-
-Model.prototype.instantiateFormulaxxxdel = function(formula) {
-    // replace free variables in <formula> by numerals, for each element of the
-    // domain(s); returns list of instantiated formulas;
-    if (formula.variables.length == 0) {
-        // log('    adding clause to constraint');
-        return [formula];
-    }
-    var res = [];
-    // get all possible interpretations of the variables:
-    var interpretations = this.getVariableAssignments(formula.variables);
-    // log('    variables: '+formula.variables+', interpretations: '+interpretations);
-    // e.g. [[0,0],[0,1],[1,0],[1,1]] for two variables and domain [0,1]
-    for (var i=0; i<interpretations.length; i++) {
-        var interpretation = interpretations[i];
-        // log('    adding clause for interpretation '+interpretation);
-        var nformula = formula;
-        for (var j=0; j<formula.variables.length; j++) {
-            nformula = nformula.substitute(formula.variables[j], interpretation[j]);
-        }
-        // log(nformula.string);
-        res.push(nformula);
-    }
-    return res;
 }
 
 Model.prototype.getDomainClauses = function() {
