@@ -203,7 +203,7 @@ ModelFinder.prototype.tseitinCNF = function(formula) {
         log('  subformula '+subf)
         var p = this.tseitsinFormulas[subf.string];
         if (!p) {
-            var vars = this.parser.getVariables(subf); // xxx optimise!
+            var vars = this.parser.getVariables(subf); // optimise!
             var pSym = this.parser.getNewSymbol('$', 'tseitin predicate', vars.length);
             p = new AtomicFormula(pSym, vars);
             this.tseitsinFormulas[subf.string] = p;
@@ -273,12 +273,12 @@ ModelFinder.prototype.tseitinReplace = function(formula, f1, f2) {
 
 ModelFinder.prototype.cnf = function(formula) {
     // convert <formula> to CNF; formula need not be in NNF (because of tseitin
-    // transformations).
+    // transformations)
     if (formula.type == 'literal') {
         // return CNF with 1 clause containing 1 literal:
         return [[formula]];
     }
-    // xxx optimize: remove creation of negated formulas through negate() etc.?
+    // optimize: remove creation of negated formulas through negate() etc.?
     var con, dis;
     switch (formula.operator) {
     case '∧': {
@@ -439,7 +439,7 @@ ModelFinder.prototype.nextStep = function() {
         this.backtrack();
         return false;
     }
-    while (this.model.clauses[0].length == 1 && this.parser.isTseitinLiteral(literal)) {
+    while (this.model.clauses[0].length == 1 && literal.string.indexOf('$') > -1) {
         // We ultimately don't care about the interpretation of tseitin
         // formulas, and if they occur in a unit clause, we have no choice of
         // how to interpret them.
@@ -583,7 +583,7 @@ Model.prototype.getDomainClauses = function() {
         // collect all variables in the clause:
         var variables = [];
         for (var i=0; i<clause.length; i++) {
-            variables = variables.concatNoDuplicates(this.parser.getVariables(clause[i])); // xxx optimise
+            variables = variables.concatNoDuplicates(this.parser.getVariables(clause[i])); // optimise
         }
         if (variables.length == 0) {
             // log('    adding clause to constraint');
@@ -605,14 +605,6 @@ Model.prototype.getDomainClauses = function() {
                 return nformula;
             });
             res.push(nclause);
-        }
-    }
-    // label tseitin literals for sorting clauses: xxx optimise we can check for tseitinliterals with indexOf('$')
-    for (var i=0; i<res.length; i++) {
-        for (var j=0; j<res[i].length; j++) {
-            if (this.parser.isTseitinLiteral(res[i][j])) {
-                res[i][j].isTseitinLiteral = true;
-            }
         }
     }
 
@@ -975,7 +967,6 @@ Model.prototype.simplifyRemainingClauses = function() {
                 // replace literal by interpreted literal:
                 var redAtom = new AtomicFormula(atom.predicate, nterms);
                 var nlit = atom == literal ? redAtom : new NegatedFormula(redAtom);
-                nlit.isTseitinLiteral = literal.isTseitinLiteral;
                 nclause.push(nlit);
             }
             else nclause.push(literal);
@@ -985,7 +976,7 @@ Model.prototype.simplifyRemainingClauses = function() {
     nclauses.sort(function(a,b) {
         // process unit clauses with tseitin formulas first:
         if (a.length == 1 && b.length == 1) {
-            return !a[0].isTseitinLiteral && b[0].isTseitinLiteral;
+            return a[0].string.indexOf('$') == -1 && b[0].string.indexOf('$') > -1;
         }
         return a.length > b.length;
     });
@@ -1014,7 +1005,7 @@ Model.prototype.unitResolve = function(literal) {
     nclauses.sort(function(a,b) {
         // process unit clauses with tseitin formulas first:
         if (a.length == 1 && b.length == 1) {
-            return !a[0].isTseitinLiteral && b[0].isTseitinLiteral;
+            return a[0].string.indexOf('$') == -1 && b[0].string.indexOf('$') > -1;
         }
         return a.length > b.length;
     });

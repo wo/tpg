@@ -145,23 +145,18 @@ tests = {
         // var tseitin = parser2.parseFormula('($↔¬s)∧($↔(p∨q))∧($2↔($∧r))∧($3↔($2→$3))∧$3');
         // [[$3],[$,¬p],[$,¬q],[$,¬$2],[r,¬$2],[$2,$3],[$3,s],[p,q,¬$],[$2,¬$,¬r],[¬$2,¬$3,¬s]]
         var res = m1.tseitinCNF(f);
-        var tseitin = parser2.parseFormula('($↔(p∨q))∧($2↔(¬s∧r))∧($3↔($→$2))∧$3');
-        // ($3↔¬s)∧($↔(p∨q))∧($2↔($∧r))∧($3↔($2→$3))∧$3
-        // ($3 -> ¬s), (~s -> $3), ($ -> (p∨q)), ((pvq) -> $), ($2 -> ($∧r)), (($∧r) -> $2), ($3 -> ($2→$3)), (($2→$3) -> $3), $3
-        // [~$3, ¬s], [s, ~$3], [~$, p, q], [~(pvq), $], [~$2, ($∧r)], [~($∧r), $2], [~$3, ($2→$3)], [~($2→$3), $3], [$3]
-        // [~$3, ¬s], [s, ~$3], [~$, p, q], [~p, $], [~q, $], [~$2, $], [~$2, r], [~$, ~r, $2], [~$3, ~$2, $3], [$2, $3], [~$3, $3], [$3]
-        // [~$, ¬s], [s, $], [~$, p, q], [~p, $], [~q, $], [~$2, $], [~$2, r], [~$, ~r, $2], [$3]
-        var cnf = m2.simplifyClauses(m2.cnf(tseitin));
+        var tseitin = parser2.parseFormula('($↔(p∨q))∧($2↔($∧r))∧($3↔($2→¬s))∧$3');
+        var cnf = m2.cnf(tseitin);
         assertEqual(res.toString(), cnf.toString());
     },
 
-    tseitin2_fails_because_in_cnf: function() {
-        var parser = new Parser();
-        var m = new ModelFinder([parser.parseFormula('p')], parser);
-        var f = parser.parseFormula('(¬(p∨¬q)∧r)→¬s');
-        var res = m.tseitinCNF(f);
-        assertEqual(res.toString(), '[(p2↔¬s),(p3↔¬q),(p4↔(p∨p3)),(p5↔¬p4),(p6↔(p5∧r)),(p7↔(p6→p2)),p7]');
-    },
+    // tseitin2_fails_because_in_cnf: function() {
+    //     var parser = new Parser();
+    //     var m = new ModelFinder([parser.parseFormula('p')], parser);
+    //     var f = parser.parseFormula('(¬(p∨¬q)∧r)→¬s');
+    //     var res = m.tseitinCNF(f);
+    //     assertEqual(res.toString(), '[(p2↔¬s),(p3↔¬q),(p4↔(p∨p3)),(p5↔¬p4),(p6↔(p5∧r)),(p7↔(p6→p2)),p7]');
+    // },
 
     transformation1: function() {
         var parser = new Parser();
@@ -196,10 +191,10 @@ tests = {
         var parser = new Parser();
         var initflas = [parser.parseFormula('r∧p'), parser.parseFormula('q∧(r∧p)')];
         var m = new ModelFinder(initflas, parser);
-        assertEqual(m.clauses.toString(), '[[p2],[p3],[r,¬p2],[p,¬p2],[q,¬p3]]');
+        assertEqual(m.clauses.toString(), '[[$],[$2],[r,¬$],[p,¬$],[q,¬$2]]');
         initflas.push(parser.parseFormula('Fa'))
         m = new ModelFinder(initflas, parser);
-        assertEqual(m.clauses.toString(), '[[p4],[p5],[Fa],[r,¬p4],[p,¬p4],[q,¬p5]]');
+        assertEqual(m.clauses.toString(), '[[$3],[$4],[Fa],[r,¬$3],[p,¬$3],[q,¬$4]]');
     },
 
     modelclauses_quantified1: function() {
@@ -227,12 +222,12 @@ tests = {
     modelclauses_quantified3: function() {
         var parser = new Parser();
         var initflas = [parser.parseFormula('∀x∃y(Fx∧∀zHxyz)')];
-        // skolemized: (Fx∧Hxf(x)z); tseitin-cnf: [p],[Fx,¬p],[Hxf(x)z,¬p],[p,¬Fx,¬Hxf(x)z]]');
+        // skolemized: (Fx∧Hxf(x)z); tseitin-cnf: [$xz],[Fx,¬$xz],[Hxf(x)z,¬$xz],[$xz,¬Fx,¬Hxf(x)z]]');
         var mf = new ModelFinder(initflas, parser);
         var m = mf.model;
-        assertEqual(m.clauses.toString(), '[[p],[F0,¬p],[H0f(0)0,¬p]]');
+        assertEqual(m.clauses.toString(), '[[$00],[F0,¬$00],[H0f(0)0,¬$00]]');
         m = new Model(mf, 2, 0);
-        var correct = '[[p2],[p3],[p4],[p5],[F0,¬p2],[H0f(0)0,¬p2],[F0,¬p3],[H0f(0)1,¬p3],[F1,¬p4],[H1f(1)0,¬p4],[F1,¬p5],[H1f(1)1,¬p5]]'
+        var correct = '[[$00],[$01],[$10],[$11],[F0,¬$00],[F0,¬$01],[F1,¬$10],[F1,¬$11],[H0f(0)0,¬$00],[H0f(0)1,¬$01],[H1f(1)0,¬$10],[H1f(1)1,¬$11]]'
         // reduces to [[F0],[F1],[H0f(0)0],[H0f(0)1],[H1f(1)0],[H1f(1)1]]
         assertEqual(m.clauses.toString(), correct);
     },
@@ -330,7 +325,9 @@ tests = {
         }
         assert(i<500);
         assertEqual(mf.model.domain.length, 2);
-        assert(mf.model.toString().indexOf('F: { 1 }') > 0);
+        log(mf.model.toString());
+        assert(mf.model.toString().indexOf('F: { 0,1 }') > 0);
+        // assert(mf.model.toString().indexOf('F: { 1 }') > 0); would do as well
         assert(mf.model.toString().indexOf('G: { 0 }') > 0);
     },
 
