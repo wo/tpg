@@ -91,7 +91,29 @@ Parser.prototype.getNewWorldName = function() {
 
 Parser.prototype.getVariables = function(formula) {
     // return all variables in <formula>
-    var variables = this.getSymbols('variable');
+    if (formula.sub) {
+        return this.getVariables(formula.sub);
+    }
+    if (formula.sub1) {
+        return this.getVariables(formula.sub1).concatNoDuplicates(
+            this.getVariables(formula.sub2));
+    }
+    var res = [];
+    var dupe = {};
+    var terms = formula.isArray ? formula : formula.terms;
+    for (var i=0; i<terms.length; i++) {
+        if (terms[i].isArray) {
+            res = res.concatNoDuplicates(this.getVariables(terms[i]));
+        }
+        else if (this.expressionType[terms[i]].indexOf('variable') > -1
+                 && !dupe[terms[i]]) {
+            dupe[terms[i]] = true;
+            res.push(terms[i]);
+        }
+    }
+    return res;
+    
+    // xxx del
     var res = [];
     var dupe = {};
     var num_re = /[0-9]/;
@@ -105,6 +127,10 @@ Parser.prototype.getVariables = function(formula) {
         }
     }
     return res;
+}
+
+Parser.prototype.isTseitinLiteral = function(formula) {
+    return this.expressionType[formula.predicate || formula.sub.predicate] == 'tseitin predicate';
 }
 
 Parser.prototype.initModality = function() {
