@@ -166,8 +166,10 @@ onload = function(e) {
     // register event handlers:
     document.forms[0].flaField.onkeyup = updateInput;
     document.forms[0].onsubmit = function(e) {
-        setHash();
-        startProof();
+        setTimeout(function() {
+            setHash();
+            startProof();
+        }, 1);
         return false;
     }
     // start proof submitted via URL (e.g. from back button):
