@@ -56,6 +56,7 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
     this.curAlternativeIndex = 0; 
 
     // init modelfinder:
+    log("initializing modelfinder")
     var mfParser = this.parser.copy();
     if (accessibilityConstraints) {
         var name2fla = {
