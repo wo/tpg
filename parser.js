@@ -146,7 +146,6 @@ Parser.prototype.initModality = function() {
     // parsed.
     this.R = this.getNewSymbol('Rrℜ', '2-ary predicate', 2);
     this.w = this.getNewSymbol('wvur', 'world constant', 0);
-    this.registerExpression(this.w, 'world constant', 0);
 }
 
 Parser.prototype.translateFromModal = function(formula, worldVariable) {
@@ -380,7 +379,7 @@ Parser.prototype.parseFormula = function(str) {
         if (!str.substr(reTest[0].length)) {
             throw "There is nothing in the scope of "+str;
         }
-        if (this.registerExpression[variable] != 'world variable') {
+        if (this.expressionType[variable] != 'world variable') {
             this.registerExpression(variable, 'variable', 0);
         }
         boundVars.push(variable);
@@ -457,7 +456,7 @@ Parser.prototype.parseAccessibilityFormula = function(str) {
         }
         else {
             // also register variables as world variables:
-            this.registerExpression[v] = 'world variable';
+            this.registerExpression(v, 'world variable', 0);
         }
     }
     var isPropositional = this.isPropositional;
