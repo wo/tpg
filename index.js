@@ -1,5 +1,5 @@
 
-// This file deals with the user interface of index.html.
+// This file deals with the user interface.
 
 var flaFieldValue = '';
 function updateInput() {
@@ -176,6 +176,7 @@ onload = function(e) {
     if (location.hash.length > 0) {
         hashChange();
     }
+    document.forms[0].flaField.focus();
 }
 
 var hashSetByScript = false;
