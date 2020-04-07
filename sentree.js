@@ -345,7 +345,7 @@ SenTree.prototype.replaceFreeVariablesAndSkolemTerms = function() {
                         this.parser.getNewWorldName() : this.parser.getNewConstant();
                     translations[fv] = sym;
                 }
-                log("replacing "+fv+" by "+translations[fv]);
+                log("replacing "+fv+" by "+translations[fv]+" in "+node);
                 node.formula = node.formula.substitute(
                     fv, translations[fv]
                 );
@@ -359,7 +359,7 @@ SenTree.prototype.replaceFreeVariablesAndSkolemTerms = function() {
                 log(termstr + " is skolem term");
                 translations[termstr] = this.parser.getNewConstant();
             }
-            log("replacing "+indivTerms[c]+" by "+translations[termstr]);
+            log("replacing "+indivTerms[c]+" by "+translations[termstr]+" in "+node);
             node.formula = node.formula.substitute(
                 indivTerms[c], translations[termstr]
             );
@@ -370,7 +370,7 @@ SenTree.prototype.replaceFreeVariablesAndSkolemTerms = function() {
                 log(termstr + " is worldly skolem term");
                 translations[termstr] = this.parser.getNewWorldName(true);
             }
-            log("replacing "+worldTerms[c]+" by "+translations[termstr]);
+            log("replacing "+worldTerms[c]+" by "+translations[termstr]+" in "+node);
             node.formula = node.formula.substitute(
                 worldTerms[c], translations[termstr]
             );

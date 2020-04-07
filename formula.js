@@ -273,7 +273,7 @@ AtomicFormula.substituteInTerms = function(terms, origTerm, newTerm, shallow) {
     var newTerms = [];
     for (var i=0; i<terms.length; i++) {
         var term = terms[i];
-        if (term == origTerm) newTerms.push(newTerm);
+        if (term.toString() == origTerm.toString()) newTerms.push(newTerm);
         else if (term.isArray && !shallow) {
             newTerms.push(AtomicFormula.substituteInTerms(term, origTerm, newTerm));
         }

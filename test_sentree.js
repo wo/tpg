@@ -129,6 +129,16 @@ tests = {
         assert(sentree.toString().indexOf('Ff(a)')>0);
         assert(sentree.toString().indexOf('φ') == -1);
     },
+
+    replaceSkolemTerms: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('((∃x∀yRyx ∨ ∀x∀yByx) ∧ ∃x∀y(Cy→ ¬Byx))→∀x∃y(Cx→Rxy)').negate();
+        var prover = new Prover([f], parser);
+        prover.pauseLength = 0;
+        prover.start();
+        var sentree = new SenTree(prover.tree, parser);
+        assert(sentree.toString().indexOf('φ') == -1);
+    }
     
     // getcountermodel: function() {
     //     var parser = new Parser();
