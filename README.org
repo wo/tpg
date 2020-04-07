@@ -177,7 +177,6 @@ W are also natural numbers starting with 0. Accessibility conditions like
 reflexivity are added to the formulas for which we want to find a model.
 
 
-
 * Copyright
 
 Copyright © 2001-2020 Wolfgang Schwarz (wo@umsu.de)

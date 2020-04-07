@@ -226,7 +226,7 @@ Prover.gamma = function(branch, nodeList, matrix) {
     if (branch.freeVariables.length == this.depthLimit) {
         log("depthLimit " + this.depthLimit + " exceeded!");
         this.limitReached();
-        return null;
+        return;
     }
     // add application back onto todoList:
     if (!matrix) branch.todoList.push([Prover.gamma, node]);
@@ -290,7 +290,6 @@ Prover.modalGamma = function(branch, nodeList) {
                 branch.tryClose(newNode);
                 break;
             }
-            // <node> can't be expanded with this wR* node; try a different one:
         }
     }
 }
@@ -992,16 +991,16 @@ Branch.prototype.expandTodoList = function(node) {
     if (node.type != 'literal') {
         //
         // (We could use more clever heuristics about the order in which nodes
-	// are expanded, e.g. look-ahead heuristics for beta expansions.  Turns
-	// out that most of these don't have any consistent effect; they usually
-	// speed up some proofs and slow down others.)
+        // are expanded, e.g. look-ahead heuristics for beta expansions.  Turns
+        // out that most of these don't have any consistent effect; they usually
+        // speed up some proofs and slow down others.)
         //
         var expansionRule = node.getExpansionRule();
-	for (var i=0; i<this.todoList.length; i++) {
-	    if (expansionRule.priority <= this.todoList[i][0].priority) break;
+        for (var i=0; i<this.todoList.length; i++) {
+            if (expansionRule.priority <= this.todoList[i][0].priority) break;
             // '<=' is important so that new gamma nodes are processed before old ones
-	}
-	this.todoList.insert([expansionRule, node], i);
+        }
+        this.todoList.insert([expansionRule, node], i);
     }
     if (this.tree.parser.isModal) {
         if (this.nodes.length == 1) {
