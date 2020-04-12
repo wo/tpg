@@ -3,7 +3,17 @@ tests = {
 
     // Recall that Prover takes the /negated/ sentence that is to be proved
     // as input; i.e. Prover is really a Refuter.
-    
+
+    noRuleApplication: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('p');
+        var prover = new Prover([f, f.negate()], parser);
+        prover.pauseLength = 0;
+        prover.start();
+        assertEqual(prover.tree.closedBranches.length, 1);
+    },
+
+
     pruneBranch: function() {
         var parser = new Parser();
         var f = parser.parseFormula('(¬R∧¬S∧((R∧¬S)∨(¬R∧S))∧(Q∨P))').normalize();

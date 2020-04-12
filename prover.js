@@ -53,7 +53,8 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
                          // backtracking; value empirically chosen
     this.tree = new Tree(this);
     this.alternatives = [this.tree]; // alternative trees for backtracking
-    this.curAlternativeIndex = 0; 
+    this.curAlternativeIndex = 0;
+    this.tree.addInitNodes(this.initFormulasNormalized)
 
     // init modelfinder:
     log("initializing modelfinder")
@@ -107,7 +108,16 @@ Prover.prototype.nextStep = function() {
     this.status('step '+this.step+': '+this.tree.numNodes+' nodes, model size '
                 +this.modelfinder.model.domain.length+'/'
                 +this.modelfinder.model.worlds.length);
-    
+
+    if (this.tree.openBranches.length == 0) {
+        log('tree closed');
+        return this.onfinished(1);
+    }
+    if (this.tree.openBranches[0].nodes.length > this.depthLimit * 4) {
+        log('reached complexity limit for backtracking');
+        this.limitReached();
+    }
+
     // (todoList items look like this: [Prover.alpha, node])
     log(this.tree.openBranches[0].todoList);
     var todo = this.tree.openBranches[0].todoList.shift();
@@ -116,17 +126,7 @@ Prover.prototype.nextStep = function() {
         var args = todo;
         nextRule(this.tree.openBranches[0], args);
         log(this.tree);
-
-        if (this.tree.openBranches.length == 0) {
-            log('tree closed');
-            return this.onfinished(1);
-        }
-
-        if (this.tree.openBranches[0].nodes.length > this.depthLimit * 4) {
-            log('reached complexity limit for backtracking');
-            this.limitReached();
-        }
-    } 
+    }
     // If <todo> is undefined, the tree is open and finished. We still wait for
     // modelfinder to come up with a countermodel. I used to read off a
     // countermodel from the open tree, but that got rarely used and often
@@ -518,15 +518,18 @@ function Tree(prover) {
     if (!prover) return; // for copy() function
     this.prover = prover;
     this.parser = prover.parser;
-    var initBranch = new Branch(this);
-    for (var i=0; i<prover.initFormulasNormalized.length; i++) {
-        var formula = prover.initFormulasNormalized[i];
-        var node = new Node(formula);
-        initBranch.addNode(node);
-    }
-    this.openBranches = [initBranch];
+    this.openBranches = [new Branch(this)];
     this.closedBranches = [];
     this.numNodes = 0;
+}
+
+Tree.prototype.addInitNodes = function(initFormulasNormalized) {
+    var initBranch = this.openBranches[0];
+    for (var i=0; i<initFormulasNormalized.length; i++) {
+        var node = new Node(initFormulasNormalized[i]);
+        initBranch.addNode(node);
+        initBranch.tryClose(node);
+    }
 }
 
 Tree.prototype.closeBranch = function(branch, complementary1, complementary2) {
