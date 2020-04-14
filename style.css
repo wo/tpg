@@ -50,6 +50,8 @@ a { color:#007083; }
 .fromnumbers { color: #566; width: 2.5em; padding-top:1px; text-align: left; }
 .worldlabel { color: #742; width: 1.5em; padding-top:1px; margin-right:0.5em; text-align: center; }
 .treeNode b { display:block; margin-bottom:30px; }
+#exportDiv { text-align:center; padding-bottom:30px; }
+#exportDiv button { color:#999; white-space:nowrap; background:unset; border:none; }
 
 #model { margin:20px; padding:3px 20px; text-align:center; display:none; }
 #model b { font-weight:500; color:#023; }

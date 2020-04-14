@@ -290,4 +290,4 @@ TreePainter.prototype.getNextUnpaintedNode = function() {
     }
     return null;
 }
-    
+

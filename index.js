@@ -148,6 +148,7 @@ function startProof() {
         // Start painting the tree:
         document.getElementById("rootAnchor").style.display = "block";
         self.painter = new TreePainter(sentree, document.getElementById("rootAnchor"));
+        self.painter.finished = function() { addExportButtons(); }
         self.painter.paintTree();
     }
     prover.status = function(txt) {
@@ -226,3 +227,131 @@ function hashChange() {
     }
 }
 
+// functions to export tree as png:
+
+function addExportButtons() {
+    var el = document.createElement('div');
+    el.id = 'exportDiv';
+    el.style.position = 'absolute';
+    var treeCoords = getTreeCoords();
+    el.style.top = treeCoords.bottom-treeCoords.top+'px';
+    var width = treeCoords.right-treeCoords.left;
+    el.style.width = width+'px';
+    el.style.left = Math.round(width/-2) +'px'
+    el.innerHTML = '<button onclick="exportImage()">save as png</button>';
+    this.rootAnchor.appendChild(el);
+}
+
+function getTreeCoords() {
+    // dict 'left', 'right', 'top', 'bottom'
+    rootCoords = document.getElementById('rootAnchor').getBoundingClientRect();
+    var treeCoords = {
+        left: rootCoords.left,
+        right: rootCoords.right,
+        top: rootCoords.top,
+        bottom: rootCoords.bottom
+    };
+    document.querySelectorAll('.treeNode').forEach(function(el) {
+        var coords = el.getBoundingClientRect();
+        if (coords.left < treeCoords.left) treeCoords.left = Math.round(coords.left);
+        if (coords.right > treeCoords.right) treeCoords.right = Math.round(coords.right);
+        if (coords.bottom > treeCoords.bottom) treeCoords.bottom = Math.round(coords.bottom);
+    });
+    log('tree coords: '+treeCoords.top+','+treeCoords.right+','+treeCoords.bottom+','+treeCoords.left);
+    return treeCoords;
+}
+
+function getTreeHTML() {
+    // returns HTML of tree, in idiosyncratic browser format. E.g., in Firefox
+    // outerHTML does not include the dynamically set style properties for
+    // position of subelements, instead it includes non-standard 'inset'
+    // properties. To export cross-browser suitable HTML, we could add a
+    // 'data-style' attribute to all elements whose value we set to the computed
+    // style; after collecting rootAnchor.outerHTML, we could then rename that
+    // attribute to 'style'. But the present code is sufficient for generating
+    // an image.
+    var root = document.getElementById('rootAnchor');
+    // Note: inner/outerHTML does not include default styles from style.css; so
+    // we have to add these; window.getComputedStyle() returns all style
+    // properties, we only want the non-default ones.
+    defaultStyles = {
+        'DIV' : getDefaultStyle('div'),
+        'SPAN' : getDefaultStyle('span')
+    }
+    document.querySelectorAll('#rootAnchor *').forEach(function(el) {
+        var computedStyle = window.getComputedStyle(el);
+        var defaultStyle = defaultStyles[el.tagName];
+        if (!defaultStyle) return;
+        for (var i=0; i<computedStyle.length; i++) {
+            var cssProperty = computedStyle[i];
+            var cssValue = computedStyle.getPropertyValue(cssProperty);
+            if (defaultStyle[cssProperty] != computedStyle[cssProperty]) {
+                el.style[cssProperty] = cssValue;
+            }
+        }
+    });
+    document.getElementById('exportDiv').style.display = 'none';
+    var html = root.outerHTML;
+    document.getElementById('exportDiv').style.display = 'block';
+    // adjust location of root element:
+    var treeCoords = getTreeCoords();
+    var width = treeCoords.right - treeCoords.left;
+    html = html.replace(/id="rootAnchor".+?>/, 'id="rootAnchor" style="position:relative; left:'+(width/2)+'px;">');
+    return html;
+}
+
+function getDefaultStyle(tagName) {
+    var defaultStyle = {};
+    var element = document.body.appendChild(document.createElement(tagName));
+    var computedStyle = window.getComputedStyle(element);
+    for (var i=0; i < computedStyle.length; i++) {
+        defaultStyle[computedStyle[i]] = computedStyle[computedStyle[i]];
+    }
+    document.body.removeChild(element);
+    return defaultStyle;
+}
+
+function exportImage() {
+    log('converting tree to image')
+    // To create the image, we first need to move the external google fonts inline:
+    if (!document.getElementById('localfontstyle')) {
+        document.getElementsByTagName("head")[0].insertAdjacentHTML(
+            "beforeend",
+            '<link rel="stylesheet" id="localfontstyle" href="font.css" onload="exportImage()" type="text/css" />');
+        return;
+    }
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d');
+    var treeCoords = getTreeCoords();
+    width = treeCoords.right - treeCoords.left;
+    height = treeCoords.bottom - treeCoords.top;
+    canvas.width = width;
+    canvas.height = height;
+    var tempImg = document.createElement('img');
+    tempImg.addEventListener('load', function(el) {
+        ctx.drawImage(el.target, 0, 0);
+        var dataURL = canvas.toDataURL('image/png');
+        var downloadLink = document.createElement('a');
+        downloadLink.setAttribute('download', 'proof.png');
+        var url = dataURL.replace(/^data:image\/png/, 'data:application/octet-stream');
+        downloadLink.setAttribute('href', url);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+    });
+    tempImg.addEventListener('error', function(el) {
+        alert("sorry, this doesn't seem to work in your browser");
+    });
+    var html = getTreeHTML();
+    html = html.replace(/<br>/g, '<br/>');
+    var style = '';
+    var cssRules = document.styleSheets[2].cssRules;
+    for (var i=0; i<cssRules.length; i++) {
+        style += cssRules[i].cssText;
+    }
+    xml = '<svg xmlns="http://www.w3.org/2000/svg" width="'+width+'" height="'+height+'">'
+    xml += '<defs><style>' + style + '</style></defs>';
+    xml += '<foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml">'+html+'</div></foreignObject>';
+    xml += '</svg>'
+    log('<xmp>'+xml+'</xmp>');
+    tempImg.src = 'data:image/svg+xml,' + encodeURIComponent(xml);
+}

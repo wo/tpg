@@ -52,7 +52,7 @@ function compress($js) {
 	// strip comments and superfluous whitespace:
 	$newjs = array();
 	foreach ($js as $line) {
-		if (strpos($line, "//") !== false) $line = substr($line, 0, strpos($line, "//"));
+		if (strpos($line, "// ") !== false) $line = substr($line, 0, strpos($line, "// "));
 		$line = trim($line);
 		if ($line != "") $newjs[] = $line;
 	}
