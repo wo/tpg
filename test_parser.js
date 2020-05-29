@@ -92,6 +92,16 @@ tests = {
         var f2 = parser.translateFromModal(f);
         var f3 = parser.translateToModal(f2);
         assertEqual(f3.string, '(□p→◇p)');
+    },
+
+    useRinModalFormula: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('□R');
+        var prover = new Prover([f], parser, ['symmetry']);
+        // should not crash on double use of 'R'
+        prover.pauseLength = 0;
+        prover.start();
+        assert(true);
     }
     
 }

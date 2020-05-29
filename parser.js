@@ -446,7 +446,7 @@ Parser.prototype.parseAccessibilityFormula = function(str) {
     // letter or 'R' as an ordinary predicate. Also need to make sure the
     // parsing of accessibility formulas doesn't set this.propositional to
     // false.
-    str = str.replace('R', this.R);
+    str = str.replace(/R/g, this.R);
     var matches = str.match(/[∀∃]./g);
     for (var i=0; i<matches.length; i++) {
         var v = matches[i][1];
