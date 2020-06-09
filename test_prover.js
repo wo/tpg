@@ -92,7 +92,16 @@ tests = {
     //     prover.start();
     //     assertEqual(prover.tree.openBranches.length, 0);
     // },    
-    
+
+    noSerialityLoop: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('◇(p∧□q)→◇(p∧◇q)').negate();
+        var prover = new Prover([f], parser, ['seriality']);
+        prover.pauseLength = 0;
+        prover.start();
+        assertEqual(prover.tree.openBranches.length, 0);
+    },
+
     invalidtest1: function() {
         var parser = new Parser();
         var f = parser.parseFormula('∀x¬Ff(ab)').negate(); // old prover says invalid and stops at the double negation!

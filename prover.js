@@ -1023,21 +1023,20 @@ Branch.prototype.addAccessibilityRuleApplications = function(node) {
     // also be applied when wRv is first added for old worlds. 
     for (var i=0; i<this.tree.prover.accessibilityRules.length; i++) {
         var rule = this.tree.prover.accessibilityRules[i];
-        for (var j=0; j<this.todoList.length; j++) {
-            if (rule.priority <= this.todoList[j][0].priority) break;
-        }
+        var pos = this.todoList.length;
+        while (pos > 0 && this.todoList[pos-1][0].priority >= rule.priority) pos--;
         if (node) {
             // Many accessibility rules don't meaningfully extend nodes of type
             // wRw.
             if (node.formula.terms[0] != node.formula.terms[1] || rule.premiseCanBeReflexive) {
-                this.todoList.insert([rule, node], j);
+                this.todoList.insert([rule, node], pos);
             }
         }
         else {
             // Many accessibility rules don't meaningfully apply without any
             // premises of form wRv.
             if (!rule.needsPremise) {
-                this.todoList.insert([rule], j);
+                this.todoList.insert([rule], pos);
             }
         }
     }
