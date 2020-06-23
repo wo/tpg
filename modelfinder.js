@@ -1038,7 +1038,7 @@ Model.prototype.toHTML = function() {
         str += this.worlds.map(function(n){return w(n)}).join(", ");
         str += " }</td></tr>\n";
         if (!this.parser.isPropositional) {
-            str += "<tr><td>Individuals: </td><td align='left'>{ ";
+            str += "<tr><td align='right'>Individuals: </td><td align='left'>{ ";
             str += this.domain.join(", ");
             str += " }</td></tr>\n";
         }
@@ -1108,6 +1108,10 @@ Model.prototype.toHTML = function() {
                 }
                 return '('+tuple.join(',')+')';
             }).join(', ')+' }';
+        }
+        if (sym == R && sym != 'R') {
+            // 'R' is used as predicate, our internal accessibility symbol won't mean much to the user
+            sym = 'Accessibility'
         }
         str += "<tr><td align='right' class='formula'>" + sym + ": </td><td align='left'>" + val + "</td></tr>\n";
     }
