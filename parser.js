@@ -273,8 +273,10 @@ Parser.prototype.parseInput = function(str) {
     var conclusion = this.parseFormula(parts[parts.length-1]);
     log("=== conclusion "+conclusion);
     if (parts.length == 2) {
+        // remove parentheses around premises:
+        var premstr = parts[0].replace(/^\s*\((.*)\)\s*$/, "$1");
         // split premises by commas that are not in parentheses:
-        var temp = this.hideSubStringsInParens(parts[0]);
+        var temp = this.hideSubStringsInParens(premstr);
         var nstr = temp[0];
         var subStringsInParens = temp[1];
         var premiseStrings = nstr.split(',');
