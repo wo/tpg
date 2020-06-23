@@ -19,19 +19,18 @@ function updateInput() {
 }
 
 function renderSymbols(str) {
-    str = str.replace(/&/g, '∧');
-    str = str.replace(/\^/g, '∧');
-    str = str.replace(/<->/g, '↔');
+    str = str.replace(/&|\^| and/ig, '∧');
+    str = str.replace(/ v | or/ig, ' ∨ '); // 'v' letter => or symbol
+    str = str.replace(/~| not/ig, '¬');
+    str = str.replace(/<->| iff/ig, '↔');
     str = str.replace(/->/g, '→');
-    str = str.replace(/~/g, '¬');
-    str = str.replace(/ v /g, ' ∨ '); // 'v' letter => or symbol
     str = str.replace(/[]/g, '□');
-    str = str.replace(/<>/g, '◇');
+    str = str.replace(/<>|◊/g, '◇');
     str = str.replace(/\(A([s-z])\)/, '∀$1'); // (Ax) => ∀x
     str = str.replace(/\(E([s-z])\)/, '∃$1'); // (Ex) => ∃x
     str = str.replace(/(?:^|\W)\(([s-z])\)/, '∀$1'); // (x) => ∀x, but not f(x) => f∀x
-    str = str.replace(/\\forall[\{ ]?\}?/g, '∀');
-    str = str.replace(/\\exists[\{ ]?\}?/g, '∃');
+    str = str.replace(/\\?forall[\{ ]?\}?/g, '∀');
+    str = str.replace(/\\?exists[\{ ]?\}?/g, '∃');
     str = str.replace(/(\\neg|\\lnot)[\{ ]?\}?/g, '¬');
     str = str.replace(/(\\vee|\\lor)[\{ ]?\}?/g, '∨');
     str = str.replace(/(\\wedge|\\land)[\{ ]?\}?/g, '∧');
