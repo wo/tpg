@@ -3,13 +3,15 @@
 
 var flaFieldValue = '';
 function updateInput() {
+    // called on page load and keyup events to render symbols and toggle the
+    // accessibility row
     var ostr = document.forms[0].flaField.value;
     if (ostr == flaFieldValue) {
         // e.g. curser moved to highlight part of formula
         return true;
     }
     cposition = this.selectionStart;
-    flaFieldValue = renderSymbols(ostr);  
+    flaFieldValue = renderSymbols(ostr);
     var diff = ostr.length - flaFieldValue.length
     document.forms[0].flaField.value = flaFieldValue;
     this.selectionEnd = cposition - diff;
@@ -17,14 +19,14 @@ function updateInput() {
 }
 
 function renderSymbols(str) {
-    str = str.replace('&', '∧');
-    str = str.replace('^', '∧');
-    str = str.replace('<->', '↔');
-    str = str.replace('->', '→');
-    str = str.replace('~', '¬');
-    str = str.replace(' v ', ' ∨ '); // 'v' letter => or symbol
-    str = str.replace('[]', '□');
-    str = str.replace('<>', '◇');
+    str = str.replace(/&/g, '∧');
+    str = str.replace(/\^/g, '∧');
+    str = str.replace(/<->/g, '↔');
+    str = str.replace(/->/g, '→');
+    str = str.replace(/~/g, '¬');
+    str = str.replace(/ v /g, ' ∨ '); // 'v' letter => or symbol
+    str = str.replace(/[]/g, '□');
+    str = str.replace(/<>/g, '◇');
     str = str.replace(/\(A([s-z])\)/, '∀$1'); // (Ax) => ∀x
     str = str.replace(/\(E([s-z])\)/, '∃$1'); // (Ex) => ∃x
     str = str.replace(/(?:^|\W)\(([s-z])\)/, '∀$1'); // (x) => ∀x, but not f(x) => f∀x
