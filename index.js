@@ -24,7 +24,7 @@ function renderSymbols(str) {
     str = str.replace(/~| not/ig, '¬');
     str = str.replace(/<->| iff/ig, '↔');
     str = str.replace(/->/g, '→');
-    str = str.replace(/[]/g, '□');
+    str = str.replace(/\[\]/g, '□');
     str = str.replace(/<>|◊/g, '◇');
     str = str.replace(/\(A([s-z])\)/, '∀$1'); // (Ax) => ∀x
     str = str.replace(/\(E([s-z])\)/, '∃$1'); // (Ex) => ∃x
