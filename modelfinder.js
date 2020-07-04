@@ -90,7 +90,7 @@ ModelFinder.prototype.getClauses = function(formulas) {
         res = res.concatNoDuplicates(clauses);
     }
     // order clauses by length (number of disjuncts):
-    res.sort(function(a,b){ return a.length > b.length; });
+    res.sort(function(a,b){ return a.length - b.length; });
     log('all clauses: '+res);
     res = this.simplifyClauses(res);
     log('simplified clauses: '+res);
@@ -223,7 +223,7 @@ ModelFinder.prototype.tseitinCNF = function(formula) {
             subformulas[i] = this.tseitinReplace(subformulas[i], subf, p);
         }
     }
-    clauses.sort(function(a,b){ return a.length > b.length; });
+    clauses.sort(function(a,b){ return a.length - b.length; });
     return clauses;
 
     function tseitinComplexity(formula) {
@@ -331,21 +331,15 @@ ModelFinder.prototype.cnf = function(formula) {
     }
     var res = [];
     if (con) {
-        // log('∧: concatenating clauses of '+formula.sub1+' and '+formula.sub2);
         // con1 is [C1, C2 ...], con2 is [D1, D2, ...], where the elements are
         // clauses; return [C1, C2, ..., D1, D2, ...]:
-        // log('back up at ∧: concatenating clauses of '+con[0]+' and '+con[1]);
-        // log('which are '+con[0]+' and '+con[1]);
         res = con[0].concatNoDuplicates(con[1]);
     }
     else if (dis) {
-        // log('∨: combining clauses of '+formula.sub1+' and '+formula.sub2);
         // dis1 is [C1, C2 ...], dis2 is [D1, D2, ...], where the elements are
         // disjunctions of literals; (C1 & C2 & ...) v (D1 & D2 & ..) is
         // equivalent to (C1 v D1) & (C1 v D2) & ... (C2 v D1) & (C2 V D2) &
         // ...; so return [C1+D1, C1+D2, ..., C2+D1, C2+D2, ...]:
-        // log('back up at ∨: combining clauses of '+formula.sub1+' and '+formula.sub2);
-        // log('which are '+dis[0]+' and '+dis[1]);
         for (var i=0; i<dis[0].length; i++) {
             for (var j=0; j<dis[1].length; j++) {
                 // dis[0][i] and dis[1][j] are clauses, we want to combine them
@@ -355,7 +349,7 @@ ModelFinder.prototype.cnf = function(formula) {
             }
         }
     }
-    res.sort(function(a,b){ return a.length > b.length; });
+    res.sort(function(a,b){ return a.length - b.length });
     return res;
 }
 
@@ -777,7 +771,7 @@ Model.prototype.initTermValues = function(literal) {
     // sort term list by length, to ensure that a term is never a subterm of any
     // term to its left:
     terms.sort(function(a,b){
-        return a[1].length > b[1].length;
+        return a[1].length - b[1].length;
     });
 
     // tentatively interpret all terms and subterms:
@@ -976,9 +970,9 @@ Model.prototype.simplifyRemainingClauses = function() {
     nclauses.sort(function(a,b) {
         // process unit clauses with tseitin formulas first:
         if (a.length == 1 && b.length == 1) {
-            return a[0].string.indexOf('$') == -1 && b[0].string.indexOf('$') > -1;
+            return b[0].string.indexOf('$') - a[0].string.indexOf('$');
         }
-        return a.length > b.length;
+        return a.length - b.length;
     });
     log(nclauses.toString());
     this.clauses = nclauses;
@@ -1005,9 +999,9 @@ Model.prototype.unitResolve = function(literal) {
     nclauses.sort(function(a,b) {
         // process unit clauses with tseitin formulas first:
         if (a.length == 1 && b.length == 1) {
-            return a[0].string.indexOf('$') == -1 && b[0].string.indexOf('$') > -1;
+            return b[0].string.indexOf('$') - a[0].string.indexOf('$');
         }
-        return a.length > b.length;
+        return a.length - b.length;
     });
     this.clauses = nclauses;
 }

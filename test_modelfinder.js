@@ -429,5 +429,20 @@ tests = {
         assertEqual(mf.model.toString().indexOf('R:'), -1);
         assert(mf.model.toString().indexOf('p: { w0 }') >= 0);
     },
+
+    github_issue_3_chrome: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('(((∀x(Mx→(◇Px∧◇¬Px))∧∃xMx)∧(∀x(Sx→(◇Mx∧◇¬Mx))∧∃xSx))→(∀x(Sx→(◇Px∧◇¬Px))∧∃xSx))');
+        fs = [parser.translateFromModal(f).negate().normalize(),
+              parser.parseAccessibilityFormula('∀v∀uRvu'),
+              parser.parseAccessibilityFormula('∀v∀u∀t(Rvu→(Rut→Rvt))'),
+              parser.parseAccessibilityFormula('∀v∀u∀t(Rvu→(Rvt→Rut))')];
+        var mf = new ModelFinder(fs, parser, [], true);
+        for (var i=0; i<1000; i++) {
+            if (mf.nextStep()) break;
+        }
+        assert(i<1000);
+        assertEqual(mf.model.worlds.length, 2);
+    }
     
 }

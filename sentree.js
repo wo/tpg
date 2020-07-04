@@ -641,7 +641,7 @@ SenTree.prototype.getCounterModel = function() {
             }
         }
         terms.sort(function(a,b) {
-            return a.toString().length < b.toString().length;
+            return a.toString().length - b.toString().length;
         });
         for (var t=0; t<terms.length; t++) {
             var term = terms[t];

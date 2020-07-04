@@ -51,5 +51,5 @@ tests = {
         assertEqual(u[0], 'ξ1');
         assertEqual(u[1].toString(), ['f','a','b']);
     }
-    
+
 }
