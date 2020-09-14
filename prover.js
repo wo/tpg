@@ -624,8 +624,7 @@ Tree.prototype.pruneBranch = function(branch, complementary1, complementary2) {
     // The general strategy is to walk up from the endpoint of the closed branch
     // until we reach a used branching node from which another open branch
     // emerges; any unused branching up to that point is removed.
-    //
-    // NB: in tests this is almost never used :(
+   
     var obranches = this.openBranches.concat(this.closedBranches);
     obranches.remove(branch);
     for (var i=branch.nodes.length-1; i>0; i--) {
@@ -643,11 +642,16 @@ Tree.prototype.pruneBranch = function(branch, complementary1, complementary2) {
                     log("pruning branch "+obranches[j]+": unused expansion of "+branch.nodes[i].fromNodes[0]);
                     if (obranches[j].closed) {
                         this.closedBranches.remove(obranches[j]);
-                        branch.nodes[i].fromNodes[0].used = false;
+                        // We set branch.nodes[i].fromNodes[0].used to false,
+                        // but only if the node isn't still used somewhere else:
+                        if (!this.nodeIsUsed(branch.nodes[i].fromNodes[0])) {
+                            branch.nodes[i].fromNodes[0].used = false;
+                        }
                     }
                     else {
                         this.openBranches.remove(obranches[j]);
                     }
+                    log(this);
                     // We don't remove the beta expansion result on this branch;
                     // it'll be removed in the displayed sentence tree because
                     // it has .used == false
@@ -655,6 +659,22 @@ Tree.prototype.pruneBranch = function(branch, complementary1, complementary2) {
             }
         }
     }
+}
+
+Tree.prototype.nodeIsUsed = function(node) {
+    // check if <node> is used for closing a branch (used in pruneBranch)
+    for (var i=0; i<this.closedBranches.length; i++) {
+        var branch = this.closedBranches[i];
+        if (!branch.nodes.includes(node)) continue;
+        for (var j=branch.nodes.length-1; j>0; j--) {
+            var n = branch.nodes[j];
+            if (n == node) break;
+            if (n.used && n.fromNodes.includes(node)) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 Tree.prototype.closeCloseableBranches = function() {

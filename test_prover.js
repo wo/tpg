@@ -50,6 +50,26 @@ tests = {
         assertEqual(prover.tree.openBranches.length, 0);
     },
 
+    dontMarkUsedNodesUnused: function() {
+        var input = 'Ac, ∀x(Ax→Tx), ∀x(Mx→¬Tx), Mb, ∀xIxx, ∀x∀y(Ixy→Iyx), ∀x∀y(Ixy→(Ax→Ay)), ∀x∀y(Ixy→(Mx→My)), ∀x∀y(Ixy→(Tx→Ty)) |= ¬Ibc';
+        var parser = new Parser();
+        var parsedInput = parser.parseInput(input);
+        var premises = parsedInput[0];
+        var conclusion = parsedInput[1];
+        var initFormulas = premises.concat([conclusion.negate()]);
+        var prover = new Prover(initFormulas, parser);
+        prover.pauseLength = 0;
+        prover.start();
+        var nodes = prover.tree.closedBranches[0].nodes;
+        for (var i=0; i<nodes.length; i++) {
+            if (nodes[i].formula.string == '(¬Ac∨Tc)') {
+                assert(nodes[i].used);
+                return;
+            }
+        }
+        assert(false)
+    },
+
     modalT: function() {
         var parser = new Parser();
         var f = parser.parseFormula('□p→p').negate();
