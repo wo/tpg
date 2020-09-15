@@ -533,8 +533,10 @@ Tree.prototype.addInitNodes = function(initFormulasNormalized) {
 }
 
 Tree.prototype.closeBranch = function(branch, complementary1, complementary2) {
+    log('closing branch '+branch)
     branch.closed = true;
     this.markUsedNodes(branch, complementary1, complementary2);
+    log(this);
     this.pruneBranch(branch, complementary1, complementary2);
     this.openBranches.remove(branch);
     this.closedBranches.push(branch);
@@ -582,16 +584,16 @@ Tree.prototype.containsOpenBranch = function(branch) {
 }
 
 Tree.prototype.markUsedNodes = function(branch, complementary1, complementary2) {
-    // mark nodes with .used = true if they were involved in deriving the
-    // complementary pair
+    // add branch.id to node.used for all nodes that were involved in deriving
+    // the complementary pair
     var ancestors = [complementary1, complementary2];
     var n;
     while ((n = ancestors.shift())) {
-        if (!n.used) {
+        if (n.used.indexOf(branch.id) == -1) {
             for (var i=0; i<n.fromNodes.length; i++) {
                 ancestors.push(n.fromNodes[i]);
             }
-            n.used = true;
+            n.used += branch.id;
         }
     }
 }
@@ -642,14 +644,19 @@ Tree.prototype.pruneBranch = function(branch, complementary1, complementary2) {
                     log("pruning branch "+obranches[j]+": unused expansion of "+branch.nodes[i].fromNodes[0]);
                     if (obranches[j].closed) {
                         this.closedBranches.remove(obranches[j]);
-                        // We set branch.nodes[i].fromNodes[0].used to false,
-                        // but only if the node isn't still used somewhere else:
-                        if (!this.nodeIsUsed(branch.nodes[i].fromNodes[0])) {
-                            branch.nodes[i].fromNodes[0].used = false;
+                        // We need to remove 'used' marks from all remaining
+                        // nodes that were only used to close the removed branch
+                        // (including branch.nodes[i].fromNodes[0], but possibly
+                        // other nodes as well, e.g. in the tree for
+                        // ¬(∀x∀y∀z((Ixy→Iyz)→Ixz)∧((IaW(a)∧IbW(b))∧(∀x∀y∀z(Ixy→(IzW(x)→IzW(y)))∧¬Iba))).
+                        // This is why we keep track of the branches for which a node is used.)
+                        for (var k=0; k<i; k++) {
+                            branch.nodes[k].used = branch.nodes[k].used.replace(obranches[j].id, '');
                         }
                     }
                     else {
                         this.openBranches.remove(obranches[j]);
+                        obranches[j].removed = true; // for loop in closeCloseableBranches
                     }
                     log(this);
                     // We don't remove the beta expansion result on this branch;
@@ -661,27 +668,13 @@ Tree.prototype.pruneBranch = function(branch, complementary1, complementary2) {
     }
 }
 
-Tree.prototype.nodeIsUsed = function(node) {
-    // check if <node> is used for closing a branch (used in pruneBranch)
-    for (var i=0; i<this.closedBranches.length; i++) {
-        var branch = this.closedBranches[i];
-        if (!branch.nodes.includes(node)) continue;
-        for (var j=branch.nodes.length-1; j>0; j--) {
-            var n = branch.nodes[j];
-            if (n == node) break;
-            if (n.used && n.fromNodes.includes(node)) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
 Tree.prototype.closeCloseableBranches = function() {
     // close branches without unification
+    log('checking for branches that can be closed without unification');
     var openBranches = this.openBranches.copy();
     for (var k=0; k<openBranches.length; k++) {
         var branch = openBranches[k];
+        if (branch.removed) continue;
         // log('?b: '+branch);
         BRANCHLOOP:
         for (var i=branch.nodes.length-1; i>=0; i--) {
@@ -698,7 +691,7 @@ Tree.prototype.closeCloseableBranches = function() {
                     if (n1.formula.sub.equals(n2.formula)) closed = true;
                 }
                 if (closed) {
-                    log("+++ branch closed +++");
+                    // log("+++ branch closed +++");
                     this.closeBranch(branch, n1, n2);
                     break BRANCHLOOP;
                 }
@@ -835,7 +828,7 @@ function Branch(tree, nodes, literals, freeVariables, skolemSymbols, todoList, c
     this.todoList = todoList || [];
     // todoList looks like this: [[Prover.alpha, node], [Prover.seriality]]
     this.closed = closed || false;
-    this.id = Branch.counter++;
+    this.id = 'b'+(Branch.counter++);
 }
 Branch.counter = 0;
 
@@ -1078,6 +1071,7 @@ function Node(formula, fromRule, fromNodes) {
     this.fromNodes = fromNodes || [];
     this.type = formula.type;
     this.id = Node.counter++;
+    this.used = ''; // (string) list of branch ids for whose closure this node is used
 }
 Node.counter = 0;
 

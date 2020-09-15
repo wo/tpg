@@ -138,6 +138,16 @@ tests = {
         prover.start();
         var sentree = new SenTree(prover.tree, parser);
         assert(sentree.toString().indexOf('φ') == -1);
+    },
+
+    removeUnusedBranches: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('(∀x∀y∀z((Ixy→Iyz)→Ixz)∧((IaW(a)∧IbW(b))∧(∀x∀y∀z(Ixy→(IzW(x)→IzW(y)))∧¬Iba)))').negate();
+        var prover = new Prover([f], parser);
+        prover.pauseLength = 0;
+        prover.start();
+        var sentree = new SenTree(prover.tree, parser);
+        assert(sentree.nodes.length, 15);
     }
     
     // getcountermodel: function() {
