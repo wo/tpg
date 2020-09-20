@@ -102,6 +102,24 @@ tests = {
         prover.pauseLength = 0;
         prover.start();
         assert(true);
+    },
+
+    parensAroundPremises: function() {
+        var parser = new Parser();
+        var res = parser.parseInput('(Ff(a,b), p) |= q');
+        assertEqual(res[0].length, 2);
+    },
+
+    threePremises: function() {
+        var parser = new Parser();
+        var res = parser.parseInput('Ff(a,b), □p, (p∨q) |= q');
+        assertEqual(res[0].length, 3);
+    },
+
+    parseK: function() {
+        var parser = new Parser();
+        var res = parser.parseInput('□(p→q)→□p→□q');
+        assertEqual(res[1].string, '(□(p→q)→(□p→□q))');
     }
-    
+
 }

@@ -112,21 +112,6 @@ Parser.prototype.getVariables = function(formula) {
         }
     }
     return res;
-    
-    // xxx del
-    var res = [];
-    var dupe = {};
-    var num_re = /[0-9]/;
-    for (var i=0; i<variables.length; i++) {
-        var variable = variables[i];
-        // (Make sure we don't find 'x2' if the formula contains 'x21'.)
-        var pos = formula.string.indexOf(variable);
-        if (pos > -1 && !num_re.test(formula[pos+1]) && !dupe[variable]) {
-            dupe[variable] = true;
-            res.push(variable);
-        }
-    }
-    return res;
 }
 
 Parser.prototype.isTseitinLiteral = function(formula) {
@@ -271,24 +256,14 @@ Parser.prototype.parseInput = function(str) {
     }
     var premises = [];
     var conclusion = this.parseFormula(parts[parts.length-1]);
+    if (conclusion.isArray)
+        throw parts[parts.length-1]+" looks like a list; use either conjunction or disjunction instead of the comma";
+
     log("=== conclusion "+conclusion);
     if (parts.length == 2) {
-        // remove parentheses around premises:
-        var premstr = parts[0].replace(/^\s*\((.*)\)\s*$/, "$1");
-        // split premises by commas that are not in parentheses:
-        var temp = this.hideSubStringsInParens(premstr);
-        var nstr = temp[0];
-        var subStringsInParens = temp[1];
-        var premiseStrings = nstr.split(',');
-        for (var i=0; i<premiseStrings.length; i++) {
-            var prem = premiseStrings[i];
-            // restore substrings:
-            for (var j=0; j<subStringsInParens.length; j++) {
-                prem = prem.replace("%"+j, subStringsInParens[j]);
-            }
-            premises.push(this.parseFormula(prem));
-            log("=== premise "+premises.length+": "+premises[premises.length]);
-        }
+        premises = this.parseFormula(parts[0]);
+        if (!premises.isArray) premises = [premises];
+        log("=== premises: "+premises);
     }
     return [premises, conclusion];
 }
@@ -321,47 +296,56 @@ Parser.prototype.hideSubStringsInParens = function(str) {
 }
 
 Parser.prototype.parseFormula = function(str) {
-    // return Formula for (entered) string
+    // return Formula for (entered) string (or a list of Formulas if <str>
+    // contains several formulas separated by commas)
     var boundVars = arguments[1] ? arguments[1].slice() : [];
     log("parsing '"+str+"' (boundVars "+boundVars+")");
 
     if (!arguments[1]) str = this.tidyFormula(str);
 
-    var reTest = /∧|∨|→|↔/.test(str);
-    if (reTest) {
-        // str contains a connective. Main operator might nevertheless be a
-        // quantifier or negation etc. We replace every substring in parens by
-        // "%0", "%1", etc.:
-        var temp = this.hideSubStringsInParens(str);
-        var nstr = temp[0];
-        var subStringsInParens = temp[1];
-        log("   nstr = '"+nstr+"'; ");
-         
-        // Now let's see if there is still a connective in the modified string
-        // (in decreasing order of precedence):
-        var reTest = nstr.match(/↔/) || nstr.match(/→/)  || nstr.match(/∨/) || nstr.match(/∧/);
-        if (reTest) { 
-            // yes. The matched connective is the main operator
-            log("   string is complex; ");
-            var op = reTest[0];
-            log("   main connective: "+op+"; ");
-            nstr = nstr.replace(op, "%split");
-            // restore removed substrings:
-            for (var i=0; i<subStringsInParens.length; i++) {
-                nstr = nstr.replace("%"+i, subStringsInParens[i]);
-            }
-            var subFormulas = nstr.split("%split");
-            if (!subFormulas[1]) {
-                throw "argument missing for operator "+op+" in "+str;
-            }
-            log("   subformulas: "+subFormulas[0]+", "+subFormulas[1]+"; ");
-            var sub1 = this.parseFormula(subFormulas[0], boundVars);
-            var sub2 = this.parseFormula(subFormulas[1], boundVars);
-            return new BinaryFormula(op, sub1, sub2);
-        }
+    // replace every substring in parens by "%0", "%1", etc.:
+    var temp = this.hideSubStringsInParens(str);
+    var nstr = temp[0];
+    var subStringsInParens = temp[1];
+    log("   nstr = '"+nstr+"'; ");
+
+    if (nstr == '%0') {
+        log("trying again without surrounding parens");
+        return this.parseFormula(str.replace(/^\((.*)\)$/, "$1"), arguments[1]);
     }
-    
-    var reTest = str.match(/^(¬|□|◇)/);
+
+    // test if string contains a comma or connective that's not inside
+    // parentheses (in order of precedence):
+    var reTest = nstr.match(/,/) || nstr.match(/↔/) || nstr.match(/→/)  || nstr.match(/∨/) || nstr.match(/∧/);
+    if (reTest) {
+        var op = reTest[0];
+        log("   string is complex (or list); main connective: "+op+"; ");
+        if (op == ',') nstr = nstr.replace(/,/g, '%split');
+        else nstr = nstr.replace(op, "%split");
+        // restore removed substrings:
+        for (var i=0; i<subStringsInParens.length; i++) {
+            nstr = nstr.replace("%"+i, subStringsInParens[i]);
+        }
+        var substrings = nstr.split("%split");
+        if (!substrings[1]) {
+            throw "argument missing for operator "+op+" in "+str;
+        }
+        log("   substrings: "+substrings);
+        var subFormulas = [];
+        for (var i=0; i<substrings.length; i++) {
+            subFormulas.push(this.parseFormula(substrings[i], boundVars));
+        }
+        if (op == ',') {
+            log("string is list of formulas");
+            if (arguments[1]) {
+                throw "I don't understand '"+str+"' (looks like a list of formulas)";
+            }
+            return subFormulas;
+        }
+        return new BinaryFormula(op, subFormulas[0], subFormulas[1]);
+    }
+
+    var reTest = nstr.match(/^(¬|□|◇)/);
     if (reTest) {
         log("   string is negated or modal; ");
         var op = reTest[1];
@@ -371,7 +355,7 @@ Parser.prototype.parseFormula = function(str) {
         return new ModalFormula(op, sub);
     }
 
-    // if we're here the formula should be quantified or atomic
+    // If we're here the formula should be quantified or atomic.
     reTest = /^(∀|∃)([^\d\(\),%]\d*)/.exec(str);
     if (reTest && reTest.index == 0) {
         // quantified formula
@@ -407,13 +391,6 @@ Parser.prototype.parseFormula = function(str) {
         }
         this.registerExpression(predicate, predicateType, terms.length);
         return new AtomicFormula(predicate, terms);
-    }
-
-    // if the entire formula was enclosed in parens we end up here
-    log("   string could not be identified as anything;");
-    if (str.match(/^\((.*)\)$/)) {
-        log("   trying again without outer parens;");
-        return this.parseFormula(str.replace(/^\((.*)\)$/, "$1"), boundVars);
     }
 
     throw "Parse Error.\n'" + str + "' is not a well-formed formula.";
