@@ -105,7 +105,9 @@ function startProof() {
     document.getElementById("rootAnchor").style.display = "none";
     document.getElementById("backtostartpage").style.display = "block";
     document.getElementById("status").style.display = "block";
-    document.getElementById("status").innerHTML = "something went wrong: please email wo@umsu.de and tell me what you did";
+    document.getElementById("statusmsg").innerHTML = "something went wrong: please email wo@umsu.de and tell me what you did";
+    document.getElementById("statusbtn").style.display = "block";
+    document.getElementById("statusbtn").innerHTML = "stop";
     
     // Now a free-variable tableau is created. When the proof is finished,
     // prover.finished() is called.
@@ -130,7 +132,8 @@ function startProof() {
                 return "<span class='formula'>"+f+"</span>";
             }).join(', ') + (treeClosed ? " entails " : " does not entail ") + conclusionSpan + ".";
         }
-        document.getElementById("status").innerHTML = summary;
+        document.getElementById("statusmsg").innerHTML = summary;
+        document.getElementById("statusbtn").style.display = "none";
         // Translate the free-variable tableau into a sentence tableau:
         var sentree = new SenTree(this.tree, parser); 
         if (!treeClosed) {
@@ -153,12 +156,25 @@ function startProof() {
         self.painter.paintTree();
     }
     prover.status = function(txt) {
-        document.getElementById("status").innerHTML = txt;
+        document.getElementById("statusmsg").innerHTML = txt;
     }
     setTimeout(function(){
         prover.start();
     }, 1);
     return false;
+}
+
+document.getElementById("statusbtn").onclick = function(e) {
+    // handle clicks on 'stop'/'continue' button
+    var btn = document.getElementById("statusbtn");
+    if (btn.innerText == 'stop') {
+        btn.innerText = 'continue';
+        prover.stop();
+    }
+    else {
+        btn.innerText = 'stop';
+        prover.start();
+    }
 }
    
 onload = function(e) {

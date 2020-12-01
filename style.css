@@ -17,7 +17,6 @@ a { color:#007083; }
 #proveButton { width:70px; font-size:0.9em; padding:3px; }
 #flaField { width:calc(100% - 97px); }
 .button { background:#fdf0c9; ; color:#000; border:1px solid #ccc0bb; cursor:default; }
-#statusStop#statusStop.button:hover { background-color:#fff6e9; }
 .symbutton { display:inline-block; width:18px; height:18px; color:#333!important; padding:0px 1px 5px 1px; margin-right:2px; text-align:center; }
 #accessibilitySpan { display:none; font-size:0.9em; }
 #accessibilityRow input[type=checkbox] { vertical-align: middle; position: relative; bottom: .08em; margin:0 0px 0 5px; }
@@ -33,11 +32,13 @@ a { color:#007083; }
 #intro h3 { font-size:1.1em; font-weight:600; color:#456; margin:20px 0 5px;}
 
 #status { margin:30px 0 10px; padding:10px; text-align:center; display:none; }
-#working { display:block; margin:auto; width:100px; padding:5px; color:#456; background:#fce9ba66; border:1px solid #cccac0; border-radius:8px; animation: shadow-pulse 1s infinite; }
-@keyframes shadow-pulse { 
-  0% { box-shadow: 0 0 0 0px #00708399; }
-  100% { box-shadow: 0 0 0 10px #0000; }
-}
+#statusbtn { margin:8px; color:#3390a3; cursor:default; }
+#statusbtn:hover { color:#007083 }
+/*#working { display:block; margin:auto; width:100px; padding:5px; color:#456; background:#fce9ba66; border:1px solid #cccac0; border-radius:8px; animation: shadow-pulse 1s infinite; }*/
+/*@keyframes shadow-pulse { */
+/*  0% { box-shadow: 0 0 0 0px #00708399; }*/
+/*  100% { box-shadow: 0 0 0 10px #0000; }*/
+/*}
 /* #waitSymbol { margin:0 auto 10px auto; border:8px solid #fce9ba; border-top:8px solid #c01f00; border-radius:50%; width:20px; height:20px; animation: spin 3s linear infinite; -webkit-animation: spin 3s linear infinite; } */
 /* @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } } */
 /* @-webkit-keyframes spin { 0% { -webkit-transform: rotate(0deg); } 100% { -webkit-transform: rotate(360deg); } } */
