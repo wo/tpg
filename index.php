@@ -41,7 +41,7 @@
 </form>
 <div id="backtostartpage"><a href=".">back to start page</a></div>
 
-<div id="status"></div>
+<div id="status"><div id="statusmsg"></div><div id="statusbtn"></div></div>
 
 <div id="model"> </div>
 <div id="rootAnchor"> </div>

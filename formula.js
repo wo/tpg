@@ -20,10 +20,10 @@ Formula.prototype.negate = function() {
 Formula.prototype.unify = function(formula) {
     // check whether this formula can be unified with the argument formula.
     // Returns a (minimally) unifying substitution (that, if applied to both
-    // formulas, yields the same formula) if one exists, otherwise false.  A
+    // formulas, yields the same formula) if one exists, otherwise false. A
     // substitution is simply an array of terms, which is interpreted as arr[1]
-    // -> arr[2], arr[3] -> arr[4], ... (arr[1], arr[3], etc.  are
-    // variables). Warning: Don't confuse an empty unifier [] with false!
+    // -> arr[2], arr[3] -> arr[4], ... (arr[1], arr[3], etc. are variables).
+    // Warning: Don't confuse an empty unifier [] with false!
     //
     // The following algorithm is losely based on the one described in S.
     // Hölldobler, Logik und Logikprogrammierung, Synchron Verlag, Heidelberg
@@ -44,7 +44,7 @@ Formula.prototype.unify = function(formula) {
     var terms2 = formula.terms.copyDeep();
     var t1, t2;
     while (t1 = terms1.shift(), t2 = terms2.shift()) {
-        log('unify terms? '+t1+' <=> '+t2);
+        // log('unify terms? '+t1+' <=> '+t2);
         if (t1 == t2) {
             // terms are equal: nothing to do.
             continue;
@@ -64,7 +64,7 @@ Formula.prototype.unify = function(formula) {
         var t2Var = (t2[0] == 'ξ' || t2[0] == 'ζ');
         if (!t1Var && !t2Var) {
             // neither term is variable: unification failed
-            log('no, neither term variable');
+            // log('no, neither term variable');
             return false;
         }
         if (!t1Var) {
@@ -80,14 +80,17 @@ Formula.prototype.unify = function(formula) {
                 // log(terms);
                 for (var i=0; i<terms.length; i++) {
                     if (terms[i].isArray) termss.push(terms[i]);
-                    else if (terms[i] == t1) return false;
+                    else if (terms[i] == t1) {
+                        // log("no, term can't be nested in itself");
+                        return false;
+                    }
                 }
             }
         }
         // now we unify the variable t1 with the term t2: substitute t2
         // for t1 everywhere in the unifier array and in the remaining
         // terms1 and terms2, and add t1/t2 to the unifier array.
-        log('yes: unify');
+        // log('yes');
         var terms, termss = [unifier, terms1, terms2];
         while (terms = termss.shift()) {
             for (var i=0; i<terms.length; i++) {

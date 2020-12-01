@@ -537,10 +537,10 @@ Tree.prototype.closeBranch = function(branch, complementary1, complementary2) {
     log('closing branch '+branch)
     branch.closed = true;
     this.markUsedNodes(branch, complementary1, complementary2);
-    log(this);
-    this.pruneBranch(branch, complementary1, complementary2);
     this.openBranches.remove(branch);
     this.closedBranches.push(branch);
+    log(this);
+    this.pruneBranch(branch, complementary1, complementary2);
     this.pruneAlternatives();
 }
 
@@ -618,13 +618,13 @@ Tree.prototype.pruneBranch = function(branch, complementary1, complementary2) {
     // --Z--(AvB)             \-C-¬Z   x (AvB unused, CvD used)
     //           \-A---
     //
-    // If the branch with D is closed, the A branch can be removed (no matter if
-    // it's open or closed). But if the D branch is open, the so-far unused node
-    // B may be needed to close that branch. So we have to keep the AvB
-    // expansion. (It will be removed if the B node is not used when closing the
-    // D branch.)
+    // If the branch with D is closed (without using B), the A branch can be
+    // removed (no matter if it's open or closed). But if the D branch is open,
+    // the so-far unused node B may be needed to close that branch; so we have
+    // to keep the AvB expansion. (It will be removed if the B node is not used
+    // when closing the D branch.)
     //
-    // The general strategy is to walk up from the endpoint of the closed branch
+    // Our general strategy is to walk up from the endpoint of the closed branch
     // until we reach a used branching node from which another open branch
     // emerges; any unused branching up to that point is removed.
    
@@ -649,8 +649,8 @@ Tree.prototype.pruneBranch = function(branch, complementary1, complementary2) {
                         // nodes that were only used to close the removed branch
                         // (including branch.nodes[i].fromNodes[0], but possibly
                         // other nodes as well, e.g. in the tree for
-                        // ¬(∀x∀y∀z((Ixy→Iyz)→Ixz)∧((IaW(a)∧IbW(b))∧(∀x∀y∀z(Ixy→(IzW(x)→IzW(y)))∧¬Iba))).
-                        // This is why we keep track of the branches for which a node is used.)
+                        // ¬(∀x∀y∀z((Ixy→Iyz)→Ixz)∧((IaW(a)∧IbW(b))∧(∀x∀y∀z(Ixy→(IzW(x)→IzW(y)))∧¬Iba)));
+                        // this is why we keep track of the branches for which a node is used.)
                         for (var k=0; k<i; k++) {
                             branch.nodes[k].used = branch.nodes[k].used.replace(obranches[j].id, '');
                         }
@@ -808,7 +808,7 @@ Tree.prototype.toString = function() {
                 }
             }
         }
-        var res = (node.used ? '.' : '') + node + (node.__markClosed ? "<br>x<br>" : "<br>");
+        var res = node.used + ' ' + node + (node.__markClosed ? "<br>x<br>" : "<br>");
         if (children[1]) {
             var tdStyle = "font-family:monospace; border-top:1px solid #999; padding:3px; border-right:1px solid #999";
             var td = "<td align='center' valign='top' style='" + tdStyle + "'>"; 
@@ -829,7 +829,7 @@ function Branch(tree, nodes, literals, freeVariables, skolemSymbols, todoList, c
     this.todoList = todoList || [];
     // todoList looks like this: [[Prover.alpha, node], [Prover.seriality]]
     this.closed = closed || false;
-    this.id = 'b'+(Branch.counter++)+';';
+    this.id = 'b'+(Branch.counter++)+'.';
 }
 Branch.counter = 0;
 
@@ -887,10 +887,11 @@ Branch.prototype.tryClose = function(node) {
     if (node.type != 'literal') return false; // Formula.unify() only works for
                                               // literals
     var unifiers = []; // list of substitutions
-    var otherNodes = []; // corresponding list of other nodes
+    var otherNodes = []; // corresponding list of complementary nodes
     for (var i=this.literals.length-1; i>=0; i--) {
         if (this.literals[i] == node) continue;
         var u = negatedFormula.unify(this.literals[i].formula);
+        log("unification with "+this.literals[i]+" "+(u===false ? "impossible" : "possible: "+u));
         if (u.isArray) {
             // make sure unifier is new:
             var isNew = true;
@@ -929,7 +930,7 @@ Branch.prototype.tryClose = function(node) {
             // applying a substitution can make other branches closable as well
             altTree.applySubstitution(unifiers[i]);
             altTree.closeCloseableBranches();
-            log('alternative tree:\n'+altTree);
+            // log('alternative tree:\n'+altTree);
             if (altTree.openBranches.length == 0) {
                 log('alternative tree closes, stopping proof');
                 this.tree.prover.tree = altTree;
@@ -971,9 +972,11 @@ Branch.prototype.copy = function() {
 
 
 Branch.prototype.addNode = function(node) {
+    // adds <node> to branch and inserts its expansion into the branch's todo
+    // stack
     var addToTodo = true;
     if (this.containsFormula(node.formula)) {
-        // don't add node if same formula is already on branch, except if the
+        // Don't add node if same formula is already on branch, except if the
         // node comes from an alpha or beta expansion, in which case we
         // shouldn't call expandTodolist.
         if (node.fromRule == Prover.alpha || node.fromRule == Prover.beta) {
@@ -993,6 +996,7 @@ Branch.prototype.addNode = function(node) {
     }
     // so that we can later find nodes added in the same step:
     node.expansionStep = this.tree.prover.step;
+    log(this.tree);
     return node;
 }
 
