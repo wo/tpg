@@ -260,7 +260,7 @@ Parser.prototype.parseInput = function(str) {
         throw parts[parts.length-1]+" looks like a list; use either conjunction or disjunction instead of the comma";
 
     log("=== conclusion "+conclusion);
-    if (parts.length == 2) {
+    if (parts.length == 2 && parts[0] != '') {
         premises = this.parseFormula(parts[0]);
         if (!premises.isArray) premises = [premises];
         log("=== premises: "+premises);
