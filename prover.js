@@ -207,13 +207,14 @@ Prover.alpha.toString = function() { return 'alpha' }
 Prover.beta = function(branch, nodeList) {
     log('beta '+nodeList[0]);
     var node = nodeList[0];
-    branch.tree.openBranches.unshift(branch.copy());
+    var newbranch = branch.copy();
+    branch.tree.openBranches.unshift(newbranch);
     var subnode1 = new Node(node.formula.sub1, Prover.beta, nodeList);
     var subnode2 = new Node(node.formula.sub2, Prover.beta, nodeList);
-    branch.tree.openBranches[0].addNode(subnode2);
     branch.addNode(subnode1);
+    newbranch.addNode(subnode2);
     branch.tryClose(subnode1);
-    branch.tree.openBranches[0].tryClose(subnode2);
+    newbranch.tryClose(subnode2);
 }
 Prover.beta.priority = 9;
 Prover.beta.toString = function() { return 'beta' }
@@ -951,8 +952,8 @@ Branch.prototype.tryClose = function(node) {
     log("applying unifier for "+node+" and "+otherNode+": "+unifier);
     this.tree.applySubstitution(unifier);
     this.tree.closeBranch(this, node, otherNode);
-    log(this.tree);
     log("+++ branch closed +++");
+    this.tree.closeCloseableBranches();
     return true;
 }
 
