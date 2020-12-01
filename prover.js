@@ -828,7 +828,7 @@ function Branch(tree, nodes, literals, freeVariables, skolemSymbols, todoList, c
     this.todoList = todoList || [];
     // todoList looks like this: [[Prover.alpha, node], [Prover.seriality]]
     this.closed = closed || false;
-    this.id = 'b'+(Branch.counter++);
+    this.id = 'b'+(Branch.counter++)+';';
 }
 Branch.counter = 0;
 
