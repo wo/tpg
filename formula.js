@@ -19,7 +19,7 @@ Formula.prototype.negate = function() {
 
 Formula.prototype.unify = function(formula) {
     // check whether this formula can be unified with the argument formula.
-    // Returns a (minimally) unifying substitution (that, if applied to both
+    // Returns a ("most general") unifying substitution (that, if applied to both
     // formulas, yields the same formula) if one exists, otherwise false. A
     // substitution is simply an array of terms, which is interpreted as arr[1]
     // -> arr[2], arr[3] -> arr[4], ... (arr[1], arr[3], etc. are variables).
@@ -51,8 +51,9 @@ Formula.prototype.unify = function(formula) {
         }
         if (t1.isArray && t2.isArray) {
             // both terms are functional: unification fails if function symbols
-            // differ; otherwise add all the argument pairs to the terms that
-            // must be unified.
+            // differ (arities can't differ if the function symbol is the same);
+            // otherwise add all the argument pairs to the terms that must be
+            // unified.
             if (t1[0] != t2[0]) return false;
             for (var i=1; i<t1.length; i++) {
                 terms1.push(t1[i]);
@@ -87,9 +88,9 @@ Formula.prototype.unify = function(formula) {
                 }
             }
         }
-        // now we unify the variable t1 with the term t2: substitute t2
-        // for t1 everywhere in the unifier array and in the remaining
-        // terms1 and terms2, and add t1/t2 to the unifier array.
+        // now we unify the variable t1 with the term t2: substitute t2 for t1
+        // everywhere in the unifier array and in the remaining terms1 and
+        // terms2, and add t1/t2 to the unifier array.
         // log('yes');
         var terms, termss = [unifier, terms1, terms2];
         while (terms = termss.shift()) {

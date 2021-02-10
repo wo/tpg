@@ -50,6 +50,17 @@ tests = {
         var u = f1.unify(f2);
         assertEqual(u[0], 'ξ1');
         assertEqual(u[1].toString(), ['f','a','b']);
+    },
+
+    unify2: function() {
+        var parser = new Parser();
+        var f1 = parser.parseFormula('Q(a,g(ξ1,a),f(ξ2))');
+        var f2 = parser.parseFormula('Q(a,g(f(b),a),ξ1)');
+        var u = f1.unify(f2);
+        assertEqual(u[0], 'ξ1');
+        assertEqual(u[1].toString(), ['f','b']);
+        assertEqual(u[2], 'ξ2');
+        assertEqual(u[3], 'b');
     }
 
 }

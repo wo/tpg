@@ -20,7 +20,7 @@ $debug = isset($matches[2]) ? $matches[2] : '';
 // put together output:
 $result = "";
 if (count($files) > 1) {
-	$result .= "/* check the source on github.com/wo/tgp */\n\n";
+	$result .= "/* check the source on github.com/wo/tpg */\n\n";
 }
 foreach ($files as $file) {
 	if (!file_exists("$file.js")) {
