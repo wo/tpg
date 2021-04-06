@@ -6,7 +6,6 @@
   <title>Tree Proof Generator</title>
   <link href="https://fonts.googleapis.com/css?family=M+PLUS+1p:500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" type="text/css">
-  <script async defer data-domain="umsu.de" src="https://stat.umsu.de/js/index.js"></script>
 </head>
 <body>
 
