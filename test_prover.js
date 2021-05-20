@@ -51,7 +51,14 @@ tests = {
     },
 
     dontMarkUsedNodesUnused: function() {
-        // see commit fd1eaff
+        // see commit fd1eaff: When the tree for the below input is found to
+        // close, some closed branches are removed by pruneBranch. One of these
+        // branches was originally closed by expanding an earlier beta node.
+        // Before this fix, that beta node was marked unused (and therefore
+        // removed from the sentence tree) even though it is also used to close
+        // another branch that is not removed. Now I check that a node is
+        // really not used anywhere else before marking it as unused in
+        // pruneBranch.
         var input = 'Ac, ∀x(Ax→Tx), ∀x(Mx→¬Tx), Mb, ∀xIxx, ∀x∀y(Ixy→Iyx), ∀x∀y(Ixy→(Ax→Ay)), ∀x∀y(Ixy→(Mx→My)), ∀x∀y(Ixy→(Tx→Ty)) |= ¬Ibc';
         var parser = new Parser();
         var parsedInput = parser.parseInput(input);

@@ -111,3 +111,7 @@ Array.prototype.equals = function(arr2) {
     return true;
 }
 
+Object.values = Object.values || function(o) {
+    // return the values of a dict object
+    return Object.keys(o).map(function(k){return o[k]})
+}

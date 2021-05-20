@@ -261,8 +261,8 @@ AtomicFormula.terms2string = function(list) {
 AtomicFormula.prototype = Object.create(Formula.prototype);
 
 AtomicFormula.prototype.substitute = function(origTerm, newTerm, shallow) {
-    // return new formula with all free occurrences of <origTerm> replaced
-    // by <newTerm>. If <shallow>, don't replace terms in function arguments
+    // return new formula with all occurrences of <origTerm> replaced by
+    // <newTerm>. If <shallow>, don't replace terms in function arguments
     if (typeof(origTerm) == 'string' && this.string.indexOf(origTerm) == -1) {
         return this;
     }
@@ -274,6 +274,8 @@ AtomicFormula.prototype.substitute = function(origTerm, newTerm, shallow) {
 }
 
 AtomicFormula.substituteInTerms = function(terms, origTerm, newTerm, shallow) {
+    // return a copy of <terms> with all occurrences of <origTerm> replaced
+    // by <newTerm>. If <shallow>, don't replace terms in function arguments
     var newTerms = [];
     for (var i=0; i<terms.length; i++) {
         var term = terms[i];
@@ -287,6 +289,8 @@ AtomicFormula.substituteInTerms = function(terms, origTerm, newTerm, shallow) {
 }
 
 AtomicFormula.substituteInTerm = function(term, origTerm, newTerm) {
+    // return a copy of <term> with all occurrences of <origTerm> replaced
+    // by <newTerm>
     if (term == origTerm) return newTerm;
     if (term.isArray) return AtomicFormula.substituteInTerms(term, origTerm, newTerm);
     return term;
