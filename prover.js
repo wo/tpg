@@ -192,6 +192,8 @@ Prover.prototype.limitReached = function() {
 // Rules for expanding the tableau:
 
 Prover.alpha = function(branch, nodeList) {
+    // <nodeList> is a list because some rules apply to more than one node. Not
+    // this one, so here <nodeList> has just one member: a conjunction.
     log('alpha '+nodeList[0]);
     var node = nodeList[0];
     var subnode1 = new Node(node.formula.sub1, Prover.alpha, nodeList);
@@ -233,7 +235,13 @@ Prover.gamma = function(branch, nodeList, matrix) {
         return;
     }
     // add application back onto todoList:
-    if (!matrix) branch.todoList.push([Prover.gamma, node]);
+    if (!matrix && node.fromRule != Prover.gamma) {
+        // When expanding ∀x∀y∀zφ, we add ∀y∀zφ and ∀zφ to the branch, all
+        // of which can be expanded again and again, leading to lots of
+        // useless variations of φ. So we only add the outermost sentence
+        // back to the list.
+        branch.todoList.push([Prover.gamma, node]);
+    }
     var newVariable = branch.newVariable(matrix);
     var matrix = matrix || node.formula.matrix;
     var newFormula = matrix.substitute(node.formula.variable, newVariable);
