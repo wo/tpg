@@ -324,81 +324,67 @@ SenTree.prototype.expandDoubleNegation = function(node, parent) {
 SenTree.prototype.replaceFreeVariablesAndSkolemTerms = function() {
     log("replacing free variables and skolem terms by new constants");
     // Free variables and skolem terms are replaced by ordinary constants. We
-    // want these to appear in a sensible order, so we have to go node by node.
-    // We also need to make sure we don't include terms only occurring on
-    // removed nodes.
-    //
-    // Free variables all begin with 'ζ' (worlds) or 'ξ' (individuals). Skolem
-    // terms all look like 'φ1', 'φ1(ξ1,ξ2..)' (for individuals) or 'ω1' etc.
-    // (for worlds); after unification they can also be nested:
-    // 'φ1(ξ1,φ2(ξ1),φ3..)'. Note that a skolem term can occur inside an ordinary
-    // function term, as in expansions of ∃xf(x).
-    var translations = {};
+    // want these to appear in a sensible order (first constand should be 'a',
+    // etc.). Free variables all begin with 'ζ' (worlds) or 'ξ' (individuals).
+    // Skolem terms all look like 'φ1', 'φ1(ξ1,ξ2..)' (for individuals) or 'ω1'
+    // etc. (for worlds); after unification they can also be nested:
+    // 'φ1(ξ1,φ2(ξ1),φ3..)'. Note that a skolem term can occur inside an
+    // ordinary function term, as in expansions of ∃xf(x).
+    var substitutions = []; // list of [term, replacement] pairs
     for (var n=0; n<this.nodes.length; n++) {
         var node = this.nodes[n];
-        // first replace free variables by constants:
+        log(node)
+        // apply existing substitutions:
+        for (var i=0; i<substitutions.length; i++) {
+            var term = substitutions[i][0], repl = substitutions[i][1];
+            node.formula = node.formula.substitute(term, repl);
+        }
+        log("replaced known variables and skolem terms: "+node);
+        // replace additional skolem terms by new constants:
+        var skterms = getSkolemTerms(node.formula);
+        var term;
+        while ((term = skterms.shift())) {
+            var isWorldTerm = (term.toString()[0] == 'ω');
+            var repl = isWorldTerm ?
+                this.parser.getNewWorldName(true) : this.parser.getNewConstant();
+            substitutions.push([term, repl]);
+            log("replacing new skolem term "+term+" by "+repl);
+            node.formula = node.formula.substitute(term, repl);
+            // skolem terms can be nested:
+            skterms = AtomicFormula.substituteInTerms(skterms, term, repl);
+        }
+        // replace leftover free variables by constants:
         var varMatches = node.formula.string.match(/[ξζ]\d+/g);
         if (varMatches) {
             for (var j=0; j<varMatches.length; j++) {
                 var fv = varMatches[j];
-                if (!translations[fv]) {
-                    var sym = (fv[0] == 'ζ') ?
-                        this.parser.getNewWorldName() : this.parser.getNewConstant();
-                    translations[fv] = sym;
-                }
-                log("replacing "+fv+" by "+translations[fv]+" in "+node);
-                node.formula = node.formula.substitute(
-                    fv, translations[fv]
-                );
+                var repl = (fv[0] == 'ζ') ?
+                    this.parser.getNewWorldName() : this.parser.getNewConstant();
+                substitutions.push([fv, repl]);
+                log("replacing new variable "+fv+" by "+repl);
+                node.formula = node.formula.substitute(fv, repl);
             }
-        }
-        // next replace skolem terms by constants:
-        var skterms = getSkolemTerms(node.formula);
-        var indivTerms = skterms[0], worldTerms = skterms[1];
-        var term;
-        while ((term = indivTerms.shift())) {
-            var termstr = term.toString();
-            if (!translations[termstr]) {
-                log(termstr + " is skolem term");
-                translations[termstr] = this.parser.getNewConstant();
-            }
-            var repl = translations[termstr];
-            log("replacing "+term+" by "+repl+" in "+node);
-            node.formula = node.formula.substitute(term, repl);
-            // skolem terms can be nested:
-            indivTerms = AtomicFormula.substituteInTerms(indivTerms, term, repl);
-        }
-        while ((term = worldTerms.shift())) {
-            var termstr = term.toString();
-            if (!translations[termstr]) {
-                log(termstr + " is worldly skolem term");
-                translations[termstr] = this.parser.getNewWorldName(true);
-            }
-            var repl = translations[termstr];
-            log("replacing "+term+" by "+repl+" in "+node);
-            node.formula = node.formula.substitute(term, repl);
-            // skolem terms can be nested:
-            worldTerms = AtomicFormula.substituteInTerms(worldTerms, term, repl);
         }
     }
     
     function getSkolemTerms(formula) {
         // return all skolem terms in <formula>, without duplicates
-        var indivTerms = {}; // termstring => term
-        var worldTerms = {};
+        var skterms = {}; // termstring => term
         var flas = [formula]; // formulas or term lists
         var fla;
         while ((fla = flas.shift())) {
             if (fla.isArray) { // term list, e.g. ['a', ['f','a']]
                 for (var i=0; i<fla.length; i++) {
                     if (fla[i].isArray) {
-                        if (fla[i][0][0] == 'φ') indivTerms[fla[i].toString()] = fla[i];
-                        else if (fla[i][0][0] == 'ω') worldTerms[fla[i].toString()] = fla[i];
-                        else flas.unshift(fla[i]);
+                        if (fla[i][0][0].match(/[φω]/)) {
+                            skterms[fla[i].toString()] = fla[i];
+                        }
+                        else {
+                            flas.unshift(fla[i]);
+                        }
                     }
-                    else {
-                        if (fla[i][0] == 'φ') indivTerms[fla[i].toString()] = fla[i];
-                        else if (fla[i][0] == 'ω') worldTerms[fla[i].toString()] = fla[i];
+                    else if (fla[i][0].match(/[φω]/)) {
+                        skterms[fla[i].toString()] = fla[i];
                     }
                 }
             }
@@ -416,7 +402,7 @@ SenTree.prototype.replaceFreeVariablesAndSkolemTerms = function() {
                 flas.unshift(fla.terms);
             }
         }
-        return [Object.values(indivTerms), Object.values(worldTerms)];
+        return Object.values(skterms);
     }
 }
 

@@ -146,8 +146,12 @@ tests = {
         var prover = new Prover([f], parser);
         prover.pauseLength = 0;
         prover.start();
-        var sentree = new SenTree(prover.tree, parser);
-        assert(sentree.toString().indexOf('φ') == -1);
+        var sentreeString = new SenTree(prover.tree, parser).toString();
+        assert(sentreeString.indexOf('φ') == -1);
+        // only need two constants; these should be 'a' and 'c':
+        assert(sentreeString.indexOf('a') > 0);
+        assert(sentreeString.indexOf('b') > 0);
+        assert(sentreeString.match(/cdefgh/) == null);
     },
 
     removeUnusedBranches: function() {
