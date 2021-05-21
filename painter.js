@@ -122,7 +122,7 @@ TreePainter.prototype.makeNodeDiv = function(node) {
     
     node.formulaSpan = document.createElement('span');
     node.formulaSpan.className = 'formula '+node.container.formulaClass;
-    node.formulaSpan.innerHTML = node.formula.string;
+    node.formulaSpan.innerHTML = node.formula.toString();
     if (node.closedEnd) node.formulaSpan.innerHTML += "<br><b>x</b>";
     div.appendChild(node.formulaSpan);
     

@@ -26,7 +26,7 @@ tests = {
         var f = parser.parseFormula('∀x∃y∃zHxyz ∨ ∃v∀wGvw');
         f = f.normalize();
         var sk = mf.skolemize(f);
-        assertEqual(sk.toString(), '(∀xHxf(x)g(x)∨∀wGaw)');
+        assertEqual(sk.string, '(∀xHxf(x)g(x)∨∀wGaw)');
     },
 
     cnf_basic: function() {

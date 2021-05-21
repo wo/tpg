@@ -6,6 +6,10 @@ function Formula() {
 }
 
 Formula.prototype.toString = function() {
+    // return this.string, but without redundant outer parens
+    if (this.operator && this.operator.match(/[∧↔∨→]/)) {
+        return this.string.slice(1,-1);
+    }
     return this.string;
 }
 
@@ -307,7 +311,7 @@ function QuantifiedFormula(quantifier, variable, matrix, overWorlds) {
     else {
         this.type = quantifier == '∀' ? 'gamma' : 'delta';
     }
-    this.string = quantifier + variable + matrix;
+    this.string = quantifier + variable + matrix.string;
     // We could now set this.parser.isPropositional = false, so that ∀xP counts
     // as a non-propositional formula; OTOH, it's useful to have
     // parser.isPropositional true for modal formulas. So we only set
@@ -330,7 +334,7 @@ function BinaryFormula(operator, sub1, sub2) {
     this.sub1 = sub1;
     this.sub2 = sub2;
     this.type = operator == '∧' ? 'alpha' : 'beta';
-    this.string = '(' + sub1 + operator + sub2 + ')';
+    this.string = '(' + sub1.string + operator + sub2.string + ')';
 }
 
 BinaryFormula.prototype = Object.create(Formula.prototype);
@@ -348,7 +352,7 @@ function ModalFormula(operator, sub) {
     this.operator = operator;
     this.sub = sub;
     this.type = operator == '□' ? 'modalGamma' : 'modalDelta';
-    this.string = operator + sub;
+    this.string = operator + sub.string;
 }
 
 ModalFormula.prototype = Object.create(Formula.prototype);
@@ -365,7 +369,7 @@ function NegatedFormula(sub) {
     this.operator = '¬';
     this.sub = sub;
     this.type = NegatedFormula.computeType(sub);
-    this.string = '¬' + sub;
+    this.string = '¬' + sub.string;
 }
 
 NegatedFormula.computeType = function(sub) {
