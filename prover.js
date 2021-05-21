@@ -113,9 +113,12 @@ Prover.prototype.nextStep = function() {
         log('tree closed');
         return this.onfinished(1);
     }
-    if (this.tree.openBranches[0].nodes.length > this.depthLimit * 4) {
+    
+    while (this.tree.openBranches[0].nodes.length > this.depthLimit * 4) {
         log('reached complexity limit for backtracking');
         this.limitReached();
+        // limitReached() may select an alternative that is also at limit, hence
+        // we check again with the while loop
     }
 
     // (todoList items look like this: [Prover.alpha, node])
