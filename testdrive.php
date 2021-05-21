@@ -138,6 +138,8 @@ print "<script type='text/javascript' src='$allscripts.js'></script>\n";
 
 <tr><td>pel40</td><td class="formula">∃x ∀y (F(y,x) ↔ F(y,y)) → ¬∀z ∃w ∀x2 (F(x2,w) ↔ ¬F(x2,z))</td><td></td></tr>
 
+<tr><td>rel1</td><td class="formula">(∀x∃yCxy∧∀x∀y(Cxy→Cyx)∧∀x∀y∀z((Cxy∧Cyz)→Cxz)) → ∀xCxx</td><td></td></tr>
+
 <tr><td>mod1</td><td class="formula">(□p ∧ ◇q)→◇(p∧q)</td><td></td></tr>
 
 <tr><td>mod2</td><td class="formula">◇(p ∨ q)↔(◇p ∨ ◇q)</td><td></td></tr>
@@ -146,7 +148,7 @@ print "<script type='text/javascript' src='$allscripts.js'></script>\n";
 
 <tr><td>narrow_D</td><td class="formula">(p→□r)→((p∧q)→□r)||seriality</td><td></td></tr>
 
-    <tr><td>04vsG0_S4</td><td class="formula">((A ∧ ¬□A)→□¬□A) ∧ ((¬A ∧ ◇A) →□◇A) → (◇□A→□◇A)||reflexivity|transitivity</td><td></td></tr>
+<tr><td>04vsG0_S4</td><td class="formula">((A ∧ ¬□A)→□¬□A) ∧ ((¬A ∧ ◇A) →□◇A) → (◇□A→□◇A)||reflexivity|transitivity</td><td></td></tr>
  
 </table>
 
