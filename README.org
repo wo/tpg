@@ -176,10 +176,9 @@ Models for originally modal formulas have two domains, W and D. The elements of
 W are also natural numbers starting with 0. Accessibility conditions like
 reflexivity are added to the formulas for which we want to find a model.
 
-
 * Copyright
 
-Copyright © 2001-2020 Wolfgang Schwarz (wo@umsu.de)
+Copyright © 2001-2021 Wolfgang Schwarz (wo@umsu.de)
 
 You may use, distribute and modify this code under the terms of the GPLv3
 license; see LICENSE.
