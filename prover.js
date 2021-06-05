@@ -105,16 +105,19 @@ Prover.prototype.nextStep = function() {
     // itself again until proof is complete.
     this.step++;
     log('*** prover step '+this.step);
-    this.status('step '+this.step+': '+this.tree.numNodes+' nodes, model size '
-                +this.modelfinder.model.domain.length+'/'
-                +this.modelfinder.model.worlds.length);
 
     if (this.tree.openBranches.length == 0) {
         log('tree closed');
         return this.onfinished(1);
     }
     
-    while (this.tree.openBranches[0].nodes.length > this.depthLimit * 4) {
+    var numNodes = this.tree.numNodes;
+    this.status('step '+this.step+': '+numNodes+' nodes, model size '
+                +this.modelfinder.model.domain.length+'/'
+                +this.modelfinder.model.worlds.length);
+
+    while (this.tree.openBranches[0].nodes.length > this.depthLimit * 4 ||
+           this.tree.openBranches[0].freeVariables.length > this.depthLimit) {
         log('reached complexity limit for backtracking');
         this.limitReached();
         // limitReached() may select an alternative that is also at limit, hence
@@ -229,11 +232,6 @@ Prover.gamma = function(branch, nodeList, matrix) {
     // modalGamma() below.
     log('gamma '+nodeList[0]);
     var node = nodeList[0];
-    if (branch.freeVariables.length == this.depthLimit) {
-        log("depthLimit " + this.depthLimit + " exceeded!");
-        this.limitReached();
-        return;
-    }
     // add application back onto todoList:
     if (!matrix && node.fromRule != Prover.gamma) {
         // When expanding ∀x∀y∀zφ, we add ∀y∀zφ and ∀zφ to the branch, all
