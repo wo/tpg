@@ -72,7 +72,7 @@ TreePainter.prototype.paint = function(node) {
     }
     if (node.formulaSpan.offsetWidth > node.container.formulaWidth) {
         node.container.formulaWidth = node.formulaSpan.offsetWidth + 10;
-        log('adjusting container width '+node.container.formulaWidth);
+        log('adjusting container formula width '+node.container.formulaWidth);
         var n = node;
         do {
             n.formulaSpan.style.width = node.container.formulaWidth + "px";
@@ -81,12 +81,14 @@ TreePainter.prototype.paint = function(node) {
         } while (n && n.container == node.container);
     }
     else {
-        log('using old container width '+node.container.formulaWidth);
+        log('using old container formula width '+node.container.formulaWidth);
         node.formulaSpan.style.width = node.container.formulaWidth + "px";
         node.div.style.left = -node.container.w/2 + "px";
     }
     // node.div.style.left = -node.div.offsetWidth/2 + "px";
+    log('old container w '+node.container.w);
     node.container.w = Math.max(node.container.w, node.div.offsetWidth);
+    log('new container w '+node.container.w);
     this.repositionBranches(node);
     this.keepTreeInView();
 }
@@ -119,6 +121,7 @@ TreePainter.prototype.makeNodeDiv = function(node) {
     nodeNumberSpan.className = 'nodenumber';
     nodeNumberSpan.innerHTML = node.nodeNumber+'.';
     div.appendChild(nodeNumberSpan);
+    div.id = 'n'+this.curNodeNumber;
     
     node.formulaSpan = document.createElement('span');
     node.formulaSpan.className = 'formula '+node.container.formulaClass;

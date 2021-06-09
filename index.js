@@ -252,12 +252,12 @@ function addExportButtons() {
     el.id = 'exportDiv';
     el.style.position = 'absolute';
     var treeCoords = getTreeCoords();
-    el.style.top = treeCoords.bottom-treeCoords.top+'px';
-    var width = treeCoords.right-treeCoords.left;
+    el.style.top = (treeCoords.bottom-treeCoords.top)/painter.scale + 'px';
+    var width = (treeCoords.right-treeCoords.left)/painter.scale;
     el.style.width = width+'px';
     el.style.left = Math.round(width/-2) +'px'
     el.innerHTML = '<button onclick="exportImage()">save as png</button>';
-    this.rootAnchor.appendChild(el);
+    painter.rootAnchor.firstChild.appendChild(el);
 }
 
 function getTreeCoords() {
