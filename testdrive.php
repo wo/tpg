@@ -79,16 +79,27 @@ $valid_tests = [
    ['pel38', '∀x ((P(a) ∧ (P(x) → ∃y (P(y) ∧ R(x,y)))) → ∃z ∃w ((P(z) ∧ R(x,w)) ∧ R(w,z))) ↔ ∀x2 ((((¬P(a)) ∨ P(x2)) ∨ ∃x3 ∃x4 ((P(x3) ∧ R(x2,x4)) ∧ R(x4,x3))) ∧ (((¬P(a)) ∨ (¬∃x5 (P(x5) ∧ R(x2,x5)))) ∨ ∃x6 ∃x7 ((P(x6) ∧ R(x2,x7)) ∧ R(x7,x6))))'],
    ['pel39', '¬∃x ∀y (F(y,x) ↔ ¬F(y,y))'],
    ['pel40', '∃x ∀y (F(y,x) ↔ F(y,y)) → ¬∀z ∃w ∀x2 (F(x2,w) ↔ ¬F(x2,z))'],
+   ['pel48', '(a=b ∨ c=d) ∧ (a=c ∨ b=d) → (a=d ∨ b=c)'],
+   ['pel49', '∃x∃y∀z(z=x ∨ z=y) ∧ Pa ∧ Pb ∧ ¬(a=b) → ∀xPx'],
+   ['pel51', '∃z∃w∀x∀y(Fxy ↔ (x=z ∧ y=w)) |= ∃z∀x(∃w∀y(Fxy ↔ y=w) ↔ x=z)'],
+   ['pel52', '∃z∃w∀x∀y(Fxy ↔ (x=z ∧ y=w)) |= ∃w∀y(∃z∀x(Fxy ↔ x=z) ↔ y=w)'],
+   ['pel55', '∃x(Lx ∧ Kxa), La ∧ Lb ∧ Lc, ∀x∀y(Kxy → Hxy), ∀x∀y(Kxy → ¬ Rxy), ∀x (Hax → ¬ Hcx), ∀x(¬x=b → Hax), ∀x(¬ Rxa → Hbx), ∀x(Hax → Hbx), ∀x(Lx → (x=a ∨ x=b ∨ x=c)),  ∀x∃y(¬Hxy), ¬(a=b) |= Kaa'],
+   ['pel56', '∀x(∃y(Fy ∧ x=f(y)) →Fx) ↔ ∀x(Fx →  Ff(x))'],
+   ['pel57', 'Ff(a,b)f(b,c), Ff(b,c)f(a,c), ∀x∀y∀z(Fxy ∧ Fyz → Fxz) |= Ff(a,b)f(a,c)'],
+   ['pel58', '∀x∀yf(x)=g(y) |= ∀x∀yf(f(x))=f(g(y))'],
+   ['pel61', '∀x∀y∀zf(x,f(y,z))=f(f(x,y),z) |= ∀x∀y∀z∀wf(x,f(y,f(z,w)))=f(f(f(x,y),z),w)'],
    ['rel1', '(∀x∃yCxy∧∀x∀y(Cxy→Cyx)∧∀x∀y∀z((Cxy∧Cyz)→Cxz)) → ∀xCxx'],
    ['mod1', '(□p ∧ ◇q)→◇(p∧q)'],
    ['mod2', '◇(p ∨ q)↔(◇p ∨ ◇q)'],
    ['s5', 'p→◇p||universality'],
    ['narrow_D', '(p→□r)→((p∧q)→□r)||seriality'],
    ['04vsG0_S4', '((A ∧ ¬□A)→□¬□A) ∧ ((¬A ∧ ◇A) →□◇A) → (◇□A→□◇A)||reflexivity|transitivity'],
+   ['pel54', '∀y∃z∀x(Fxz ↔ x=y) |= ¬∃w∀x(Fxw ↔ ∀u(Fxu → ∃y(Fyu ∧ ¬∃z(Fzu ∧ Fzy))))'],
+   ['beckert97bid','∀x(i(u,x)=x) ∧ ∀x∀y∀z(i(i(x,y),i(i(y,z),i(x,z)))=u) ∧ ∀x∀y(i(i(x,y),y) = i(i(y,x),x)) → ∀x∀y∀z∃w(i(x,w)=u ∧ w=i(y,i(z,y)))'],
 ];
 
 foreach ($valid_tests as $test) {
-    print("<tr><td>$test[0]</td><td class='formula'>$test[1]</td><td></td></tr>\n");
+    print("<tr><td>$test[0]</td><td class='formula valid'>$test[1]</td><td></td></tr>\n");
 }
 ?>
 </table>
@@ -98,30 +109,30 @@ foreach ($valid_tests as $test) {
 <table>
 <?php
 $invalid_tests = [
-   ['i1', 'p'],
-   ['i2', '((p→q)↔(q→p))'],
-   ['i3', '∀xFx'],
-   ['i4', '∃xFx'],
-   ['i5', '∀x∃yRxy'],
-   ['i6', '∃y∀xFxy'],
-   ['ifun', '∀x∃y (Fx → Ff(y)) → (¬Fa ∨ Ff(a))'],
-   ['Her', '¬∀x((Fx ∧ ¬Fa)∨ Ga)'],
-   ['bost1', '∀x∀y∀z(Fxy∧Fyz→Fxz) ∧ ∀x∀y(Fxy→Fyx) ∧ ∃x∃yFxy → ∀xFxx'],
-   ['2ind', '¬∃x∃y(Fx∧¬Fy)'],
-   ['4ind', '¬(Fa ∧ Ga ∧ Fb ∧ ¬Gb ∧ ¬Fc ∧ Gc ∧ ¬Fd ∧ ¬Gd)'],
-   ['bx', '∀y∃xFxy→∃x∀yFxy'],
-   ['bn', '∃y∃z∀x((Fx→Gy)∧(Gz→Fx))→∀x∃y(Fy↔Gy)'],
-   ['conpos1', '∀y(Iy→∀x(Px↔Cxy))→∀x(Px↔∀y(Iy→Cxy))'],
-   ['conpos2', '∀x(Px↔∀y(Iy→Cxy))→∀y(Iy→∀x(Px↔Cxy))'],
-   ['T_in_K', 'p→◇p'],
-   ['emil_in_K4', '◇□A → (◇□B → ◇□(A ∧ B))||transitivity'],
-   ['T_in_K', 'p→◇p'],
-   ['04vsG0_K4', '((A ∧ ¬□A)→□¬□A) ∧ ((¬A ∧ ◇A) →□◇A) → (◇□A→□◇A)||transitivity'],
-   ['infinity', '¬(∀x∃yFxy ∧ ∀x∀y∀z(Fxy∧Fyz→Fxz) ∧ ∀x¬Fxx)'],
+    ['i1', 'p'],
+    ['i2', '((p→q)↔(q→p))'],
+    ['i3', '∀xFx'],
+    ['i4', '∃xFx'],
+    ['i5', '∀x∃yRxy'],
+    ['i6', '∃y∀xFxy'],
+    ['ifun', '∀x∃y (Fx → Ff(y)) → (¬Fa ∨ Ff(a))'],
+    ['Her', '¬∀x((Fx ∧ ¬Fa)∨ Ga)'],
+    ['bost1', '∀x∀y∀z(Fxy∧Fyz→Fxz) ∧ ∀x∀y(Fxy→Fyx) ∧ ∃x∃yFxy → ∀xFxx'],
+    ['2ind', '¬∃x∃y(Fx∧¬Fy)'],
+    ['4ind', '¬(Fa ∧ Ga ∧ Fb ∧ ¬Gb ∧ ¬Fc ∧ Gc ∧ ¬Fd ∧ ¬Gd)'],
+    ['bx', '∀y∃xFxy→∃x∀yFxy'],
+    ['bn', '∃y∃z∀x((Fx→Gy)∧(Gz→Fx))→∀x∃y(Fy↔Gy)'],
+    ['conpos1', '∀y(Iy→∀x(Px↔Cxy))→∀x(Px↔∀y(Iy→Cxy))'],
+    ['conpos2', '∀x(Px↔∀y(Iy→Cxy))→∀y(Iy→∀x(Px↔Cxy))'],
+    ['T_in_K', 'p→◇p'],
+    ['emil_in_K4', '◇□A → (◇□B → ◇□(A ∧ B))||transitivity'],
+    ['T_in_K', 'p→◇p'],
+    ['04vsG0_K4', '((A ∧ ¬□A)→□¬□A) ∧ ((¬A ∧ ◇A) →□◇A) → (◇□A→□◇A)||transitivity'],
+    ['infinity', '¬(∀x∃yFxy ∧ ∀x∀y∀z(Fxy∧Fyz→Fxz) ∧ ∀x¬Fxx)'],
 ];
     
 foreach ($invalid_tests as $test) {
-    print("<tr><td>$test[0]</td><td class='formula'>$test[1]</td><td></td></tr>\n");
+    print("<tr><td>$test[0]</td><td class='formula invalid'>$test[1]</td><td></td></tr>\n");
 }
 ?>
 </table>
@@ -134,7 +145,7 @@ document.querySelectorAll('.formula').forEach(function(td) {
     var formula = td.innerHTML;
     var resTd = td.parentNode.childNodes[2];
     td.onclick = function(e) {
-        prove(td.innerHTML, resTd);
+        prove(td.innerHTML, resTd, td.className.indexOf('invalid')==-1);
     }
     tests.push(td.onclick);
 });
@@ -142,22 +153,34 @@ document.querySelectorAll('.formula').forEach(function(td) {
 var prover;
 var stopTimer;
 var provingAll;
-function prove(fla, resEl) {
+function prove(fla, resEl, isValid) {
     var parser = new Parser();
     var accessibilityConstraints = null;
     if (fla.indexOf('||') > 0) {
         accessibilityConstraints = fla.split('||')[1].split('|');
         fla = fla.split('||')[0];
     }
-    var formula = parser.parseFormula(fla);
     console.log('testing '+fla);
+    var parsedInput = parser.parseInput(fla);
+    var premises = parsedInput[0];
+    var conclusion = parsedInput[1];
+    var initFormulas = premises.concat([conclusion.negate()]);
     var startTime = performance.now();
-    prover = new Prover([formula.negate()], parser, accessibilityConstraints);
+    prover = new Prover(initFormulas, parser, accessibilityConstraints);
     prover.onfinished = function(status) {
         var endTime = performance.now();
         console.log('done with '+fla);
-        var res = (endTime - startTime) + ":&nbsp;" + (status ? "valid" : "invalid");
-        resEl.innerHTML = res;
+        var calcTime = endTime - startTime;
+        if (status != isValid) {
+            resEl.innerHTML = "<b>wrongly found "+(status ? "valid" : "invalid")+"</b>";
+        }
+        else if (status) {
+            var numNodes = new SenTree(prover.tree, parser).nodes.length;
+            resEl.innerHTML = calcTime+"&nbsp;("+numNodes+")";
+        }
+        else {
+            resEl.innerHTML = calcTime;
+        }
         if (provingAll) {
             // console.log('clearing timer '+stopTimer);
             clearTimeout(stopTimer);
