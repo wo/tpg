@@ -6,13 +6,12 @@ function TreePainter(senTree, rootAnchor) {
     this.branchPadding = window.innerWidth < 500 ? 0 :
         window.innerWidth < 800 ? 20 : 30; // min margin between tree branches
     this.branchingHeight = 40;     // vertical space used by branching lines
-    this.nodeHiParentCSS = "treeNodeHiParent" // CSS class for nodes that are currently expanded
-    this.nodeHiChildCSS = "treeNodeHiChild"   // CSS class for nodes that are currently added
     
     this.tree = senTree;
     this.isModal = senTree.parser.isModal;
     this.rootAnchor = rootAnchor;
     this.rootAnchor.innerHTML = "";
+    rootAnchor.style.transform = "scale(1)";
     this.minX = this.branchPadding/2 - rootAnchor.offsetLeft;
     this.scale = 1;
     
@@ -32,6 +31,10 @@ TreePainter.prototype.paintTree = function() {
     log("expansion: " + paintNodes);
     for (var i=0; i<paintNodes.length; i++) {
         this.paint(paintNodes[i]);
+        if (paintNodes[i].closedEnd) {
+            log("painting close marker");
+            this.paint(this.makeCloseMarkerNode(paintNodes[i]));
+        }
     }
     this.highlight(paintNodes, node.fromNodes);
 
@@ -56,17 +59,16 @@ TreePainter.prototype.paint = function(node) {
         node.container = node.parent.container;
     }
     log("painting "+node+" in "+node.container.str);
-    // create node div
     node.div = this.makeNodeDiv(node);
     node.container.appendChild(node.div);
 
     // Since all children of the container are absolutely positioned, the
     // container element is actually a horizontal line starting centered at
     // the top of the branch.
-    log('w '+node.formulaSpan.offsetWidth);
+    log('formula w '+node.formulaSpan.offsetWidth+' div w '+node.div.offsetWidth);
     node.div.style.top = node.container.h + "px";
     node.container.h += node.div.offsetHeight + 3; // that number is the line-spacing
-    if (node.children.length == 0) {
+    if (node.isCloseMarkerNode) {
         // add some spacing below leaf nodes
         node.container.h += this.branchPadding;
     }
@@ -120,16 +122,17 @@ TreePainter.prototype.makeNodeDiv = function(node) {
     div.className = 'treeNode';
 
     var nodeNumberSpan = document.createElement('span');
-    node.nodeNumber = ++this.curNodeNumber;
     nodeNumberSpan.className = 'nodenumber';
-    nodeNumberSpan.innerHTML = node.nodeNumber+'.';
+    if (!node.isCloseMarkerNode) {
+        node.nodeNumber = ++this.curNodeNumber;
+        nodeNumberSpan.innerHTML = node.nodeNumber+'.';
+    }
     div.appendChild(nodeNumberSpan);
     div.id = 'n'+this.curNodeNumber;
     
     node.formulaSpan = document.createElement('span');
     node.formulaSpan.className = 'formula '+node.container.formulaClass;
     node.formulaSpan.innerHTML = node.formula.toString();
-    if (node.closedEnd) node.formulaSpan.innerHTML += "<br><b>x</b>";
     div.appendChild(node.formulaSpan);
     
     if (this.isModal) {
@@ -241,7 +244,7 @@ TreePainter.prototype.keepTreeInView = function() {
         var winTreeRatio = window.innerWidth*1.0/(midPoint*2);
         if (winTreeRatio < 1) {
             this.scale = Math.max(winTreeRatio, 0.8);
-            document.getElementById('rootAnchor').style.transform="scale("+this.scale+")";
+            rootAnchor.style.transform="scale("+this.scale+")";
             log("tree doesn't fit: ratio window.width/tree.width "+winTreeRatio);
         }
     }
@@ -269,16 +272,15 @@ TreePainter.prototype.getMinX = function() {
 
 TreePainter.prototype.highlight = function(children, fromNodes) {
     while (this.highlighted.length) {
-        this.highlighted.shift().div.style.backgroundColor = 'unset';
+        this.highlighted.shift().div.childNodes[1].style.backgroundColor = 'unset';
     }
     for (var i=0; i<children.length; i++) {
         // children[i].div.className = 'treeNodeHiChild';
-        children[i].div.style.backgroundColor = '#00708333';
-
+        children[i].div.childNodes[1].style.backgroundColor = '#00708333';
     }
     for (var i=0; i<fromNodes.length; i++) {
         // fromNodes[i].div.className = 'treeNodeHiParent';
-        fromNodes[i].div.style.backgroundColor = '#00708366';
+        fromNodes[i].div.childNodes[1].style.backgroundColor = '#00708366';
     }
     this.highlighted = children.concat(fromNodes);
 }
