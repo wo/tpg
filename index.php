@@ -14,6 +14,7 @@
 <div id="titlebar">
   <h2 id="title"><a id="titlelink" href=".">Tree Proof Generator</a></h2>
   <a id="githublink" class="hideOnPhone" href="https://www.github.com/wo/tpg/commits/master">Last update: <?=date('d M Y', filemtime('.git/refs/heads/master'))?></a>
+  <span style="font-weight:bold; color:#c01f00; font-size:.8em; padding-left:1em">now supports identity</span>
 </div>
 
 <form id="inputForm" action="." method="get" onsubmit="return false">
@@ -74,7 +75,6 @@ else {
 
 <div id="intro">
     
-    <p><b>New: now supports identity!</b></p><br>
 
   <noscript><p><b>You need to enable JavaScript to use this page.</b></p></noscript>
       
