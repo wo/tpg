@@ -86,14 +86,16 @@ TreePainter.prototype.paint = function(node) {
         node.div.style.left = -node.container.w/2 + "px";
     }
     // node.div.style.left = -node.div.offsetWidth/2 + "px";
-    log('old container w '+node.container.w);
     node.container.w = Math.max(node.container.w, node.div.offsetWidth);
-    log('new container w '+node.container.w);
+    // account for overlong fromNumber labels (not reflected in offsetWidth):
+    var fromSpan = node.div.childNodes[2];
+    var wOversize = fromSpan.scrollWidth - fromSpan.offsetWidth;
+    node.container.wOversize = Math.max(node.container.wOversize, wOversize);
     this.repositionBranches(node);
     this.keepTreeInView();
 }
 
-TreePainter.prototype.makeContainer = function(node) {
+TreePainter.prototype.makeContainer = function(node, nodeId) {
     // create new container for subbranch
     log('creating new container');
     var parContainer = node.parent ? node.parent.container : this.rootAnchor;
@@ -106,7 +108,8 @@ TreePainter.prototype.makeContainer = function(node) {
     container.style.left = "0px";
     container.style.top = node.parent ? parContainer.h + this.branchingHeight + "px" : "0px";
     container.w = container.h = 0;
-    container.str = "{ "+node+ " }" + (self.__strid ? self.__strid++ : (self.__strid = 1));
+    container.wOversize = 0;
+    container.str = "{ " + (this.curNodeNumber+1) + " "+node+ " }";
     container.formulaClass = 'fla'+this.curNodeNumber;
     container.formulaWidth = 0;
     return container;
@@ -142,13 +145,39 @@ TreePainter.prototype.makeNodeDiv = function(node) {
     if (node.fromRule) {
         var fromRule = node.fromRule.toString().substr(0,3);
         if (!['alp', 'bet', 'gam', 'del', 'mod'].includes(fromRule)) {
-            annot.push(fromRule+'.');
+            fromRule += '.';
+            if (fromRule == 'equ.') fromRule = 'LL';
+            annot.push(fromRule);
         }
     }
     fromSpan.innerHTML = annot.length>0 ? "("+annot.join(',')+")" : " ";
     div.appendChild(fromSpan);
-
+    var painter = this;
+    if (node.isCloseMarkerNode) {
+        div.addEventListener("mouseenter", function(e) {
+            painter.highlight([], node.closedBy);
+        });
+    }
+    else {
+        div.addEventListener("mouseenter", function(e) {
+            painter.highlight(painter.tree.getExpansion(node), node.fromNodes);
+        });
+    }
+    div.addEventListener("mouseleave", function(e) {
+        painter.highlightNothing();
+    });
     return div;
+}
+
+TreePainter.prototype.makeCloseMarkerNode = function(closingNode) {
+    var node = new Node();
+    node.formula = "<b>x</b>";
+    node.parent = closingNode;
+    node.fromNodes = [];
+    node.children = [];
+    node.isCloseMarkerNode = true;
+    node.closedBy = closingNode.closedBy;
+    return node;
 }
 
 TreePainter.prototype.repositionBranches = function(node) {
@@ -186,13 +215,15 @@ TreePainter.prototype.getOverlap = function(par) {
     while ((co1 = co1s.shift())) {
         co2s = [par.subContainers[1]];
         while ((co2 = co2s.shift())) {
-            co1.__x = co1.parentNode.__x + parseInt(co1.style.left);// - co1.w/2;
+            co1.__x = co1.parentNode.__x + parseInt(co1.style.left); // - co1.w/2;
             co1.__y = co1.parentNode.__y + parseInt(co1.style.top);
-            co2.__x = co2.parentNode.__x + parseInt(co2.style.left);// - co2.w/2;
+            co2.__x = co2.parentNode.__x + parseInt(co2.style.left); // - co2.w/2;
             co2.__y = co2.parentNode.__y + parseInt(co2.style.top);
             if ((co1.__y >= co2.__y) && (co1.__y < co2.__y + co2.h) ||
                 (co2.__y >= co1.__y) && (co2.__y < co1.__y + co1.h)) { // y-overlap > 0
-                var overlap12 = (co1.__x + co1.w/2 + painter.branchPadding) - (co2.__x - co2.w/2);
+                var co1w = co1.w + co1.wOversize;
+                var co2w = co2.w + co2.wOversize;
+                var overlap12 = (co1.__x + co1w/2 + painter.branchPadding) - (co2.__x - co2w/2);
                 overlap = Math.max(overlap, overlap12);
             }
             co2s = co2s.concat(co2.subContainers);

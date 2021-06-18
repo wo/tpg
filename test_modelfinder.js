@@ -17,7 +17,7 @@ tests = {
         var f = parser.parseFormula('∀x∃y(Fx∧∀zHxyz)');
         f = f.normalize();
         var sk = mf.skolemize(f);
-        assertEqual(sk.toString(), '∀x(Fx∧∀zHxf(x)z)');
+        assertEqual(sk.toString(), '∀x(Fx ∧ ∀zHxf(x)z)');
     },
     
     skolemize2: function() {
@@ -26,7 +26,7 @@ tests = {
         var f = parser.parseFormula('∀x∃y∃zHxyz ∨ ∃v∀wGvw');
         f = f.normalize();
         var sk = mf.skolemize(f);
-        assertEqual(sk.string, '(∀xHxf(x)g(x)∨∀wGaw)');
+        assertEqual(sk.string, '(∀xHxf(x)g(x) ∨ ∀wGaw)');
     },
 
     cnf_basic: function() {
@@ -92,7 +92,7 @@ tests = {
         var m = new ModelFinder([parser.parseFormula('p')], parser);
         var f = parser.parseFormula("(¬Px∨((¬Py∨Pf(xy))∧(Qxg(x)∧(¬Pg(x)∨¬Rcg(x)))))");
         var cnf = m.cnf(f);
-        assertEqual(cnf.toString(), '[[Qxg(x),¬Px],[Pf(xy),¬Px,¬Py],[¬Pg(x),¬Px,¬Rcg(x)]]');
+        assertEqual(cnf.toString(), '[[Qxg(x),¬Px],[Pf(x,y),¬Px,¬Py],[¬Pg(x),¬Px,¬Rcg(x)]]');
     },
 
     tseitinCNF_basic: function() {

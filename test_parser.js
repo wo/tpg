@@ -74,7 +74,7 @@ tests = {
         var f2 = parser.translateFromModal(f);
         assert(parser.isModal);
         assert(parser.isPropositional);
-        assertEqual(f2.string, '∀v(Rwv→pv)');
+        assertEqual(f2.string, '∀v(Rwv → pv)');
     },
 
     translateFromModal3: function() {
@@ -91,7 +91,7 @@ tests = {
         var f = parser.parseFormula('□p→◇p');
         var f2 = parser.translateFromModal(f);
         var f3 = parser.translateToModal(f2);
-        assertEqual(f3.string, '(□p→◇p)');
+        assertEqual(f3.string, '(□p → ◇p)');
     },
 
     useRinModalFormula: function() {
@@ -119,7 +119,7 @@ tests = {
     parseK: function() {
         var parser = new Parser();
         var res = parser.parseInput('□(p→q)→□p→□q');
-        assertEqual(res[1].string, '(□(p→q)→(□p→□q))');
+        assertEqual(res[1].string, '(□(p→q) → (□p → □q))');
     }
 
 }

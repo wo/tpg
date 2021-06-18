@@ -6,7 +6,7 @@
 <link href="https://fonts.googleapis.com/css?family=M+PLUS+1p:400,500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css" type="text/css">
 <?php
-$scripts = array("array", "formula", "parser", "prover", "modelfinder", "sentree", "painter");
+$scripts = array("array", "formula", "parser", "prover", "equality", "modelfinder", "sentree", "painter");
 $allscripts = implode("-", $scripts);
 print "<script type='text/javascript' src='$allscripts.js'></script>\n";
 ?>
@@ -19,6 +19,7 @@ print "<script type='text/javascript' src='$allscripts.js'></script>\n";
 <h3>Valid Cases</h3>
 
 <table style="max-width:1200px;">
+    <tr><th>Label</th><th>Input</th><th>Time</th><th>Steps</th><th>Nodes</th></tr>
 <?php
 $valid_tests = [
    ['simp', '(p∨(q∧r))→((p∨q)∧(p∨r))'],
@@ -38,12 +39,14 @@ $valid_tests = [
    ['b164.l', '∀x∃y(Fx↔Gy)↔∃y∃z∀x((Fx→Gy)∧(Gz→Fx))'],
    ['conpos', '∀y(Iy→∀x(Px↔Cxy))∧∃yIy→∀x(Px↔∀y(Iy→Cxy))'],
    ['carnap', '(∃xFx→Fw)∧(¬∃xFx∧∃xGx→Gw)↔(∃x(Fx∨(¬∃yFy∧Gx))→(Fw∨(¬∃yFy∧Gw)))'],
+   ['fd1eaff', 'Ac, ∀x(Ax→Tx), ∀x(Mx→¬Tx), Mb, ∀xIxx, ∀x∀y(Ixy→Iyx), ∀x∀y(Ixy→(Ax→Ay)), ∀x∀y(Ixy→(Mx→My)), ∀x∀y(Ixy→(Tx→Ty)) |= ¬Ibc'],
    ['id1', 'c=b ∧ Fc → Fb'],
    ['id2', 'a=b ∧ b=c ∧ Paa → Pcc'],
    ['beckert97a', '∀x(g(x)=f(x) ∨ ¬(x=a)) ∧ ∀x(g(f(x))=x) ∧ b=c ∧ Pg(g(a))b → Pac'],
    ['beckert98ex4', '∀x(g(x)=f(x) ∨ ¬(x=a)) ∧ ∀x(f(x)=x) ∧ Pg(a)f(b) → Pab'],
    ['dv98ex1.1', '∃x∃y∃u∃v((a = b → g(x, u, v) = g(y, f(c), f(d))) ∧ (c = d → g(u, x, y) = g(v, f(a), f(b))))'],
    ['franssen08fibo', '∀xp(x, z) = x ∧ ∀x∀yp(x,y) = p(y,x) ∧ f(z) = z ∧ f(s(z)) = s(z) ∧ ∀yf(s(s(y))) = p(f(y), f(s(y))) → f(s(s(z))) = s(z)'],
+   ['multiinst', '(∀x(P(x)→P(f(x)))) ∧ P(d)→P(f(f(f(d))))'],
    ['pel1', '((p→q)↔(¬q→¬p))'],
    ['pel2', '(¬¬p↔p)'],
    ['pel3', '(¬(p→q)→(q→p))'],
@@ -85,6 +88,7 @@ $valid_tests = [
    ['pel38', '∀x ((P(a) ∧ (P(x) → ∃y (P(y) ∧ R(x,y)))) → ∃z ∃w ((P(z) ∧ R(x,w)) ∧ R(w,z))) ↔ ∀x2 ((((¬P(a)) ∨ P(x2)) ∨ ∃x3 ∃x4 ((P(x3) ∧ R(x2,x4)) ∧ R(x4,x3))) ∧ (((¬P(a)) ∨ (¬∃x5 (P(x5) ∧ R(x2,x5)))) ∨ ∃x6 ∃x7 ((P(x6) ∧ R(x2,x7)) ∧ R(x7,x6))))'],
    ['pel39', '¬∃x ∀y (F(y,x) ↔ ¬F(y,y))'],
    ['pel40', '∃x ∀y (F(y,x) ↔ F(y,y)) → ¬∀z ∃w ∀x2 (F(x2,w) ↔ ¬F(x2,z))'],
+   ['pel43', '∀x∀y(Qxy ↔ ∀z(Fzx ↔ Fzy)) |= ∀x∀y(Qxy ↔ Qyx)'],
    ['pel48', '(a=b ∨ c=d) ∧ (a=c ∨ b=d) → (a=d ∨ b=c)'],
    ['pel49', '∃x∃y∀z(z=x ∨ z=y) ∧ Pa ∧ Pb ∧ ¬(a=b) → ∀xPx'],
    ['pel51', '∃z∃w∀x∀y(Fxy ↔ (x=z ∧ y=w)) |= ∃z∀x(∃w∀y(Fxy ↔ y=w) ↔ x=z)'],
@@ -93,6 +97,7 @@ $valid_tests = [
    ['pel56', '∀x(∃y(Fy ∧ x=f(y)) →Fx) ↔ ∀x(Fx →  Ff(x))'],
    ['pel57', 'Ff(a,b)f(b,c), Ff(b,c)f(a,c), ∀x∀y∀z(Fxy ∧ Fyz → Fxz) |= Ff(a,b)f(a,c)'],
    ['pel58', '∀x∀yf(x)=g(y) |= ∀x∀yf(f(x))=f(g(y))'],
+   ['pel59', '∀x(P(x) ↔ ¬P(f(x))) → ∃x(P(x) ∧ ¬P(f(x)))'],
    ['pel61', '∀x∀y∀zf(x,f(y,z))=f(f(x,y),z) |= ∀x∀y∀z∀wf(x,f(y,f(z,w)))=f(f(f(x,y),z),w)'],
    ['rel1', '(∀x∃yCxy∧∀x∀y(Cxy→Cyx)∧∀x∀y∀z((Cxy∧Cyz)→Cxz)) → ∀xCxx'],
    ['mod1', '(□p ∧ ◇q)→◇(p∧q)'],
@@ -105,7 +110,7 @@ $valid_tests = [
 ];
 
 foreach ($valid_tests as $test) {
-    print("<tr><td>$test[0]</td><td class='formula valid'>$test[1]</td><td></td></tr>\n");
+    print("<tr><td><a href='/#$test[1]'>$test[0]</a> (<a href='/?debug=1#$test[1]'>d</a>)</td><td class='formula valid'>$test[1]</td><td></td><td></td><td></td></tr>\n");
 }
 ?>
 </table>
@@ -113,6 +118,7 @@ foreach ($valid_tests as $test) {
 <h3>Invalid Cases</h3>
 
 <table>
+    <tr><th>Label</th><th>Input</th><th>Time</th><th>Steps</th><th>Nodes</th></tr>
 <?php
 $invalid_tests = [
     ['i1', 'p'],
@@ -138,7 +144,7 @@ $invalid_tests = [
 ];
     
 foreach ($invalid_tests as $test) {
-    print("<tr><td>$test[0]</td><td class='formula invalid'>$test[1]</td><td></td></tr>\n");
+    print("<tr><td><a href='/#$test[1]'>$test[0]</a> (<a href='/?debug=1#$test[1]'>d</a>)</td><td class='formula invalid'>$test[1]</td><td></td><td></td><td></td></tr>\n");
 }
 ?>
 </table>
@@ -149,9 +155,8 @@ foreach ($invalid_tests as $test) {
 var tests = [];
 document.querySelectorAll('.formula').forEach(function(td) {
     var formula = td.innerHTML;
-    var resTd = td.parentNode.childNodes[2];
     td.onclick = function(e) {
-        prove(td.innerHTML, resTd, td.className.indexOf('invalid')==-1);
+        prove(td.innerHTML, td.parentNode, td.className.indexOf('invalid')==-1);
     }
     tests.push(td.onclick);
 });
@@ -159,7 +164,7 @@ document.querySelectorAll('.formula').forEach(function(td) {
 var prover;
 var stopTimer;
 var provingAll;
-function prove(fla, resEl, isValid) {
+function prove(fla, tableRow, isValid) {
     var parser = new Parser();
     var accessibilityConstraints = null;
     if (fla.indexOf('||') > 0) {
@@ -176,16 +181,19 @@ function prove(fla, resEl, isValid) {
     prover.onfinished = function(status) {
         var endTime = performance.now();
         console.log('done with '+fla);
-        var calcTime = endTime - startTime;
+        var calcTime = Math.round(endTime - startTime);
+        var timeTd = tableRow.childNodes[2];
+        var stepsTd = tableRow.childNodes[3];
+        var nodesTd = tableRow.childNodes[4];
         if (status != isValid) {
-            resEl.innerHTML = "<b>wrongly found "+(status ? "valid" : "invalid")+"</b>";
-        }
-        else if (status) {
-            var numNodes = new SenTree(prover.tree, parser).nodes.length;
-            resEl.innerHTML = calcTime+"&nbsp;("+numNodes+")";
+            timeTd.innerHTML = "<b>wrongly found "+(status ? "valid" : "invalid")+"!</b>";
         }
         else {
-            resEl.innerHTML = calcTime;
+            timeTd.innerHTML = calcTime;
+            stepsTd.innerHTML = prover.step;
+        }
+        if (status) {
+            nodesTd.innerHTML = new SenTree(prover.tree, parser).nodes.length;
         }
         if (provingAll) {
             // console.log('clearing timer '+stopTimer);
@@ -227,7 +235,7 @@ function proveNext() {
 <div style="position:fixed; bottom:0; left:0; padding:10px; width:100%; background-color:#ccc">
 <form action="#" method="get" style="display:inline">
 <input type="button" onclick="proveAll(this.form.l.value)" value="run all tests"> 
-Limit <input type="text" size="7" name="l" value="3000"> ms/test
+Limit <input type="text" size="7" name="l" value="5000"> ms/test
 </form>
 </div>
 

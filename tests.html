@@ -52,7 +52,8 @@ function print(s) {
 }
 
 function log(s) {
-    console.log(s);
+    return;
+    //console.log(s);
 }
 
 </script>
@@ -76,6 +77,11 @@ function log(s) {
 <script src="test_prover.debug.js"></script>
 <script>
     showtests('test_prover.js');
+</script>
+<script src="equality.debug.js"></script>
+<script src="test_equality.debug.js"></script>
+<script>
+    showtests('test_equality.js');
 </script>
 <script src="sentree.debug.js"></script>
 <script src="test_sentree.debug.js"></script>

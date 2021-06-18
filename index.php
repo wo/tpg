@@ -47,7 +47,7 @@
 <div id="rootAnchor"> </div>
 
 <?php
-$scripts = array("array", "formula", "parser", "prover", "modelfinder", "sentree", "painter", "index");
+$scripts = array("array", "formula", "parser", "prover", "equality", "modelfinder", "sentree", "painter", "index");
 if (isset($_GET['debug'])) {
     foreach ($scripts as $script) {
         print "<script type='text/javascript' src='$script.debug.js'></script>\n";
@@ -55,8 +55,8 @@ if (isset($_GET['debug'])) {
     ?>
     <script>
     function log(str) {
-        if (!self.debugWin) debugPopup();
-        debugWin.document.write("<pre>"+str+"</pre>");
+         if (!self.debugWin) debugPopup();
+         debugWin.document.write("<pre>"+str+"</pre>");
     }
     function debugPopup() {
         self.debugWin = self.open("about:blank","debugWin");
@@ -73,8 +73,10 @@ else {
 ?>
 
 <div id="intro">
+    
+    <p><b>New: now supports identity!</b></p><br>
 
-  <noscript><p><b>Enable JavaScript to use this page!.</b></p></noscript>
+  <noscript><p><b>You need to enable JavaScript to use this page.</b></p></noscript>
       
   <p>Enter a formula of standard propositional, predicate, or modal logic. The
     page will try to find either a countermodel or
@@ -83,15 +85,15 @@ else {
 
   <p>Examples (click!):</p>
   <ul id="exampleList">
-    <li class="formula"><a href="#(p∨(q∧r))→((p∨q)∧(p∨r))">(p∨(q∧r))→((p∨q)∧(p∨r))</a></li>
-    <li class="formula"><a href="#((A→B)→A)→A">((A→B)→A)→A</a></li>
-    <li class="formula"><a href="#∃y∀x(Fy→Fx)">∃y∀x(Fy→Fx)</a></li>
-    <li class="formula"><a href="#∃y∃z∀x((Fx→Gy)∧(Gz→Fx)) → ∀x∃y(Fx↔Gy)">∃y∃z∀x((Fx→Gy)∧(Gz→Fx)) → ∀x∃y(Fx↔Gy)</a></li>
-    <li class="formula"><a href="#N(0) ∧ ∀i(N(i)→N(s(i))) → N(s(s(s(0))))">N(0) ∧ ∀i(N(i)→N(s(i))) → N(s(s(s(0))))</a></li>
-    <li class="formula"><a href="#∀y∃xFxy → ∃x∀yFxy">∀y∃xFxy → ∃x∀yFxy</a></li>
-    <li class="formula"><a href="#□(p→q)→□p→□q">□(p→q)→□p→□q</a></li>
-    <li class="formula"><a href="#∀x□Fx→□∀xFx">∀x□Fx→□∀xFx</a></li>
-    <li class="formula"><a href="#p∨q, ¬p |= q">p∨q, ¬p |= q</a></li>
+    <li class="formula"><a href="#(p∨(q∧r))→((p∨q)∧(p∨r))">(p∨(q∧r)) → ((p∨q) ∧ (p∨r))</a></li>
+    <li class="formula"><a href="#∃y∀x(Fy→Fx)">∃y∀x(Fy → Fx)</a></li>
+    <li class="formula"><a href="#∃y∃z∀x((Fx→Gy)∧(Gz→Fx))→∀x∃y(Fx↔Gy)">∃y∃z∀x((Fx → Gy) ∧ (Gz → Fx)) → ∀x∃y(Fx ↔ Gy)</a></li>
+    <li class="formula"><a href="#N(0)∧∀i(N(i)→N(s(i)))→N(s(s(s(0))))">N(0) ∧ ∀i(N(i) → N(s(i))) → N(s(s(s(0))))</a></li>
+    <li class="formula"><a href="#∀x(∃y(Fy∧x=f(y))→Fx)↔∀x(Fx→Ff(x))">∀x(∃y(Fy ∧ x=f(y)) → Fx) ↔ ∀x(Fx → Ff(x))</a></li>
+    <li class="formula"><a href="#□(p→q)→□p→□q">□(p→q) → □p→□q</a></li>
+    <li class="formula"><a href="#∀x□Fx→□∀xFx">∀x□Fx → □∀xFx</a></li>
+    <li class="formula"><a href="#∀y∃xFxy→∃x∀yFxy">∀y∃xFxy → ∃x∀yFxy</a></li>
+    <li class="formula"><a href="#p∨q,¬p|=q">p∨q, ¬p |= q</a></li>
   </ul>
 
   <h3>Entering formulas</h3>
@@ -136,8 +138,8 @@ else {
   <h3>Supported logics</h3>
 
   <p>Besides classical propositional logic and first-order predicate logic (with
-    functions, but without identity), a few normal modal logics are supported. If
-    you enter a modal formula, you will see a choice of how the accessibility
+    functions and identity), a few normal modal logics are supported. If you
+    enter a modal formula, you will see a choice of how the accessibility
     relation should be constrained. For modal predicate logic, constant domains
     and rigid terms are assumed.</p>
   

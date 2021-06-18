@@ -4,13 +4,9 @@ Array.prototype.toString = function() {
     return "["+this.join(",")+"]";
 }
 
-if (!Array.prototype.includes) { // IE
-    Array.prototype.includes = function(element) {
-        for (var i=0; i<this.length; i++) {
-            if (this[i] == element) return true;
-        }
-        return false;
-    }
+Array.prototype.extend = function(otherArray) {
+    // extend this array by the elements of <otherArray>:
+    this.push.apply(this, otherArray);
 }
 
 Array.prototype.remove = function(element) {
@@ -52,6 +48,23 @@ Array.prototype.concatNoDuplicates = function(array2) {
         }
     }
     return res;
+}
+
+Array.prototype.extendNoDuplicates = function(array2) {
+    // extend this array by all elements of <array2> added, but without adding
+    // any duplicates. x and y count as duplicates if x.toString() ==
+    // y.toString(), which is usefor for arrays of (arrays of) formulas.
+    var hash = {};
+    for (var i=0; i<this.length; i++){
+        hash[this[i].toString()] = true;
+    }
+    for(var i=0; i<array2.length; i++){
+        var s = array2[i].toString();
+        if (!hash[s]){
+            hash[s] = true;
+            this.push(array2[i]);
+        }
+    }
 }
 
 Array.prototype.removeDuplicates = function() {
@@ -111,7 +124,37 @@ Array.prototype.equals = function(arr2) {
     return true;
 }
 
+// Polyfill:
+
+if (!Array.prototype.includes) { 
+    Array.prototype.includes = function(element) {
+        for (var i=0; i<this.length; i++) {
+            if (this[i] == element) return true;
+        }
+        return false;
+    };
+}
+
 Object.values = Object.values || function(o) {
-    // return the values of a dict object
     return Object.keys(o).map(function(k){return o[k]})
+};
+
+Object.entries = Object.entries || function(obj) {
+    var ownProps = Object.keys(obj);
+    var i = ownProps.length;
+    var res = new Array(i); 
+    while (i--) res[i] = [ownProps[i], obj[ownProps[i]]];
+    return res;
+};
+
+if (!String.prototype.startsWith) {
+    String.prototype.startsWith = function(search) {
+        return this.substring(0, search.length) === search;
+    }
+}
+
+if (!String.prototype.includes) {
+    String.prototype.includes = function(sub) {
+        return this.indexOf(sub) > -1;
+    }
 }

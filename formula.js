@@ -6,8 +6,9 @@ function Formula() {
 }
 
 Formula.prototype.toString = function() {
-    // return this.string, but without redundant outer parens
+    // return this.string, but slighly nicer
     if (this.operator && this.operator.match(/[∧↔∨→]/)) {
+        // remove redundant outer parens
         return this.string.slice(1,-1);
     }
     return this.string;
@@ -21,31 +22,20 @@ Formula.prototype.negate = function() {
     return new NegatedFormula(this);
 }
 
-Formula.prototype.unify = function(formula) {
-    // check whether this formula can be unified with the argument formula.
-    // Returns a ("most general") unifying substitution (that, if applied to both
-    // formulas, yields the same formula) if one exists, otherwise false. A
-    // substitution is simply an array of terms, which is interpreted as arr[1]
-    // -> arr[2], arr[3] -> arr[4], ... (arr[1], arr[3], etc. are variables).
-    // Warning: Don't confuse an empty unifier [] with false!
-    //
-    // The following algorithm is losely based on the one described in S.
-    // Hölldobler, Logik und Logikprogrammierung, Synchron Verlag, Heidelberg
-    // 2001, §4.5.
-    //
-    // Note that this only works for literals.  For quantified formulas one
-    // would have to care about capturing by quantified variables, which would
-    // complicate things a little.
-    if (this.type != 'literal') return false;
-    if (this.sub && !formula.sub) return false;
-    if (this.sub) return this.sub.unify(formula.sub);
-    if (this.predicate != formula.predicate) return false;
-    if (this.terms.length != formula.terms.length) return false;
-    // So we have two atomic formulas of the same arity. Now we walk through all
-    // the pairs of terms.
+Formula.unifyTerms = function(terms1, terms2) {
+    /**
+     * check whether list of terms <terms1> can be unified with <terms2>;
+     * returns a (most general) unifying substitution (that yields the same term
+     * list if applied to <terms1> and <terms2>) if one exists, otherwise false
+     *
+     * A substitution is an array of terms, which is interpreted as
+     * arr[1] -> arr[2], arr[3] -> arr[4], ... (arr[1], arr[3], etc. are variables).
+     * 
+     * Warning: Don't confuse an empty unifier [] with false!
+     */
     var unifier = [];
-    var terms1 = this.terms.copyDeep(); // copy() doesn't suffice: see pel38 
-    var terms2 = formula.terms.copyDeep();
+    var terms1 = terms1.copyDeep(); // copy() doesn't suffice: see pel38 
+    var terms2 = terms2.copyDeep();
     var t1, t2;
     while (t1 = terms1.shift(), t2 = terms2.shift()) {
         // log('unify terms? '+t1+' <=> '+t2);
@@ -103,7 +93,8 @@ Formula.prototype.unify = function(formula) {
                 else if (terms[i] == t1) terms[i] = t2;
             }
         }
-        unifier.push(t1); unifier.push(t2);
+        unifier.push(t1);
+        unifier.push(t2);
     }
     return unifier;
 }
@@ -246,20 +237,29 @@ function AtomicFormula(predicate, terms) {
     this.type = 'literal';
     this.predicate = predicate;
     this.terms = terms; // a,b,f(a,g(c),d) => a,b,[f,a,[g,c],d]
-    this.string = predicate + AtomicFormula.terms2string(terms);
+    if (this.predicate == '=') {
+        this.string = AtomicFormula.terms2string([this.terms[0]])+'='+
+            AtomicFormula.terms2string([this.terms[1]]);
+        // In modal trees, even identity formulas have an extra world argument.
+        // However, we don't reflect it in this.string. As a consequence, identity
+        // formulas are treated as if they held at all worlds. For example, two
+        // nodes =(a,b,w) and ¬=(a,b,v) are treated as complementary, because
+        // we search for complementary nodes by looking at formula.string
+    }
+    else {
+        this.string = predicate + AtomicFormula.terms2string(terms);
+    }
 }
 
-AtomicFormula.terms2string = function(list) {
-    var res = '';
-    for (var i=0; i<list.length; i++) {
-        if (list[i].isArray) {
-            var sublist = list[i].copy();
+AtomicFormula.terms2string = function(list, separator) {
+    return list.map(function(term) {
+        if (term.isArray) {
+            var sublist = term.copy();
             var funcsym = sublist.shift();
-            res += funcsym+'('+AtomicFormula.terms2string(sublist)+')';
+            return funcsym+'('+AtomicFormula.terms2string(sublist,',')+')';
         }
-        else res += list[i];
-    }
-    return res;
+        else return term;
+    }).join(separator || '');
 }
 
 AtomicFormula.prototype = Object.create(Formula.prototype);
@@ -270,14 +270,22 @@ AtomicFormula.prototype.substitute = function(origTerm, newTerm, shallow) {
     if (typeof(origTerm) == 'string' && this.string.indexOf(origTerm) == -1) {
         return this;
     }
-    var newTerms = AtomicFormula.substituteInTerms(this.terms, origTerm, newTerm, shallow);
+    var newTerms = Formula.substituteInTerms(this.terms, origTerm, newTerm, shallow);
     if (!this.terms.equals(newTerms)) {
         return new AtomicFormula(this.predicate, newTerms);
     }
     else return this;
 }
 
-AtomicFormula.substituteInTerms = function(terms, origTerm, newTerm, shallow) {
+Formula.substituteInTerm = function(term, origTerm, newTerm) {
+    // return a copy of <term> with all occurrences of <origTerm> replaced
+    // by <newTerm>
+    if (term == origTerm) return newTerm;
+    if (term.isArray) return Formula.substituteInTerms(term, origTerm, newTerm);
+    return term;
+}
+
+Formula.substituteInTerms = function(terms, origTerm, newTerm, shallow) {
     // return a copy of <terms> with all occurrences of <origTerm> replaced
     // by <newTerm>. If <shallow>, don't replace terms in function arguments
     var newTerms = [];
@@ -285,20 +293,13 @@ AtomicFormula.substituteInTerms = function(terms, origTerm, newTerm, shallow) {
         var term = terms[i];
         if (term.toString() == origTerm.toString()) newTerms.push(newTerm);
         else if (term.isArray && !shallow) {
-            newTerms.push(AtomicFormula.substituteInTerms(term, origTerm, newTerm));
+            newTerms.push(Formula.substituteInTerms(term, origTerm, newTerm));
         }
         else newTerms.push(term);
     }
     return newTerms;
 }
 
-AtomicFormula.substituteInTerm = function(term, origTerm, newTerm) {
-    // return a copy of <term> with all occurrences of <origTerm> replaced
-    // by <newTerm>
-    if (term == origTerm) return newTerm;
-    if (term.isArray) return AtomicFormula.substituteInTerms(term, origTerm, newTerm);
-    return term;
-}
 
 function QuantifiedFormula(quantifier, variable, matrix, overWorlds) {
     this.quantifier = quantifier;
@@ -334,7 +335,8 @@ function BinaryFormula(operator, sub1, sub2) {
     this.sub1 = sub1;
     this.sub2 = sub2;
     this.type = operator == '∧' ? 'alpha' : 'beta';
-    this.string = '(' + sub1.string + operator + sub2.string + ')';
+    var space = sub1.string.length+sub2.string.length > 3 ? ' ' : '';
+    this.string = '(' + sub1.string + space + operator + space + sub2.string + ')';
 }
 
 BinaryFormula.prototype = Object.create(Formula.prototype);

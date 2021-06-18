@@ -115,8 +115,8 @@ tests = {
         prover.pauseLength = 0;
         prover.start();
         var sentree = new SenTree(prover.tree, parser);
-        assertEqual(sentree.nodes[1].formula.string, '¬∀x(Fa→Fx)');
-        assertEqual(sentree.nodes[2].formula.string, '¬(Fa→Fb)');
+        assertEqual(sentree.nodes[1].formula.string, '¬∀x(Fa → Fx)');
+        assertEqual(sentree.nodes[2].formula.string, '¬(Fa → Fb)');
     },
 
     catchSkolemTermsInFunctions: function() {

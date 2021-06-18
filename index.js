@@ -147,9 +147,6 @@ function startProof() {
             }
             return; 
         }
-        if (parser.isModal) {
-            sentree.modalize();
-        }
         // Start painting the tree:
         document.getElementById("rootAnchor").style.display = "block";
         self.painter = new TreePainter(sentree, document.getElementById("rootAnchor"));

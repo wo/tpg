@@ -9,6 +9,8 @@ function Parser() {
     // propositional, so that we can build an appropriate tree/countermodel:
     this.isModal = false;
     this.isPropositional = true;
+    // do we need equality reasoning?
+    this.hasEquality = false;
 }
 
 Parser.prototype.copy = function() {
@@ -25,6 +27,7 @@ Parser.prototype.copy = function() {
     }
     nparser.isModal = this.isModal;
     nparser.isPropositional = this.isPropositional;
+    nparser.hasEquality = this.hasEquality;
     nparser.R = this.R;
     nparser.w = this.w;
     return nparser;
@@ -103,7 +106,7 @@ Parser.prototype.getVariables = function(formula) {
     var terms = formula.isArray ? formula : formula.terms;
     for (var i=0; i<terms.length; i++) {
         if (terms[i].isArray) {
-            res = res.concatNoDuplicates(this.getVariables(terms[i]));
+            res.extendNoDuplicates(this.getVariables(terms[i]));
         }
         else if (this.expressionType[terms[i]].indexOf('variable') > -1
                  && !dupe[terms[i]]) {
@@ -375,9 +378,13 @@ Parser.prototype.parseFormula = function(str) {
     }
 
     // formula should be atomic
+    
+    // convert infix '=' to prefix:
+    str = str.replace(/^(.+)=(.+)$/, '=$1$2');
+    
     reTest = /^[^\d\(\),%]\d*/.exec(str);
     if (reTest && reTest.index == 0) {
-        // atomic
+        // normal atomic
         log("   string is atomic (predicate = '"+reTest[0]+"'); ");
         var predicate = reTest[0];
         var termstr = str.substr(predicate.length); // empty for propositional constants
@@ -389,6 +396,7 @@ Parser.prototype.parseFormula = function(str) {
         else {
             var predicateType = "proposition letter (0-ary predicate)";
         }
+        if (predicate == '=') this.hasEquality = true;
         this.registerExpression(predicate, predicateType, terms.length);
         return new AtomicFormula(predicate, terms);
     }

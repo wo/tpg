@@ -17,15 +17,15 @@ tests = {
         var f2 = f.substitute('x', 'z');
         assertEqual(f, f2);
         var f2 = f.substitute('y', 'z');
-        assertEqual(f2.string, '∀x(Fx→Fz)');
-        assertEqual(f.string, '∀x(Fx→Fy)');
+        assertEqual(f2.string, '∀x(Fx → Fz)');
+        assertEqual(f.string, '∀x(Fx → Fy)');
     },
 
     substitute2: function() {
         var parser = new Parser();
         var f = parser.parseFormula('(¬Av∨Bv)');
         var f2 = f.substitute('v', 'φ1');
-        assertEqual(f2.string, '(¬Aφ1∨Bφ1)');
+        assertEqual(f2.string, '(¬Aφ1 ∨ Bφ1)');
     },
 
     substituteComplex: function() {
@@ -34,20 +34,20 @@ tests = {
         var f2 = f.substitute('c', ['f','a','b','c'], true);
         assertEqual(f, f2);
         var f2 = f.substitute('c', ['f','a','b','c']);
-        assertEqual(f2.string, 'Habg(f(abc)f(abc))');
+        assertEqual(f2.string, 'Habg(f(a,b,c),f(a,b,c))');
     },
 
     normalize: function() {
         var parser = new Parser();
-        var f = parser.parseFormula('¬∀x(Fx→Fx)').normalize();
-        assertEqual(f, '∃x(Fx∧¬Fx)');
+        var f = parser.parseFormula('¬∀x(Fx → Fx)').normalize();
+        assertEqual(f, '∃x(Fx ∧ ¬Fx)');
     },
 
     unify: function() {
         var parser = new Parser();
         var f1 = parser.parseFormula('Ff(a,b)');
         var f2 = parser.parseFormula('Fξ1');
-        var u = f1.unify(f2);
+        var u = Formula.unifyTerms(f1.terms, f2.terms);
         assertEqual(u[0], 'ξ1');
         assertEqual(u[1].toString(), ['f','a','b']);
     },
@@ -56,11 +56,19 @@ tests = {
         var parser = new Parser();
         var f1 = parser.parseFormula('Q(a,g(ξ1,a),f(ξ2))');
         var f2 = parser.parseFormula('Q(a,g(f(b),a),ξ1)');
-        var u = f1.unify(f2);
+        var u = Formula.unifyTerms(f1.terms, f2.terms);
         assertEqual(u[0], 'ξ1');
         assertEqual(u[1].toString(), ['f','b']);
         assertEqual(u[2], 'ξ2');
         assertEqual(u[3], 'b');
-    }
+    },
 
+    unify3: function() {
+        var parser = new Parser();
+        var f1 = parser.parseFormula('pω1');
+        var f2 = parser.parseFormula('pw');
+        var u = Formula.unifyTerms(f1.terms, f2.terms);
+        assert(u === false);
+    }
+    
 }

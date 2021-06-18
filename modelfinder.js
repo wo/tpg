@@ -1,34 +1,37 @@
-// Often there are simple countermodels that are hard to find through the tree
-// method; so we run a separate algorithm to find such countermodels.
-//
-// In outline, this works as follows.
-//
-// 1. We transform the (demodalized) formulas for which we want to find a model
-//    into clausal normal form, using prenexing and skolemization to remove
-//    quantifiers.
-//
-// 2. We now start with a domain of size 1, namely [0], which we increase until
-//    a model is found. For each domain choice, we do the following:
-//
-// 3. We replace free (i.e. universal) variables in the list of clauses by
-//    numbers. So for domain [0,1], [Fx] would replaced by two clauses, [F0] and
-//    [F1].
-//
-// 4. We process the list of clauses from left to right, starting with an empty
-//    interpretation relative to which all literals are neither true nor false.
-//    At each step, we look at one literal in one clause, with the aim of making
-//    it true. If it can't be made true, we remove it from the clause list.  If
-//    it can be made true, we simplify the remaining clauses by substituting all
-//    occurrences of newly interpreted terms by their values (e.g. turning Ac
-//    into A0), removing clauses for which any literal is settled as true, and
-//    removing literals that are settled false.
-//
-// Models for originally modal formulas (which we recognize from parser.isModal
-// == true) have two domains, W and D. The elements of W are also natural
-// numbers starting with 0. Accessibility conditions like reflexivity are added
-// to the formulas for which we want to find a model. In modal models, all
-// predicates take a world as their last argument; 'R' takes two worlds,
-// function terms only take individuals.
+
+/**
+ * Often there are simple countermodels that are hard to find through the tree
+ * method; so we run a separate algorithm to find such countermodels.
+ * 
+ * In outline, this works as follows.
+ * 
+ * 1. We transform the (demodalized) formulas for which we want to find a model
+ *    into clausal normal form, using prenexing and skolemization to remove
+ *    quantifiers.
+ * 
+ * 2. We now start with a domain of size 1, namely [0], which we increase until
+ *    a model is found. For each domain choice, we do the following:
+ * 
+ * 3. We replace free (i.e. universal) variables in the list of clauses by
+ *    numbers. So for domain [0,1], [Fx] would be replaced by two clauses, [F0]
+ *    and [F1].
+ * 
+ * 4. We process the list of clauses from left to right, starting with an empty
+ *    interpretation relative to which all literals are neither true nor false.
+ *    At each step, we look at one literal in one clause, with the aim of making
+ *    it true. If it can't be made true, we remove it from the clause list. If
+ *    it can be made true, we simplify the remaining clauses by substituting all
+ *    occurrences of newly interpreted terms by their values (e.g. turning Ac
+ *    into A0), removing clauses for which any literal is settled true, and
+ *    removing literals that are settled false.
+ * 
+ * Models for originally modal formulas (which we recognize from parser.isModal
+ * == true) have two domains, W and D. The elements of W are also natural
+ * numbers starting with 0. Accessibility conditions like reflexivity are added
+ * to the formulas for which we want to find a model. In modal models, all
+ * predicates take a world as their last argument; 'R' takes two worlds,
+ * function terms only take individuals.
+ */
 
 function ModelFinder(initFormulas, parser, accessibilityConstraints, s5) {
     // <initFormulas> is a list of demodalized formulas in NNF for which we try
@@ -87,7 +90,7 @@ ModelFinder.prototype.getClauses = function(formulas) {
         log('qantifiers removed: '+quantifiersRemoved);
         var clauses = this.tseitinCNF(quantifiersRemoved);
         log('cnf: '+clauses);
-        res = res.concatNoDuplicates(clauses);
+        res.extendNoDuplicates(clauses);
     }
     // order clauses by length (number of disjuncts):
     res.sort(function(a,b){ return a.length - b.length; });
@@ -209,13 +212,13 @@ ModelFinder.prototype.tseitinCNF = function(formula) {
             this.tseitsinFormulas[subf.string] = p;
             // add 'p <-> S':
             var bicond = new BinaryFormula('↔', p, subf);
-            clauses = clauses.concatNoDuplicates(this.cnf(bicond));
+            clauses.extendNoDuplicates(this.cnf(bicond));
             log('  adding clause for '+bicond+': '+clauses);
         }
         // else log('subformula already known');
         if (subformulas.length == 0) {
             // add p itself:
-            clauses = clauses.concatNoDuplicates([[p]]);
+            clauses.extendNoDuplicates([[p]]);
             log('  adding tseitin formula '+p);
         }
         // replace all occurrences of sentence in the list by p:
@@ -247,7 +250,7 @@ ModelFinder.prototype.tseitinSubFormulas = function(formulas) {
         if (formulas[i].type != 'literal') {
             var subformulas = formulas[i].sub ? [formulas[i].sub] :
                 formulas[i].sub1 ? [formulas[i].sub1, formulas[i].sub2] : null;
-            res = res.concat(this.tseitinSubFormulas(subformulas));
+            res.extend(this.tseitinSubFormulas(subformulas));
             res.unshift(formulas[i]);
         }
     }
@@ -470,7 +473,7 @@ ModelFinder.prototype.nextStep = function() {
         // look up predicate for interpreted term values in curInt:
         var nterms = this.model.reduceTerms(atom.terms);
         var redAtom = atom.predicate+nterms.toString();
-        if (this.model.curInt[redAtom] === (atom != literal)) {
+        if (this.model.getCurInt(redAtom) === (atom != literal)) {
             // failure: literal is false; try with a different term
             // interpretation:
             log("literal is false on present term interpretation");
@@ -485,12 +488,12 @@ ModelFinder.prototype.nextStep = function() {
             // success! store present state for backtracking, then extend
             // model.interpretation by the tentative interpretation:
             this.alternativeModels.push(this.model.copy());
-            if (this.model.curInt[redAtom] === undefined) {
+            if (this.model.getCurInt(redAtom) === undefined) {
                 // predicate is undefined for terms; extend its interpretation:
                 log('setting value for '+redAtom+' to '+(atom==literal));
                 this.model.curInt[redAtom] = (atom==literal);
             }
-            log("literal is satisfied: "+redAtom+" -> "+this.model.curInt[redAtom]);
+            log("literal is satisfied: "+redAtom+" -> "+this.model.getCurInt(redAtom));
             this.model.interpretation = this.model.curInt;
             this.model.termValues = null;
             this.model.clauses.shift();
@@ -577,7 +580,7 @@ Model.prototype.getDomainClauses = function() {
         // collect all variables in the clause:
         var variables = [];
         for (var i=0; i<clause.length; i++) {
-            variables = variables.concatNoDuplicates(this.parser.getVariables(clause[i])); // optimise
+            variables.extendNoDuplicates(this.parser.getVariables(clause[i])); // optimise
         }
         if (variables.length == 0) {
             // log('    adding clause to constraint');
@@ -825,8 +828,8 @@ Model.prototype.reduceArguments = function(term) {
 }
 
 Model.prototype.reduceTerms = function(terms, startIndex) {
-    // replace each term and subterm in <terms> by its numerical value, as per
-    // this.curInt. E.g., if curInt['a']=0, and '[f,a]' and 'b' are not in
+    // replace each term and subterm in <terms> by its numerical value, if it has
+    // one in this.curInt. E.g., if curInt['a']=0, and '[f,a]' and 'b' are not in
     // curInt, then a => 0, b => b, [f,a] => [f,0].
     var res = [];
     for (var i=(startIndex || 0); i<terms.length; i++) {
@@ -899,7 +902,7 @@ Model.prototype.iterateTermValues = function() {
 
 Model.prototype.satisfy = function(literal) {
     // try to extend this.interpretation to satisfy <literal>; used in
-    // sentree.js.
+    // sentree.js. (currently unused)
     var atom = literal.sub || literal;
     this.curInt = this.interpretation;
     var nterms = this.reduceTerms(atom.terms);
@@ -1006,6 +1009,23 @@ Model.prototype.unitResolve = function(literal) {
     this.clauses = nclauses;
 }
 
+Model.prototype.getCurInt = function(redAtom) {
+    // return this.curInt[<redAtom>], except if <redAtom> is an identity
+    // formula, in which case the interpretation is settled
+    if (redAtom[0] == '=') {
+        // redAtom is a string like '=[0,1]'
+        var terms = redAtom.slice(2,-1).split(',');
+        if (!isNaN(terms[0]) && !isNaN(terms[1])) {
+            return terms[0] == terms[1];
+        }
+        else {
+            throw redAtom+' has non-numerical arguments!';
+            // xxx??
+        }
+    }
+    return this.curInt[redAtom];
+}
+
 Model.prototype.copy = function() {
     // return a shallow copy of the model, for backtracking.
     var nmodel = new Model();
@@ -1083,6 +1103,7 @@ Model.prototype.toHTML = function() {
     var R = this.parser.R;
     for (var i=0; i<this.modelfinder.predicates.length; i++) {
         var sym = this.modelfinder.predicates[i];
+        if (sym == '=') continue;
         var ext = extensions[sym];
         var val;
         if (!ext.isArray) { // zero-ary
