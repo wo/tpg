@@ -108,15 +108,6 @@ EqualityProblem.prototype.init = function(equationNodes, goalNode1, goalNode2) {
         this.terms1 = goalNode1.formula.terms;
         this.terms2 = goalNode2.formula.sub.terms;
     }
-    // Skolem terms often make the search space intractable. We can replace a
-    // skolem term \phi(x,y) by a new constant \psi and impose the constraint
-    // that \psi != x and \psi != y. In fact, we use the skolem term itself
-    // as \psi and treat it as a constant. Let's add the constraints:
-    // this.addSkolemConstraints(terms1);
-    // this.addSkolemConstraints(terms2);
-    // for (var i=0; i<equationNodes.length; i++) {
-    //     this.addSkolemConstraints(equationNodes[i].formula.terms);
-    // }
 }
 
 EqualityProblem.prototype.addSkolemConstraints = function(terms) {
@@ -519,8 +510,13 @@ EqualityProblem.prototype.toString = function() {
 
 function subterms(term) {
     /**
-     * return all (distinct) non-variable subterms of <term>, but treat skolem terms
-     * as atomic
+     * return all (distinct) subterms of <term>, except for variables and subterms
+     * within skolem terms
+     *
+     * We don't need to replace terms within skolem terms. However, we can't treat
+     * skolem terms as completely atomic: if a skolem term contains variable x, we
+     * can't susbstitute x for that term. This is automatically ensured by returning
+     * the skolem term as a proper function term.
      */
     if (term.isArray) {
         if (term[0][0] == 'φ' || term[0][0] == 'ω') { // skolem term

@@ -78,6 +78,10 @@ due to the back-and-forth translation between behind-the-scenes formulas and
 displayed formulas, where we need e.g. the biconditional expansion rule after
 all.
 
+** Identity (Equality)
+
+I describe my approach to handling identity in [[https://www.umsu.de/blog/2021/722][this blog post]].
+
 ** Translation of modal formulas
 
 Modal input formulas are converted (by the "standard translation") into formulas
