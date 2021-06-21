@@ -192,6 +192,10 @@ onload = function(e) {
     if (location.hash.length > 0) {
         hashChange();
     }
+    if (location.search.startsWith('?f=')) {
+        location.hash = location.search.substring(3);
+        hashChange();
+    }
     document.forms[0].flaField.focus();
 }
 
