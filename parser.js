@@ -271,33 +271,6 @@ Parser.prototype.parseInput = function(str) {
     return [premises, conclusion];
 }
 
-Parser.prototype.hideSubStringsInParens = function(str) {
-    // return [nstr, hiddenSubStrings], where <nstr> is <str> with all
-    // substrings in parentheses replaced by %0, %1, etc., and
-    // <hiddenSubStrings> is a list of the corresponding substrings.
-    var subStringsInParens = []; 
-    var parenDepth = 0;
-    var storingAtIndex = -1; // index in subStringsInParens
-    var nstr = "";
-    for (var i=0; i<str.length; i++) {
-        if (str.charAt(i) == "(") {
-            parenDepth++;
-            if (parenDepth == 1) {
-                storingAtIndex = subStringsInParens.length;
-                subStringsInParens[storingAtIndex] = "";
-                nstr += "%" + storingAtIndex;
-            }
-        }
-        if (storingAtIndex == -1) nstr += str.charAt(i);
-        else subStringsInParens[storingAtIndex] += str.charAt(i);
-        if (str.charAt(i) == ")") {
-            parenDepth--;
-            if (parenDepth == 0) storingAtIndex = -1;
-        }
-    }
-    return [nstr, subStringsInParens];
-}
-
 Parser.prototype.parseFormula = function(str) {
     // return Formula for (entered) string (or a list of Formulas if <str>
     // contains several formulas separated by commas)
@@ -378,6 +351,10 @@ Parser.prototype.parseFormula = function(str) {
     }
 
     // formula should be atomic
+    m = str.match(/[□◇∃∀¬]/);
+    if (m) {
+        throw "I don't understand '"+m[0]+"' in '"+str+"'. Missing operator?";
+    }
     
     // convert infix '=' to prefix:
     str = str.replace(/^(.+)=(.+)$/, '=$1$2');
@@ -404,6 +381,33 @@ Parser.prototype.parseFormula = function(str) {
     throw "Parse Error.\n'" + str + "' is not a well-formed formula.";
 }        
 
+Parser.prototype.hideSubStringsInParens = function(str) {
+    // return [nstr, hiddenSubStrings], where <nstr> is <str> with all
+    // substrings in parentheses replaced by %0, %1, etc., and
+    // <hiddenSubStrings> is a list of the corresponding substrings.
+    var subStringsInParens = []; 
+    var parenDepth = 0;
+    var storingAtIndex = -1; // index in subStringsInParens
+    var nstr = "";
+    for (var i=0; i<str.length; i++) {
+        if (str.charAt(i) == "(") {
+            parenDepth++;
+            if (parenDepth == 1) {
+                storingAtIndex = subStringsInParens.length;
+                subStringsInParens[storingAtIndex] = "";
+                nstr += "%" + storingAtIndex;
+            }
+        }
+        if (storingAtIndex == -1) nstr += str.charAt(i);
+        else subStringsInParens[storingAtIndex] += str.charAt(i);
+        if (str.charAt(i) == ")") {
+            parenDepth--;
+            if (parenDepth == 0) storingAtIndex = -1;
+        }
+    }
+    return [nstr, subStringsInParens];
+}
+
 Parser.prototype.tidyFormula = function(str) {
     // remove whitespace:
     str = str.replace(/\s/g, '');
@@ -413,6 +417,9 @@ Parser.prototype.tidyFormula = function(str) {
     this.checkBalancedParentheses(str);
     // remove parentheses around quantifiers: (∀x)Fx => ∀xFx
     str = str.replace(/\(([∀∃]\w\d*)\)/g, '$1');
+    // check for illegal symbols:
+    var m =str.match(/[^\w\d\(\)∀∃□◇∧↔∨¬→,=ξω$]/);
+    if (m) throw("I don't understand the symbol '"+m[0]+"'");
     log(str);
     return str;
 }
