@@ -7,7 +7,7 @@ function updateInput() {
     // accessibility row
     var ostr = document.forms[0].flaField.value;
     if (ostr == flaFieldValue) {
-        // e.g. curser moved to highlight part of formula
+        // no change; e.g. curser moved to highlight part of formula
         return true;
     }
     cposition = this.selectionStart;
@@ -23,13 +23,13 @@ function renderSymbols(str) {
     str = str.replace(/ v | or/ig, ' ∨ '); // 'v' letter => or symbol
     str = str.replace(/~| not/ig, '¬');
     str = str.replace(/<->| iff/ig, '↔');
-    str = str.replace(/->/g, '→');
+    str = str.replace(/->| then/g, '→');
     str = str.replace(/\[\]/g, '□');
     str = str.replace(/<>|◊/g, '◇');
     str = str.replace(/Ɐ/g, '∀');
-    str = str.replace(/\(A([s-z])\)/, '∀$1'); // (Ax) => ∀x
-    str = str.replace(/\(E([s-z])\)/, '∃$1'); // (Ex) => ∃x
-    str = str.replace(/(?:^|\W)\(([s-z])\)/, '∀$1'); // (x) => ∀x, but not f(x) => f∀x
+    str = str.replace(/\(A([s-z])\)/g, '∀$1'); // (Ax) => ∀x
+    str = str.replace(/\(E([s-z])\)/g, '∃$1'); // (Ex) => ∃x
+    str = str.replace(/(?:^|\W)\(([s-z])\)/g, '∀$1'); // (x) => ∀x, but not f(x) => f∀x
     str = str.replace(/\\?forall[\{ ]?\}?/g, '∀');
     str = str.replace(/\\?exists[\{ ]?\}?/g, '∃');
     str = str.replace(/(\\neg|\\lnot)[\{ ]?\}?/g, '¬');
