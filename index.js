@@ -204,14 +204,16 @@ function setHash() {
     // store input in URL when submitting the form:
     hashSetByScript = true; // prevent hashChange()
     var hash = document.forms[0].flaField.value;
-    var accessibilityConstraints = [];
-    document.querySelectorAll('.accCheckbox').forEach(function(el) {
-        if (el.checked) {
-            accessibilityConstraints.push(el.id);
+    if (document.getElementById('accessibilitySpan').style.display != 'none') {
+        var accessibilityConstraints = [];
+        document.querySelectorAll('.accCheckbox').forEach(function(el) {
+            if (el.checked) {
+                accessibilityConstraints.push(el.id);
+            }
+        });
+        if (accessibilityConstraints.length > 0) {
+            hash += '||'+accessibilityConstraints.join('|');
         }
-    });
-    if (accessibilityConstraints.length > 0) {
-        hash += '||'+accessibilityConstraints.join('|');
     }
     location.hash = hash;
 }
