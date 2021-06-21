@@ -130,7 +130,7 @@ Parser.prototype.initModality = function() {
             this.arities[sym] += 1;
         }
     }
-    // This assumes initModality() is called after all formulas have been
+    // This assumes initModality() is called /after/ all formulas have been
     // parsed.
     this.R = this.getNewSymbol('Rrℜ', '2-ary predicate', 2);
     this.w = this.getNewSymbol('wvur', 'world constant', 0);
@@ -268,6 +268,7 @@ Parser.prototype.parseInput = function(str) {
         if (!premises.isArray) premises = [premises];
         log("=== premises: "+premises);
     }
+    if (this.isModal) this.initModality();
     return [premises, conclusion];
 }
 

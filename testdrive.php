@@ -139,6 +139,7 @@ $invalid_tests = [
     ['T_in_K', 'p→◇p'],
     ['emil_in_K4', '◇□A → (◇□B → ◇□(A ∧ B))||transitivity'],
     ['T_in_K', 'p→◇p'],
+    ['parsercopy', 'p → ◇□p↔□◇□p'],
     ['04vsG0_K4', '((A ∧ ¬□A)→□¬□A) ∧ ((¬A ∧ ◇A) →□◇A) → (◇□A→□◇A)||transitivity'],
     ['infinity', '¬(∀x∃yFxy ∧ ∀x∀y∀z(Fxy∧Fyz→Fxz) ∧ ∀x¬Fxx)'],
 ];
