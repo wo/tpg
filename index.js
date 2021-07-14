@@ -29,7 +29,7 @@ function renderSymbols(str) {
     str = str.replace(/Ɐ/g, '∀');
     str = str.replace(/\(A([s-z])\)/g, '∀$1'); // (Ax) => ∀x
     str = str.replace(/\(E([s-z])\)/g, '∃$1'); // (Ex) => ∃x
-    str = str.replace(/(?:^|\W)\(([s-z])\)/g, '∀$1'); // (x) => ∀x, but not f(x) => f∀x
+    str = str.replace(/(?<!\w)\(([s-z])\)/g, '∀$1'); // (x) => ∀x, but not f(x) => f∀x
     str = str.replace(/\\?forall[\{ ]?\}?/g, '∀');
     str = str.replace(/\\?exists[\{ ]?\}?/g, '∃');
     str = str.replace(/(\\neg|\\lnot)[\{ ]?\}?/g, '¬');
