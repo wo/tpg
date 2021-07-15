@@ -42,6 +42,8 @@ $valid_tests = [
    ['fd1eaff', 'Ac, ∀x(Ax→Tx), ∀x(Mx→¬Tx), Mb, ∀xIxx, ∀x∀y(Ixy→Iyx), ∀x∀y(Ixy→(Ax→Ay)), ∀x∀y(Ixy→(Mx→My)), ∀x∀y(Ixy→(Tx→Ty)) |= ¬Ibc'],
    ['id1', 'c=b ∧ Fc → Fb'],
    ['id2', 'a=b ∧ b=c ∧ Paa → Pcc'],
+   ['id3', '∀x∀y(f(x)=f(y)→x=y), f(a)=k, f(b)=k |= a=b'],
+   ['id4', '∀x∀y(f(x)=f(y)→x=y), ∀x∃y(Ryx∧f(y)=k) |= ∃y∀xRyx'],
    ['beckert97a', '∀x(g(x)=f(x) ∨ ¬(x=a)) ∧ ∀x(g(f(x))=x) ∧ b=c ∧ Pg(g(a))b → Pac'],
    ['beckert98ex4', '∀x(g(x)=f(x) ∨ ¬(x=a)) ∧ ∀x(f(x)=x) ∧ Pg(a)f(b) → Pab'],
    ['dv98ex1.1', '∃x∃y∃u∃v((a = b → g(x, u, v) = g(y, f(c), f(d))) ∧ (c = d → g(u, x, y) = g(v, f(a), f(b))))'],

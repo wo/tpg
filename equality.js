@@ -196,8 +196,13 @@ EqualityProblem.prototype.tryRrbs = function() {
     for (var i=0; i<this.terms1.length; i++) {
         
         // don't need to do anything if s[i] is already identical to t[i]:
-        log("checking if candidate terms "+this.terms1[i]+" and "+this.terms2[i]+" are different");
-        if (this.constraint.tryAddEqual(this.terms1[i], this.terms2[i])) continue;
+        log("checking if candidate terms "+this.terms1[i]+" and "+this.terms2[i]+" can be unified");
+        var nc = this.constraint.tryAddEqual(this.terms1[i], this.terms2[i]);
+        if (nc && nc == this.constraint) {
+            // don't continue merely because nc exists; see commit from 15/07/21
+            log("terms are already equal");
+            continue;
+        }
 
         // loop over both directions of the selected goal terms:
         for (var sIsTerms1=1; sIsTerms1>=0; sIsTerms1--) {
@@ -244,7 +249,6 @@ EqualityProblem.prototype.tryRrbs = function() {
                             var newProblem = this.copy(tconstraint);
                             newProblem.applyLLtoGoal(i, sIsTerms1, new_sis[g], equations[ei]);
                             newProblem.lastStep = this.tryRrbs;
-                            newProblem.nextStep = this.tryRrbs;
                             log('scheduling new problem '+newProblem+'; checking if solved by er');
                             // check if resulting problem can be solved directly: 
                             if (newProblem.tryEr()) {
@@ -252,9 +256,10 @@ EqualityProblem.prototype.tryRrbs = function() {
                                 newProblem.nextStep = null;
                                 schedule.unshift(newProblem);
                             }
-                            // schedule unsolved problem for further processing (leave nextStep = rrbs):
+                            // schedule unsolved problem for further processing:
                             else {
                                 log("no, add to end of schedule");
+                                newProblem.nextStep = this.tryRrbs;
                                 schedule.push(newProblem);
                             }
                             log('continuing with rrbs application to '+this);
