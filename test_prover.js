@@ -69,8 +69,7 @@ tests = {
         prover.start();
         var nodes = prover.tree.closedBranches[0].nodes;
         for (var i=0; i<nodes.length; i++) {
-            //if (nodes[i].formula.string == '(¬Ac ∨ Tc)') {
-            if (nodes[i].formula.string == '(¬Ab ∨ Tb)') {
+            if (nodes[i].formula.string == '(¬Ac ∨ Tc)') {
                 assert(nodes[i].used != '');
                 return;
             }
@@ -120,7 +119,7 @@ tests = {
             prover.pauseLength = 0;
             prover.start();
             assertEqual(prover.tree.openBranches.length, 0);
-            var numNodes = c == 'universality' ? 7 : 14;
+            var numNodes = c == 'universality' ? 7 : 11;
             assertEqual(prover.tree.closedBranches[0].nodes.length, numNodes);
         });
         var prover = new Prover([f], parser);

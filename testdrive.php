@@ -112,7 +112,7 @@ $valid_tests = [
 ];
 
 foreach ($valid_tests as $test) {
-    print("<tr><td><a href='/#$test[1]'>$test[0]</a> (<a href='/?debug=1#$test[1]'>d</a>)</td><td class='formula valid'>$test[1]</td><td></td><td></td><td></td></tr>\n");
+    print("<tr><td><a href='./#$test[1]'>$test[0]</a> (<a href='./?debug=1#$test[1]'>d</a>)</td><td class='formula valid'>$test[1]</td><td></td><td></td><td></td></tr>\n");
 }
 ?>
 </table>
@@ -145,9 +145,10 @@ $invalid_tests = [
     ['04vsG0_K4', '((A ∧ ¬□A)→□¬□A) ∧ ((¬A ∧ ◇A) →□◇A) → (◇□A→□◇A)||transitivity'],
     ['infinity', '¬(∀x∃yFxy ∧ ∀x∀y∀z(Fxy∧Fyz→Fxz) ∧ ∀x¬Fxx)'],
 ];
-    
+// $invalid_tests = [];
+
 foreach ($invalid_tests as $test) {
-    print("<tr><td><a href='/#$test[1]'>$test[0]</a> (<a href='/?debug=1#$test[1]'>d</a>)</td><td class='formula invalid'>$test[1]</td><td></td><td></td><td></td></tr>\n");
+    print("<tr><td><a href='./#$test[1]'>$test[0]</a> (<a href='./?debug=1#$test[1]'>d</a>)</td><td class='formula invalid'>$test[1]</td><td></td><td></td><td></td></tr>\n");
 }
 ?>
 </table>

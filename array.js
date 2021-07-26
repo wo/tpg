@@ -33,7 +33,7 @@ Array.prototype.insert = function(element, index) {
 Array.prototype.concatNoDuplicates = function(array2) {
     // return new array with all elements of <array2> added, but without adding
     // any duplicates. x and y count as duplicates if x.toString() ==
-    // y.toString(), which is usefor for arrays of (arrays of) formulas.
+    // y.toString(), which is useful for arrays of (arrays of) formulas.
     var hash = {};
     var res = [];
     for (var i=0; i<this.length; i++){
