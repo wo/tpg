@@ -1,4 +1,4 @@
-body { background:#F2F0DF66; color:#293040; font-family:Arial,sans-serif; font-weight:500; margin:0; padding:0;}
+body { background:#F6F2EF66; color:#293040; font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size:1.1em; margin:0; padding:0; }
 a { color:#007083; }
 #main { margin: auto; max-width:800px; }
 .formula { font-family:'M Plus 1p',sans-serif; font-weight:500; font-size:0.95em; color:#334455; text-decoration:none; }
@@ -9,14 +9,14 @@ a { color:#007083; }
 #githublink { text-decoration:none; font-size:.8em; color:#4490a4; padding-left:1em; }
 #helplink { float:right; margin-top:0.3em; text-decoration:none; font-size:.9em; font-weight:bold; }
 
-#inputForm { background:#fce9ba; color:#000; margin:5px 0; padding:10px 10px 10px 12px; border:1px solid #cccaaa; border-radius:8px; }
-#symbolButtonRow { margin:0 0 5px 3px; font-size:1em; color:#456; }
+#inputForm { background:#f9f3e9; color:#000; margin:5px 0; padding:10px 10px 10px 12px; border:1px solid #cccaaa; border-radius:8px; }
+#symbolButtonRow { margin: -2px 0 5px 3px; color:#456; font-size:0.95em; }
 #symbolButtons { display:inline-block; }
 #symbolButtons .formula { color:#444; }
 #accessibilityRow { margin: 10px 0 0 3px; color:#234; }
 #proveButton { width:70px; font-size:0.9em; padding:3px; }
 #flaField { width:calc(100% - 97px); }
-.button { background:#fdf0c9; ; color:#000; border:1px solid #ccc0bb; cursor:default; }
+.button { background:#ede9df; color:#222; border:1px solid #bbb; cursor:default; }
 .symbutton { display:inline-block; width:18px; height:18px; color:#333!important; padding:0px 1px 5px 1px; margin-right:2px; text-align:center; }
 #accessibilitySpan { display:none; font-size:0.9em; }
 #accessibilityRow input[type=checkbox] { vertical-align: middle; position: relative; bottom: .08em; margin:0 0px 0 5px; }
