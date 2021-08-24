@@ -189,11 +189,11 @@ onload = function(e) {
         return false;
     }
     // start proof submitted via URL (e.g. from back button):
-    if (location.hash.length > 0) {
-        hashChange();
-    }
     if (location.search.startsWith('?f=')) {
         location.hash = location.search.substring(3);
+        hashChange();
+    }
+    else if (location.hash.length > 0) {
         hashChange();
     }
     document.forms[0].flaField.focus();
@@ -203,7 +203,7 @@ var hashSetByScript = false;
 function setHash() {
     // store input in URL when submitting the form:
     hashSetByScript = true; // prevent hashChange()
-    var hash = document.forms[0].flaField.value;
+    var hash = encodeInputToHash(document.forms[0].flaField.value);
     if (document.getElementById('accessibilitySpan').style.display != 'none') {
         var accessibilityConstraints = [];
         document.querySelectorAll('.accCheckbox').forEach(function(el) {
@@ -236,9 +236,8 @@ function hashChange() {
         document.getElementById("status").style.display = "none";
     }
     else {
-        var hash = decodeURIComponent(location.hash.substr(1).replace(/\+/g, '%20'));
-        var hashparts = hash.split('||');
-        document.forms[0].flaField.value = hashparts[0];
+        var hashparts = location.hash.split('||');
+        document.forms[0].flaField.value = decodeHashToInput(hashparts[0].substring(1));
         var accessibilityConstraints = hashparts[1] ? hashparts[1].split('|') : [];
         document.querySelectorAll('.accCheckbox').forEach(function(el) {
             el.checked = accessibilityConstraints.includes(el.id); 
@@ -246,6 +245,32 @@ function hashChange() {
         toggleAccessibilityRow();
         startProof();
     }
+}
+
+function encodeInputToHash(input) {
+    /**
+     * convert the string in the input field into something that can safely be
+     * put in the URL
+     */
+    var symbols = ' ∧∨¬↔→∀∃□◇';
+    var hash = input.replace(new RegExp('['+symbols+']', 'g'), function(match) {
+        return '~'+symbols.indexOf(match);
+    });
+    return hash;
+}
+
+function decodeHashToInput(hash) {
+    /**
+     * invert encodeInputToHash
+     */
+    if (hash.indexOf('%') > -1) {
+        // old way of specifing input in URL hash, and use of unusual symbols
+        return decodeURIComponent(hash.replace(/\+/g, '%20'));
+    }
+    var symbols = ' ∧∨¬↔→∀∃□◇';
+    return hash.replace(/~./g, function(match) {
+        return symbols[parseInt(match[1])];
+    });
 }
 
 // functions to export tree as png:
