@@ -93,14 +93,17 @@ function startProof() {
     var parser = new Parser();
     try {
         var parsedInput = parser.parseInput(input);
-        var premises = parsedInput[0];
-        var conclusion = parsedInput[1];
-        var initFormulas = premises.concat([conclusion.negate()]);
     }
     catch (e) {
+        if (input.indexOf('v') > -1) {
+            e += "\nIf you mean disjunction by the letter 'v', put a space on either side.";
+        }
         alert(e);
         return false;
     }
+    var premises = parsedInput[0];
+    var conclusion = parsedInput[1];
+    var initFormulas = premises.concat([conclusion.negate()]);
     document.getElementById("intro").style.display = "none";
     document.getElementById("model").style.display = "none";
     document.getElementById("rootAnchor").style.display = "none";
