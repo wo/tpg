@@ -256,7 +256,7 @@ function encodeInputToHash(input) {
      * put in the URL
      */
     var symbols = ' ∧∨¬↔→∀∃□◇';
-    inputNoSpaces = input.replace(' ', '');
+    inputNoSpaces = input.replace(/\s/g, '');
     var hash = inputNoSpaces.replace(new RegExp('['+symbols+']', 'g'), function(match) {
         return '~'+symbols.indexOf(match);
     });
