@@ -172,6 +172,7 @@ Prover.prototype.limitReached = function() {
             return true;
         }
     }
+    // complexity += this.curAlternativeIndex/100;
     return complexity >= this.depthLimit; 
 }
 

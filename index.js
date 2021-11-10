@@ -256,7 +256,8 @@ function encodeInputToHash(input) {
      * put in the URL
      */
     var symbols = ' ∧∨¬↔→∀∃□◇';
-    var hash = input.replace(new RegExp('['+symbols+']', 'g'), function(match) {
+    inputNoSpaces = input.replace(' ', '');
+    var hash = inputNoSpaces.replace(new RegExp('['+symbols+']', 'g'), function(match) {
         return '~'+symbols.indexOf(match);
     });
     return hash;
@@ -268,7 +269,7 @@ function decodeHashToInput(hash) {
      */
     if (hash.indexOf('%') > -1) {
         // old way of specifing input in URL hash, and use of unusual symbols
-        return decodeURIComponent(hash.replace(/\+/g, '%20'));
+        hash = decodeURIComponent(hash.replace(/\+/g, '%20'));
     }
     var symbols = ' ∧∨¬↔→∀∃□◇';
     return hash.replace(/~./g, function(match) {
