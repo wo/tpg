@@ -1160,6 +1160,7 @@ Model.prototype.getExtensions = function() {
                 result[f].push(args.concat([val]));
             }
         }
+        result[f] = this.makeFunctionExtensionTotal(f, result[f]);
     }
     // predicates:
     for (var i=0; i<this.modelfinder.predicates.length; i++) {
@@ -1190,6 +1191,26 @@ Model.prototype.getExtensions = function() {
         }
     }
     return result;
+}
+
+Model.prototype.makeFunctionExtensionTotal = function(f, extension) {
+    // map all arguments for <f> that aren't covered in <extension> to 0
+    var arity = this.parser.arities[f];
+    var args = Array.getArrayOfZeroes(arity);
+    var maxValue = this.domain.length - 1;
+    var maxValues = args.map(function(x){ return maxValue; });
+    var res = [];
+    ARGLOOP:
+    do {
+        for (var i=0; i<extension.length; i++) {
+            if (extension[i].slice(0,-1).equals(args)) {
+                res.push(extension[i]);
+                continue ARGLOOP;
+            }
+        }
+        res.push(args.concat([0]));
+    } while (Model.iterateTuple(args, maxValues));
+    return res;
 }
 
 Model.prototype.toString = function() {

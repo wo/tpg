@@ -430,6 +430,27 @@ tests = {
         assert(mf.model.toString().indexOf('p: { w0 }') >= 0);
     },
 
+    totalfunctions1: function() {
+        var parser = new Parser();
+        var fs = [parser.parseFormula('f(a)=a∧¬Fb').negate().normalize()];
+        var mf = new ModelFinder(fs, parser);
+        for (var i=0; i<500; i++) {
+            if (mf.nextStep()) break;
+        }
+        assert(mf.model.toString().indexOf('f: { (0,0) }') > 0);
+    },
+
+    totalfunctions2: function() {
+        var parser = new Parser();
+        var fs = [parser.parseFormula('f(a)=a∧(Fa∨¬Fa)∧g(a,b)=a').negate().normalize()];
+        var mf = new ModelFinder(fs, parser);
+        for (var i=0; i<500; i++) {
+            if (mf.nextStep()) break;
+        }
+        assert(mf.model.toString().indexOf('f: { (0,0), (1,0) }') > 0);
+        assert(mf.model.toString().indexOf('g: { (0,0,1), (0,1,0), (1,0,0), (1,1,0) }') > 0);
+    },
+
     github_issue_3_chrome: function() {
         var parser = new Parser();
         var f = parser.parseFormula('(((∀x(Mx→(◇Px∧◇¬Px))∧∃xMx)∧(∀x(Sx→(◇Mx∧◇¬Mx))∧∃xSx))→(∀x(Sx→(◇Px∧◇¬Px))∧∃xSx))');
