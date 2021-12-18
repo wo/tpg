@@ -106,7 +106,7 @@ Prover.prototype.nextStep = function() {
     this.status('step '+this.step+' alternative '+this.curAlternativeIndex+', '
                 +this.tree.numNodes+' nodes, model size '
                 +this.modelfinder.model.domain.length
-                +(this.isModal ? '/'+this.modelfinder.model.worlds.length : ''));
+                +(this.tree.parser.isModal ? '/'+this.modelfinder.model.worlds.length : ''));
 
     if (this.limitReached()) {
         log(" * limit "+this.depthLimit+" reached");
