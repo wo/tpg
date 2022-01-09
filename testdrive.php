@@ -108,7 +108,7 @@ $valid_tests = [
    ['narrow_D', '(p→□r)→((p∧q)→□r)||seriality'],
    ['04vsG0_S4', '((A ∧ ¬□A)→□¬□A) ∧ ((¬A ∧ ◇A) →□◇A) → (◇□A→□◇A)||reflexivity|transitivity'],
    ['pel54', '∀y∃z∀x(Fxz ↔ x=y) |= ¬∃w∀x(Fxw ↔ ∀u(Fxu → ∃y(Fyu ∧ ¬∃z(Fzu ∧ Fzy))))'],
-   ['beckert97bid','∀x(i(u,x)=x) ∧ ∀x∀y∀z(i(i(x,y),i(i(y,z),i(x,z)))=u) ∧ ∀x∀y(i(i(x,y),y) = i(i(y,x),x)) → ∀x∀y∀z∃w(i(x,w)=u ∧ w=i(y,i(z,y)))'],
+   ['beckert97bid','∀x(i(u,x)=x) ∧ ∀x∀y∀z(i(i(x,y),i(i(y,z),i(x,z)))=u) ∧ ∀x∀y(i(i(x,y),y) = i(i(y,x),x)) → ∀x∀y∀z∃w(i(x,w)=u ∧ w=i(y,i(z,y)))']
 ];
 
 foreach ($valid_tests as $test) {
@@ -133,16 +133,22 @@ $invalid_tests = [
     ['Her', '¬∀x((Fx ∧ ¬Fa)∨ Ga)'],
     ['bost1', '∀x∀y∀z(Fxy∧Fyz→Fxz) ∧ ∀x∀y(Fxy→Fyx) ∧ ∃x∃yFxy → ∀xFxx'],
     ['2ind', '¬∃x∃y(Fx∧¬Fy)'],
-    ['4ind', '¬(Fa ∧ Ga ∧ Fb ∧ ¬Gb ∧ ¬Fc ∧ Gc ∧ ¬Fd ∧ ¬Gd)'],
+    ['3ind', '¬∀y∃x(Ryx ∧ ¬Rxy)'],
+    ['4indsimp', '¬(Fa ∧ Ga ∧ Fb ∧ ¬Gb ∧ ¬Fc ∧ Gc ∧ ¬Fd ∧ ¬Gd)'],
+    ['4ind', '∀z∀y∃x(Rzx ∧ ¬Rxy)'],
     ['bx', '∀y∃xFxy→∃x∀yFxy'],
     ['bn', '∃y∃z∀x((Fx→Gy)∧(Gz→Fx))→∀x∃y(Fy↔Gy)'],
     ['conpos1', '∀y(Iy→∀x(Px↔Cxy))→∀x(Px↔∀y(Iy→Cxy))'],
     ['conpos2', '∀x(Px↔∀y(Iy→Cxy))→∀y(Iy→∀x(Px↔Cxy))'],
+    ['pel48s', '(a=b ∨ c=d) ∧ (a=c ∨ b=d) → a=d'],
     ['T_in_K', 'p→◇p'],
     ['emil_in_K4', '◇□A → (◇□B → ◇□(A ∧ B))||transitivity'],
     ['T_in_K', 'p→◇p'],
     ['parsercopy', 'p → ◇□p↔□◇□p'],
     ['04vsG0_K4', '((A ∧ ¬□A)→□¬□A) ∧ ((¬A ∧ ◇A) →□◇A) → (◇□A→□◇A)||transitivity'],
+    ['redinexD', '◇(p→□◇p)||seriality'],
+    ['boxreds4', '◇□p↔□◇□p||reflexivity|transitivity'],
+    ['7ind', '¬∀z∀y∃x¬((Rxy → Ryx) ∨ Rzx)'],
     ['infinity', '¬(∀x∃yFxy ∧ ∀x∀y∀z(Fxy∧Fyz→Fxz) ∧ ∀x¬Fxx)'],
 ];
 // $invalid_tests = [];
