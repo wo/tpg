@@ -1,20 +1,22 @@
 
 /**
  * Often there are simple countermodels that are hard to find through the tree
- * method; so we run a separate algorithm to find such countermodels.
+ * method; so we run a separate algorithm to find countermodels.
  * 
  * In outline, this works as follows.
  * 
  * 1. We transform the (demodalized) formulas for which we want to find a model
  *    into clausal normal form, using prenexing and skolemization to remove
- *    quantifiers.
+ *    quantifiers. A CNF is a conjunction (represented as a list) of
+ *    disjunctions ("clauses", also lists). Free variables are read as
+ *    universal.
  * 
- * 2. We now start with a domain of size 1, namely [0], which we increase until
- *    a model is found. For each domain choice, we do the following:
+ * 2. We now start with a domain of size 1, namely { 0 }. We add further
+ *    elements until a model is found. For each domain, we do the following:
  * 
  * 3. We replace free (i.e. universal) variables in the list of clauses by
- *    numbers. So for domain [0,1], [Fx] would be replaced by two clauses, [F0]
- *    and [F1].
+ *    numbers. So for domain { 0,1 }, [Fx] would be replaced by two clauses,
+ *    [F0] and [F1].
  * 
  * 4. We process the list of clauses from left to right, starting with an empty
  *    interpretation relative to which all literals are neither true nor false.
@@ -175,15 +177,46 @@ ModelFinder.prototype.skolemize = function(formula) {
 }
 
 ModelFinder.prototype.tseitinCNF = function(formula) {
-    // convert <formula> into CNF. We use a kind of tseitin transform to reduce
-    // the number of clauses in bad cases. But we have to be careful with free
-    // variables. Consider ∃xFx → ∃xGx. Skolemized, this becomes ¬Fx ∨ Ga.
-    // The tseitin transform of that is (p ↔ ¬Fx) ∧ (p ∨ Ga). But if we
-    // instantiate (p ↔ ¬Fx) ∧ (p ∨ Ga) as (p ↔ ¬F0) ∧ (p ∨ Ga) and (p ↔ ¬F1) ∧
-    // (p ∨ Ga), we wrongly require F0 ↔ F1. So we don't use new proposition
-    // letters p, but first-order formulas: with Px instead of p, the transform
-    // is (Px ↔ ¬Fx) ∧ (Px ∨ Ga); instances are (P0 ↔ ¬F0) ∧ (P0 ∨ Ga) and (P1 ↔
-    // ¬F1) ∧ (P1 ∨ Ga).
+    /**
+     * convert <formula> into CNF. We use a kind of tseitin transform to keep
+     * the number of clauses under control. To construct the tseitin transform
+     * of a propositional formula F, we introduce a new sentence letter $ for
+     * each non-atomic subformula of F and list the equivalences between $ and
+     * the relevant subformula, with non-trivial subsubformulas replaced by
+     * their tseitin letters. E.g., for F = p -> ~q, we would list
+     * 
+     *    $ <-> ~q
+     *    $' <-> (p -> $1).
+     * 
+     * The tseitin transform of F is the tseitin letter for the whole formula
+     * conjoined with the equivalences:
+     * 
+     *    $' & ($ <-> ~q) & ($' <-> (p -> $)).
+     *
+     * The tseitin CNF converts this into a conjunction of disjunctions.
+     *
+     * We have to be careful with free variables. Consider ∃xFx → ∃xGx.
+     * Skolemized, this becomes ¬Fx ∨ Ga. The tseitin CNF of that is
+     *
+     * ($ ↔ ¬Fx) ∧ ($ ∨ Ga).
+     *
+     * If we create the instantiances of this universal requirement for all
+     * members of domain { 0,1 }, we get
+     *
+     * ($ ↔ ¬F0) ∧ ($ ∨ Ga) and
+     * ($ ↔ ¬F1) ∧ ($ ∨ Ga),
+     *
+     * which wrongly requires F0 ↔ F1. So we don't use new proposition letters
+     * $, but first-order formulas: with $x instead of $, the transform is
+     * 
+     * ($x ↔ ¬Fx) ∧ ($x ∨ Ga).
+     *
+     * The instances are
+     *
+     * ($0 ↔ ¬F0) ∧ ($0 ∨ Ga) and
+     * ($1 ↔ ¬F1) ∧ ($1 ∨ Ga).
+     * 
+     */
     if (formula.type == 'literal') {
         return [[formula]];
     }
@@ -424,7 +457,7 @@ ModelFinder.prototype.nextStep = function() {
     // remaining clauses.
 
     log("** modelfinder: "+this.model.clauses);
-    log(this.model.curIntToString());
+    log(dictToString(this.model.curInt));
     if (this.model.clauses.length == 0) {
         log('done');
         return true;
@@ -452,6 +485,7 @@ ModelFinder.prototype.nextStep = function() {
     // to this literal, we instead change its tentative interpretation to the
     // next possible interpretation.
     if (!this.model.termValues) {
+        // NB: model.termValues stores only the values for the current literal
         this.model.initTermValues(literal);
     }
     else {
@@ -650,96 +684,98 @@ Model.iterateTuple = function(tuple, maxValues) {
 
 
 Model.prototype.initTermValues = function(literal) {
-    // this.termValues is a list of quadruples, one for each non-numerical term
-    // and subterm from <literal>, in order of increasing complexity. The
-    // quadruple elements are:
-    //
-    // [0]: the term itself,
-    // [1]: the term as string,
-    // [2]: the term's max value,
-    // [3]: the term's current tentative value, or null if the value is
-    //      determined by this.interpretation together with items earlier in the
-    //      list.
-    //
-    // We have to make sure we're interpreting function terms consistently, so
-    // that we don't end up with inconsistent interpretations like these:
-    //
-    // - |a|=0, |f(0)|=1, |f(a)|=0
-    // - |f(a)|=0, |f(0)|=1, |f(f(a))|=0
-    // - |a|=0, |f(a)|=0, |f(f(0))|=1.
-    // - |f(a)|=0, |f(f(a))|=1, |f(b)|=1, |b|=1, D = {0,1}
-    //
-    // Whenever we interpret a nested term like f(f(a)), we first interpret its
-    // smallest non-numerical subterms. (These subterms will not have an old
-    // interpretation, otherwise they would have been replaced by their
-    // numerical values.) So when we try to satisfy Af(f(a)), and a doesn't have
-    // a current value, we interpret it as 0. The next term to interpret is then
-    // f(a), which reduces to f(0). We check if this has an (old or current)
-    // interpretation. If not, we interpret it as 0. And so on.
-    //
-    // If the initial interpretation didn't work out, we need to try others.
-    // (This isn't trivial because we don't have a fixed set of terms to
-    // interpret in any given disjunct: if a disjunct contains f(a), and f(0) is
-    // previously defined but f(1) is not, then setting |a|=1 requires also
-    // setting |f(1)|, but setting |a|=0 does not require setting anything
-    // else.)
-    //
-    // Here's what we do:
-    //
-    // 1. We make a list of all non-numerical subterms in the term list, in
-    //    order of complexity. E.g.: [a,b,g(0,0),f(b),g(a,0),f(f(b))]
-    //
-    // 2. For each term in the list (LTR), we check if its extension is
-    //    determined by the current interpretation. If yes, we pair it with the
-    //    value null.  If no, we pair it with a new value 0.  The result is a
-    //    minimal interpretation of the subterms that all extension.
-    //
-    //    E.g.: if the old interpretation has f(0)=0, the above ex. turns into 
-    //    [(a,0),(b,0),(g(0,0),0),(f(b),null),(g(a,0),null),(f(f(b)),null)]
-    //    - f(b) is null because b is 0 and f(0) is fixed
-    //    - g(a,0) is null because a is 0 and we've set g(0,0) 
-    //    - f(f(b)) is null because f(b)=f(0) is 0 and f(0) is fixed
-    //
-    // 3. When iterating, we go through the list of pairs RTL, trying to
-    //    increase a value:
-    //    - If the term has null value, we skip it.
-    //    - If the term has its max value, we reset it to 0.
-    //    - If the term has a value less than its max value, we increase it. 
-    //      We then recompute the values of the terms to the right of the
-    //      present term and exit the loop.
-    //
-    //    E.g.: 
-    //
-    //       [(a,0),(b,0),(g(0,0),0),(f(b),null),(g(a,0),null),(f(f(b)),null)]
-    //
-    //    => [(a,0),(b,0),(g(0,0),1),(f(b),null),(g(a,0),null),(f(f(b)),null)]
-    //
-    //    => [(a,0),(b,0),(g(0,0),0),(f(b),null),(g(a,0),null),(f(f(b)),null)]
-    //    => [(a,0),(b,1),(g(0,0),0),(f(b),null),(g(a,0),null),(f(f(b)),null)]
-    //    => [(a,0),(b,1),(g(0,0),0),(f(b),0),(g(a,0),null),(f(f(b)),null)]
-    //       assuming f(1) is not set in old interpretation
-    //
-    //    => [(a,0),(b,1),(g(0,0),0),(f(b),1),(g(a,0),null),(f(f(b)),null)]
-    //
-    //    => [(a,0),(b,1),(g(0,0),0),(f(b),0),(g(a,0),null),(f(f(b)),null)]
-    //       [(a,0),(b,1),(g(0,0),1),(f(b),0),(g(a,0),null),(f(f(b)),null)]
-    //
-    //    => [(a,0),(b,1),(g(0,0),1),(f(b),1),(g(a,0),null),(f(f(b)),null)]
-    //
-    //    => [(a,0),(b,1),(g(0,0),1),(f(b),0),(g(a,0),null),(f(f(b)),null)]
-    //       [(a,0),(b,1),(g(0,0),0),(f(b),0),(g(a,0),null),(f(f(b)),null)]
-    //       [(a,0),(b,0),(g(0,0),0),(f(b),0),(g(a,0),null),(f(f(b)),null)]
-    //       [(a,1),(b,0),(g(0,0),0),(f(b),null),(g(a,0),0),(f(f(b)),null)]
-    //       assuming g(1,0) is not set in old interpretation
-    //
-    //    => [(a,1),(b,0),(g(0,0),0),(f(b),null),(g(a,0),1),(f(f(b)),null)]
-    //
-    //    etc.
-    //
-    // The actual termValues aren't pairs but quadruples, with further elements
-    // 1 and 2, to speed up the code.
-
-    log("initializing termValues");
+    /**
+     * this.termValues is a list of quadruples, one for each non-numerical term
+     * and subterm from <literal>, in order of increasing complexity. The
+     * quadruple elements are:
+     *    
+     * [0]: the term itself,
+     * [1]: the term as string,
+     * [2]: the term's max value,
+     * [3]: the term's current tentative value, or null if the value is
+     *      determined by this.interpretation together with items earlier in the
+     *      list.
+     *   
+     * We have to make sure we're interpreting function terms consistently, so
+     * that we don't end up with inconsistent interpretations like these:
+     *    
+     * - |a|=0, |f(0)|=1, |f(a)|=0
+     * - |f(a)|=0, |f(0)|=1, |f(f(a))|=0
+     * - |a|=0, |f(a)|=0, |f(f(0))|=1.
+     * - |f(a)|=0, |f(f(a))|=1, |f(b)|=1, |b|=1, D = {0,1}
+     *
+     * Whenever we interpret a nested term like f(f(a)), we first interpret its
+     * smallest non-numerical subterms. (These subterms will not have an old
+     * interpretation, otherwise they would have been replaced by their
+     * numerical values.) So when we try to satisfy Af(f(a)), and a doesn't have
+     * a current value, we interpret it as 0. The next term to interpret is then
+     * f(a), which reduces to f(0). We check if this has an (old or current)
+     * interpretation. If not, we interpret it as 0. And so on.
+     *    
+     * If the initial interpretation didn't work out, we need to try others.
+     * (This isn't trivial because we don't have a fixed set of terms to
+     * interpret in any given disjunct: if a disjunct contains f(a), and f(0) is
+     * previously defined but f(1) is not, then setting |a|=1 requires also
+     * setting |f(1)|, but setting |a|=0 does not require setting anything
+     * else.)
+     *    
+     * Here's what we do:
+     * 
+     * 1. We make a list of all non-numerical subterms in the term list, in
+     *    order of complexity. E.g.: [a,b,g(0,0),f(b),g(a,0),f(f(b))]
+     *      
+     * 2. For each term in the list (LTR), we check if its extension is
+     *    determined by the current interpretation. If yes, we pair it with the
+     *    value null.  If no, we pair it with a new value 0.  The result is a
+     *    minimal interpretation of the subterms that all extension.
+     *        
+     *    E.g.: if the old interpretation has f(0)=0, the above ex. turns into 
+     *    [(a,0),(b,0),(g(0,0),0),(f(b),null),(g(a,0),null),(f(f(b)),null)]
+     *    - f(b) is null because b is 0 and f(0) is fixed
+     *    - g(a,0) is null because a is 0 and we've set g(0,0) 
+     *    - f(f(b)) is null because f(b)=f(0) is 0 and f(0) is fixed
+     *    
+     * 3. When iterating, we go through the list of pairs RTL, trying to
+     *    increase a value:
+     *    - If the term has null value, we skip it.
+     *    - If the term has its max value, we reset it to 0.
+     *    - If the term has a value less than its max value, we increase it. 
+     *      We then recompute the values of the terms to the right of the
+     *      present term and exit the loop.
+     *    
+     *    E.g.: 
+     *     
+     *       [(a,0),(b,0),(g(0,0),0),(f(b),null),(g(a,0),null),(f(f(b)),null)]
+     *    
+     *    => [(a,0),(b,0),(g(0,0),1),(f(b),null),(g(a,0),null),(f(f(b)),null)]
+     *    
+     *    => [(a,0),(b,0),(g(0,0),0),(f(b),null),(g(a,0),null),(f(f(b)),null)]
+     *    => [(a,0),(b,1),(g(0,0),0),(f(b),null),(g(a,0),null),(f(f(b)),null)]
+     *    => [(a,0),(b,1),(g(0,0),0),(f(b),0),(g(a,0),null),(f(f(b)),null)]
+     *       assuming f(1) is not set in old interpretation
+     *    
+     *    => [(a,0),(b,1),(g(0,0),0),(f(b),1),(g(a,0),null),(f(f(b)),null)]
+     *    
+     *    => [(a,0),(b,1),(g(0,0),0),(f(b),0),(g(a,0),null),(f(f(b)),null)]
+     *       [(a,0),(b,1),(g(0,0),1),(f(b),0),(g(a,0),null),(f(f(b)),null)]
+     *     
+     *    => [(a,0),(b,1),(g(0,0),1),(f(b),1),(g(a,0),null),(f(f(b)),null)]
+     *     
+     *    => [(a,0),(b,1),(g(0,0),1),(f(b),0),(g(a,0),null),(f(f(b)),null)]
+     *       [(a,0),(b,1),(g(0,0),0),(f(b),0),(g(a,0),null),(f(f(b)),null)]
+     *       [(a,0),(b,0),(g(0,0),0),(f(b),0),(g(a,0),null),(f(f(b)),null)]
+     *       [(a,1),(b,0),(g(0,0),0),(f(b),null),(g(a,0),0),(f(f(b)),null)]
+     *       assuming g(1,0) is not set in old interpretation
+     * 
+     *    => [(a,1),(b,0),(g(0,0),0),(f(b),null),(g(a,0),1),(f(f(b)),null)]
+     *  
+     *    etc.
+     *  
+     * The actual termValues aren't pairs but quadruples, with further elements
+     * 1 and 2, to speed up the code.
+     */
+      
+    log("initializing termValues in "+literal.formula);
     
     var atom = literal.sub || literal;
     var termIsOld = {};
@@ -860,35 +896,59 @@ Model.prototype.reduceTerms = function(terms, startIndex) {
 }
 
 Model.prototype.iterateTermValues = function() {
-    // try to minimally change the values in this.termValues
+    /**
+     * try to minimally change the interpretation of the terms in the currently
+     * processed literal (stored in this.termValues)
+     *
+     * Recall that this.termValues is a list of quadruples, one for each
+     * non-numerical term and subterm in the literal, in order of increasing
+     * complexity. The quadruple elements are:
+     *    
+     * [0]: the term itself,
+     * [1]: the term as string,
+     * [2]: the term's max value,
+     * [3]: the term's current tentative value, or null if the value is
+     *      determined by this.interpretation together with items earlier in the
+     *      list.
+     */
 
     log("trying to iterate termValues");
     // Go through terms RTL:
     for (var i=this.termValues.length-1; i>=0; i--) {
         var tv = this.termValues[i];
-        // Remember:
-        // [0]: the term itself,
-        // [1]: the term as string,
-        // [2]: the term's max value,
-        // [3]: the term's current tentative value, or null if the value is
-        //      determined by this.interpretation together with items earlier in
-        //      the list.
-        if (tv[3] === null || tv[3] == tv[2]) {
-            // skip terms with null value or max value (terms with max value
-            // will have their value reset once we found a term whose value can
-            // be increased):
+        var redTerm = this.reduceArguments(tv[0]).toString();
+        // skip terms with null value or max value:
+        if (tv[3] === null) {
+            continue;
+        }
+        if (tv[3] == tv[2]) {
+            // term has been given an interpretation that is maximal;
+            // with the change we make to an earlier term's interpretation
+            // this term's interpretation may become implied by the
+            // interpretation of earlier terms. We reset the interpretation
+            // and recompute it below.
+            tv[3] = null;
+            delete this.curInt[redTerm];
             continue;
         }
         tv[3]++;
-        var redTerm = this.reduceArguments(tv[0]).toString();
         this.curInt[redTerm] = tv[3];
-        log('setting '+redTerm+' to '+tv[3]);
-        // Now recompute/reset the values of terms to the right:
+        log('setting '+tv[1]+' = '+redTerm+' to '+tv[3]);
+        // Now we recompute/reset the values of terms to the right.
+        // To this end, we first have to fill back in the interpretation of
+        // reduced terms that is implied by terms to the left.
+        for (var j=0; j<i; j++) {
+            if (this.termValues[j][3] !== null) {
+                var redT = this.reduceArguments(this.termValues[j][0]).toString();
+                this.curInt[redT] = this.termValues[j][3];
+            }
+        }
         for (var j=i+1; j<this.termValues.length; j++) {
-            var redTerm = this.reduceArguments(this.termValues[j][0]).toString();
-            if (this.curInt[redTerm] === undefined) {
+            var rTerm = this.reduceArguments(this.termValues[j][0]).toString();
+            if (this.curInt[rTerm] === undefined) {
+                // interpretation not yet fixed
                 this.termValues[j][3] = 0;
-                this.curInt[redTerm] = 0;
+                this.curInt[rTerm] = 0;
             }
             else {
                 this.termValues[j][3] = null;
@@ -1218,12 +1278,12 @@ Model.prototype.toString = function() {
     return this.toHTML().replace(/<.+?>/g, '');
 }
 
-Model.prototype.curIntToString = function() {
+function dictToString(dict) {
     // for debugging
     var res = '';
-    var keys = Object.keys(this.curInt);
+    var keys = Object.keys(dict);
     for (var i=0; i<keys.length; i++) {
-        res += keys[i]+': '+this.curInt[keys[i]]+'\n';
+        res += keys[i]+': '+dict[keys[i]]+'\n';
     }
     return res;
 }

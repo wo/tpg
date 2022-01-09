@@ -374,7 +374,18 @@ tests = {
         assert(i<10000);
         assertEqual(mf.model.domain.length, 4);
     },
-
+    
+    iterateTermValues: function() {
+        // If termValues aren't iterated properly a countermodel is found for this valid formula.
+        var parser = new Parser();
+        var fs = [parser.parseFormula('Na∧∀x(Nx→Nf(x))→Nf(f(f(f(f(a)))))').negate().normalize()];
+        var mf = new ModelFinder(fs, parser);
+        for (var i=0; i<1000; i++) {
+            if (mf.nextStep()) break;
+        }
+        assertEqual(i, 1000);
+    },
+    
     countermodel_modal1: function() {
         var parser = new Parser();
         var fs = [parser.parseFormula('◇p'), parser.parseFormula('¬p')];
@@ -465,5 +476,5 @@ tests = {
         assert(i<1000);
         assertEqual(mf.model.worlds.length, 2);
     }
-    
+
 }
