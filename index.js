@@ -26,7 +26,8 @@ function renderSymbols(str) {
     str = str.replace(/->|=>| then/g, '→');
     str = str.replace(/\[\]/g, '□');
     str = str.replace(/<>|◊/g, '◇');
-    str = str.replace(/Ɐ/g, '∀');
+    str = str.replace(/!|Ɐ/g, '∀');
+    str = str.replace(/\?/g, '∃');
     str = str.replace(/\(A([s-z])\)/g, '∀$1'); // (Ax) => ∀x
     str = str.replace(/\(E([s-z])\)/g, '∃$1'); // (Ex) => ∃x
     str = str.replace(/(?:^|\W)\(([s-z])\)/g, '∀$1'); // (x) => ∀x, but not f(x) => f∀x

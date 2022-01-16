@@ -105,8 +105,8 @@ else {
     <span class="formula">v</span> for <span class="formula">∨</span>,
     <span class="formula">-&gt;</span> for <span class="formula">→</span>,
     <span class="formula">&lt;-&gt;</span> for <span class="formula">↔</span>,
-    <span class="formula">(Ax)</span> for <span class="formula">∀x</span>,
-    <span class="formula">(Ex)</span> for <span class="formula">∃x</span>,
+    <span class="formula">!</span> for <span class="formula">∀</span>,
+    <span class="formula">?</span> for <span class="formula">∃</span>,
     <span class="formula">[]</span> for <span class="formula">□</span>,
     <span class="formula"><></span> for <span class="formula">◇</span>. You can
     also use LaTeX commands.</p>
