@@ -36,9 +36,13 @@
  */
 
 function ModelFinder(initFormulas, parser, accessibilityConstraints, s5) {
-    // <initFormulas> is a list of demodalized formulas in NNF for which we try
-    // to find a model; <accessibilityConstraints> is another such list, for
-    // modal models; <s5> is boolean.
+    /**
+     * Prototype for a modelfinder
+     * 
+     * <initFormulas> is a list of demodalized formulas in NNF for which we try
+     * to find a model; <accessibilityConstraints> is another such list, for
+     * modal models; <s5> is boolean.
+     */
     log("*** creating ModelFinder");
     
     this.parser = parser;
@@ -75,11 +79,15 @@ function ModelFinder(initFormulas, parser, accessibilityConstraints, s5) {
 }
 
 ModelFinder.prototype.getClauses = function(formulas) {
-    // convert <formulas> into clausal normal form and return combined list of
-    // clauses. A clausal normal form is a list (interpreted as conjunction) of
-    // "clauses", each of which is a list (interpreted as disjunction) of
-    // literals. Variables are understood as universal; existential quantifiers
-    // are skolemized away.
+    /**
+     * convert <formulas> into clausal normal form and return combined list of
+     * clauses.
+     *
+     * A clausal normal form is a list (interpreted as conjunction) of
+     * "clauses", each of which is a list (interpreted as disjunction) of
+     * literals. Variables are understood as universal; existential quantifiers
+     * are skolemized away.
+     */
     var res = [];
     for (var i=0; i<formulas.length; i++) {
         var formula = formulas[i]; 
@@ -91,6 +99,7 @@ ModelFinder.prototype.getClauses = function(formulas) {
         var quantifiersRemoved = skolemized.removeQuantifiers();
         log('qantifiers removed: '+quantifiersRemoved);
         var clauses = this.tseitinCNF(quantifiersRemoved);
+        // var clauses = this.cnf(quantifiersRemoved);
         log('cnf: '+clauses);
         res.extendNoDuplicates(clauses);
     }
@@ -103,8 +112,11 @@ ModelFinder.prototype.getClauses = function(formulas) {
 }
 
 ModelFinder.prototype.makeVariablesDistinct = function(formula) {
-    // return formula that doesn't reuse the same variable (for conversion to
-    // prenex normal form); formula must be in NNF.
+    /**
+     * return an equivalent variant of <formula> that doesn't reuse the same
+     * variable (for conversion to prenex normal form); <formula> must be in
+     * NNF.
+     */
     var usedVariables = arguments[1] || [];
     var parser = this.parser;
     // log('making variables distinct in '+formula+' (used '+usedVariables+')');
@@ -134,7 +146,9 @@ ModelFinder.prototype.makeVariablesDistinct = function(formula) {
 }
 
 ModelFinder.prototype.skolemize = function(formula) {
-    // return formula with existential quantifiers skolemized away
+    /**
+     * return <formula> with existential quantifiers skolemized away
+     */
     log('skolemizing '+formula);
     var boundVars = arguments[1] ? arguments[1].copy() : [];
     // log(formula.string+' bv: '+boundVars);
@@ -146,14 +160,14 @@ ModelFinder.prototype.skolemize = function(formula) {
         boundVars.forEach(function(v) {
             if (formula.matrix.string.indexOf(v) > -1) skolemVars.push(v);
         });
+        var isWorldType = parser.expressionType[formula.variable] == 'world variable';
         var skolemTerm;
         if (skolemVars.length > 0) {
-            var funcSymbol = parser.getNewFunctionSymbol(skolemVars.length);
+            var funcSymbol = parser.getNewFunctionSymbol(skolemVars.length, isWorldType);
             var skolemTerm = skolemVars;
             skolemTerm.unshift(funcSymbol);
         }
-        else skolemTerm = parser.expressionType[formula.variable] == 'variable' ?
-            parser.getNewConstant() : parser.getNewWorldName();
+        else skolemTerm = isWorldType ? parser.getNewWorldName() : parser.getNewConstant();
         var nmatrix = formula.matrix.substitute(formula.variable, skolemTerm); 
         // nmatrix.constants.push(skolemVars.length > 0 ? funcSymbol : skolemTerm);
         nmatrix = this.skolemize(nmatrix, boundVars);
@@ -178,12 +192,14 @@ ModelFinder.prototype.skolemize = function(formula) {
 
 ModelFinder.prototype.tseitinCNF = function(formula) {
     /**
-     * convert <formula> into CNF. We use a kind of tseitin transform to keep
-     * the number of clauses under control. To construct the tseitin transform
-     * of a propositional formula F, we introduce a new sentence letter $ for
-     * each non-atomic subformula of F and list the equivalences between $ and
-     * the relevant subformula, with non-trivial subsubformulas replaced by
-     * their tseitin letters. E.g., for F = p -> ~q, we would list
+     * convert <formula> into CNF.
+     *
+     * We use a kind of tseitin transform to keep the number of clauses under
+     * control. To construct the tseitin transform of a propositional formula F,
+     * we introduce a new sentence letter $ for each non-atomic subformula of F
+     * and list the equivalences between $ and the relevant subformula, with
+     * non-trivial subsubformulas replaced by their tseitin letters. E.g., for F
+     * = p -> ~q, we would list
      * 
      *    $ <-> ~q
      *    $' <-> (p -> $1).
@@ -220,6 +236,7 @@ ModelFinder.prototype.tseitinCNF = function(formula) {
     if (formula.type == 'literal') {
         return [[formula]];
     }
+
     log('creating tseitin transform of '+formula);
     // collect all non-atomic subformulas:
     var subformulas = this.tseitinSubFormulas([formula]).removeDuplicates();
@@ -233,7 +250,7 @@ ModelFinder.prototype.tseitinCNF = function(formula) {
                                     // same tseitsin formula for the same
                                     // subformula in different <formula>s
     }
-    clauses = [];
+    var clauses = [];
     while (subformulas.length) {
         var subf = subformulas.shift();
         log('  subformula '+subf)
@@ -277,7 +294,9 @@ ModelFinder.prototype.tseitinCNF = function(formula) {
 }
 
 ModelFinder.prototype.tseitinSubFormulas = function(formulas) {
-    // return non-literal subformulas of <formulas>
+    /**
+     * return non-literal subformulas of <formulas>
+     */
     var res = []
     for (var i=0; i<formulas.length; i++) {
         if (formulas[i].type != 'literal') {
@@ -291,7 +310,9 @@ ModelFinder.prototype.tseitinSubFormulas = function(formulas) {
 }
 
 ModelFinder.prototype.tseitinReplace = function(formula, f1, f2) {
-    // replace all occurrences of f1 in formula by f2:
+    /**
+     * replace all occurrences of <f1> in <formula> by <f2>:
+     */
     if (formula.equals(f1)) return f2;
     if (formula.sub) {
         var nsub = this.tseitinReplace(formula.sub, f1, f2);
@@ -308,8 +329,10 @@ ModelFinder.prototype.tseitinReplace = function(formula, f1, f2) {
 }
 
 ModelFinder.prototype.cnf = function(formula) {
-    // convert <formula> to CNF; formula need not be in NNF (because of tseitin
-    // transformations)
+    /**
+     * convert <formula> to CNF; formula need not be in NNF (because of tseitin
+     * transformations)
+     */
     if (formula.type == 'literal') {
         // return CNF with 1 clause containing 1 literal:
         return [[formula]];
@@ -390,7 +413,9 @@ ModelFinder.prototype.cnf = function(formula) {
 }
 
 ModelFinder.prototype.simplifyClauses = function(clauseList) {
-    // simplify <clauseList>
+    /**
+     * simplify <clauseList>
+     */
 
     // remove clauses that contain contradictory formulas, e.g. [p,q,¬p]:
     var nl = clauseList.filter(function(clause) {
@@ -408,7 +433,6 @@ ModelFinder.prototype.simplifyClauses = function(clauseList) {
     // TODO: if an atom occurs only positively/negatively in the list of
     // clauses, it can be set as true/false;
 
-    
     // // remove repetitions in clauses, as in [p,p,q]:
     // var nl = nl.map(function(clause) {
     //     return clause.removeDuplicates();
@@ -450,13 +474,16 @@ ModelFinder.prototype.simplifyClauses = function(clauseList) {
 }
 
 ModelFinder.prototype.nextStep = function() {
-    // Each call of this function tries to extend the interpretation function of
-    // this.model so that it satisfies the first literal in the first clause
-    // from this.model.clauses. If we fail, we remove the literal from the
-    // clause. If we succeed, we remove the entire clause and simplify the
-    // remaining clauses.
+    /**
+     * Each call of this function tries to extend the interpretation function of
+     * this.model so that it satisfies the first literal in the first clause
+     * from this.model.clauses. If we fail, we remove the literal from the
+     * clause. If we succeed, we remove the entire clause and simplify the
+     * remaining clauses.
+     */
 
     log("** modelfinder: "+this.model.clauses);
+    log("D: "+this.model.domain+"/"+this.model.worlds);
     log(dictToString(this.model.curInt));
     if (this.model.clauses.length == 0) {
         log('done');
@@ -538,6 +565,9 @@ ModelFinder.prototype.nextStep = function() {
 }
 
 ModelFinder.prototype.backtrack = function() {
+    /**
+     * try a different interpretation
+     */
     log("backtracking");
     if (this.alternativeModels.length == 0) {
         log("no more models to backtrack; initializing larger model");
@@ -564,15 +594,17 @@ ModelFinder.prototype.backtrack = function() {
         var tvs = this.model.termValues;
         for (var i=0; i<tvs.length; i++) {
             var redTerm = this.model.reduceArguments(tvs[i][0]).toString();
-            if (tvs[i][3] !== null) {
-                this.model.curInt[redTerm] = tvs[i][3];
+            if (tvs[i][2] !== null) {
+                this.model.curInt[redTerm] = tvs[i][2];
             }
         }
     }
 }
 
 function Model(modelfinder, numIndividuals, numWorlds) {
-    // A (partial) model; also serves as a modelfinder state for backtracking
+    /**
+     * A (partial) model; also serves as a modelfinder state for backtracking
+     */
 
     if (!modelfinder) { // called from copy()
         return;
@@ -593,6 +625,11 @@ function Model(modelfinder, numIndividuals, numWorlds) {
     // initialize clauses we need to satisfy:
     this.clauses = this.getDomainClauses();
     log(this.clauses.length+" clauses");
+
+    // list of all terms that we need to interpret; e.g. 'a','f(0)','f(1)':
+    var terms = this.getTerms();
+    this.indivTerms = terms[0];
+    this.worldTerms = terms[1];
     
     // tentative interpretation of terms in current literal:
     this.termValues = null;
@@ -601,11 +638,48 @@ function Model(modelfinder, numIndividuals, numWorlds) {
     this.curInt = {};
 }
 
+Model.prototype.getTerms = function() {
+    /**
+     * return all terms that need to be interpreted in the model as strings
+     * sorted by length; returns one list for individual terms and one for world
+     * terms; includes skolem terms, but with nested terms reduced; i.e. on
+     * domain { 0,1 }, term f(f(a)) is represented by terms a, f(0), f(1).
+     */
+    var indivTerms = [];
+    var worldTerms = this.parser.isModal ? [this.parser.w] : [];
+    for (var i=0; i<this.parser.symbols.length; i++) {
+        var s = this.parser.symbols[i];
+        var stype = this.parser.expressionType[s];
+        if (stype == 'individual constant') {
+            indivTerms.push(s);
+        }
+        else if (stype.indexOf('function symbol for world') > -1) {
+            var arity = this.parser.arities[s];
+            Model.getNTuples(arity, this.worlds.length-1).forEach(function(li) {
+                li.unshift(s);
+                worldTerms.push(li.toString());
+            });
+        }
+        else if (stype.indexOf('function symbol') > -1) {
+            var arity = this.parser.arities[s];
+            Model.getNTuples(arity, this.domain.length-1).forEach(function(li) {
+                li.unshift(s);
+                indivTerms.push(li.toString());
+            });
+        }
+    }
+    indivTerms.sort(function(a,b){ return a.length - b.length; });
+    worldTerms.sort(function(a,b){ return a.length - b.length; });
+    return [indivTerms, worldTerms];
+}
+
 Model.prototype.getDomainClauses = function() {
-    // turn modelfinder.clauses into a variable-free list of clauses that serves
-    // as constraints on interpretations. If the domain is [0,1], then a clause
-    // ['Fx','xRy'] is turned into ['F0','0R0'], ['F0','0R1'], ['F1','1R0'],
-    // ['F1','1R1'].
+    /**
+     * turn modelfinder.clauses into a variable-free list of clauses that serves
+     * as constraints on interpretations. If the domain is [0,1], then a clause
+     * ['Fx','xRy'] is turned into ['F0','0R0'], ['F0','0R1'], ['F1','1R0'],
+     * ['F1','1R1'].
+     */
     res = [];
     log('creating clauses for current domain(s)');
     for (var c=0; c<this.modelfinder.clauses.length; c++) {
@@ -646,9 +720,11 @@ Model.prototype.getDomainClauses = function() {
 }
 
 Model.prototype.getVariableAssignments = function(variables) {
-    // list all interpretations of <variables> on the model's domain(s), as
-    // sequences; e.g. [[0,0],[0,1],[1,0],[1,1]] for domain=[0,1] and two
-    // individual variables.
+    /**
+     * list all interpretations of <variables> on the model's domain(s), as
+     * sequences; e.g. [[0,0],[0,1],[1,0],[1,1]] for domain=[0,1] and two
+     * individual variables.
+     */
     var res = [];
     var tuple = Array.getArrayOfZeroes(variables.length);
     res.push(tuple.copy());
@@ -664,8 +740,10 @@ Model.prototype.getVariableAssignments = function(variables) {
 }
 
 Model.iterateTuple = function(tuple, maxValues) {
-    // changes tuple to the next tuple in the list of all tuples of the same
-    // length whose i-the element is one of {0..maxValues[i]}
+    /**
+     * changes tuple to the next tuple in the list of all tuples of the same
+     * length whose i-the element is one of {0..maxValues[i]}
+     */
     for (var i=tuple.length-1; i>=0; i--) {
         if (tuple[i] < maxValues[i]) {
             tuple[i]++;
@@ -682,20 +760,38 @@ Model.iterateTuple = function(tuple, maxValues) {
     //   at i=0, tuple -> 100, return true
 }
 
+Model.getNTuples = function(n, maxval) {
+    /**
+     * return all <n>-tuples of numbers up to <maxval>
+     *
+     * E.g., for n=2 and maxval=1 return [[0,0],[0,1],[1,0],[1,1]].
+     */
+    if (n == 0) {
+        return [[]];
+    }
+    var res = [];
+    for (var i=0; i<maxval; i++) {
+        Model.getNTuples(n-1, maxval).forEach(function(li) {
+            li.unshift(i);
+            res.push(li);
+        });
+    }
+    return res;
+}
+
 
 Model.prototype.initTermValues = function(literal) {
     /**
-     * this.termValues is a list of quadruples, one for each non-numerical term
+     * this.termValues is a list of triples, one for each non-numerical term
      * and subterm from <literal>, in order of increasing complexity. The
-     * quadruple elements are:
+     * triple elements are:
      *    
      * [0]: the term itself,
      * [1]: the term as string,
-     * [2]: the term's max value,
-     * [3]: the term's current tentative value, or null if the value is
+     * [2]: the term's current tentative value, or null if the value is
      *      determined by this.interpretation together with items earlier in the
      *      list.
-     *   
+     * 
      * We have to make sure we're interpreting function terms consistently, so
      * that we don't end up with inconsistent interpretations like these:
      *    
@@ -708,7 +804,7 @@ Model.prototype.initTermValues = function(literal) {
      * smallest non-numerical subterms. (These subterms will not have an old
      * interpretation, otherwise they would have been replaced by their
      * numerical values.) So when we try to satisfy Af(f(a)), and a doesn't have
-     * a current value, we interpret it as 0. The next term to interpret is then
+     * a current value, we interpret a as 0. The next term to interpret is then
      * f(a), which reduces to f(0). We check if this has an (old or current)
      * interpretation. If not, we interpret it as 0. And so on.
      *    
@@ -726,8 +822,7 @@ Model.prototype.initTermValues = function(literal) {
      *      
      * 2. For each term in the list (LTR), we check if its extension is
      *    determined by the current interpretation. If yes, we pair it with the
-     *    value null.  If no, we pair it with a new value 0.  The result is a
-     *    minimal interpretation of the subterms that all extension.
+     *    value null. If no, we pair it with a new value 0. 
      *        
      *    E.g.: if the old interpretation has f(0)=0, the above ex. turns into 
      *    [(a,0),(b,0),(g(0,0),0),(f(b),null),(g(a,0),null),(f(f(b)),null)]
@@ -742,67 +837,32 @@ Model.prototype.initTermValues = function(literal) {
      *    - If the term has a value less than its max value, we increase it. 
      *      We then recompute the values of the terms to the right of the
      *      present term and exit the loop.
-     *    
-     *    E.g.: 
-     *     
-     *       [(a,0),(b,0),(g(0,0),0),(f(b),null),(g(a,0),null),(f(f(b)),null)]
-     *    
-     *    => [(a,0),(b,0),(g(0,0),1),(f(b),null),(g(a,0),null),(f(f(b)),null)]
-     *    
-     *    => [(a,0),(b,0),(g(0,0),0),(f(b),null),(g(a,0),null),(f(f(b)),null)]
-     *    => [(a,0),(b,1),(g(0,0),0),(f(b),null),(g(a,0),null),(f(f(b)),null)]
-     *    => [(a,0),(b,1),(g(0,0),0),(f(b),0),(g(a,0),null),(f(f(b)),null)]
-     *       assuming f(1) is not set in old interpretation
-     *    
-     *    => [(a,0),(b,1),(g(0,0),0),(f(b),1),(g(a,0),null),(f(f(b)),null)]
-     *    
-     *    => [(a,0),(b,1),(g(0,0),0),(f(b),0),(g(a,0),null),(f(f(b)),null)]
-     *       [(a,0),(b,1),(g(0,0),1),(f(b),0),(g(a,0),null),(f(f(b)),null)]
-     *     
-     *    => [(a,0),(b,1),(g(0,0),1),(f(b),1),(g(a,0),null),(f(f(b)),null)]
-     *     
-     *    => [(a,0),(b,1),(g(0,0),1),(f(b),0),(g(a,0),null),(f(f(b)),null)]
-     *       [(a,0),(b,1),(g(0,0),0),(f(b),0),(g(a,0),null),(f(f(b)),null)]
-     *       [(a,0),(b,0),(g(0,0),0),(f(b),0),(g(a,0),null),(f(f(b)),null)]
-     *       [(a,1),(b,0),(g(0,0),0),(f(b),null),(g(a,0),0),(f(f(b)),null)]
-     *       assuming g(1,0) is not set in old interpretation
-     * 
-     *    => [(a,1),(b,0),(g(0,0),0),(f(b),null),(g(a,0),1),(f(f(b)),null)]
-     *  
-     *    etc.
-     *  
-     * The actual termValues aren't pairs but quadruples, with further elements
-     * 1 and 2, to speed up the code.
      */
-      
-    log("initializing termValues in "+literal.formula);
+    log("initializing termValues in "+literal);
     
     var atom = literal.sub || literal;
     var termIsOld = {};
     var terms = [];
     
-    // We first add each original term with its max value and string value.
+    // We first add each original term with its string value.
     for (var i=0; i<atom.terms.length; i++) {
         if (typeof atom.terms[i] == 'number') continue;
         var termStr = atom.terms[i].toString();
         if (termIsOld[termStr]) continue;
         termIsOld[termStr] = true;
-        var maxValue = this.getMaxValue(atom.terms[i], atom);
-        terms.push([atom.terms[i], termStr, maxValue, null]);
+        terms.push([atom.terms[i], termStr, null]);
     }
 
     // Next we add the subterms:
     for (var i=0; i<terms.length; i++) {
         if (terms[i][0].isArray) {
-            // subterms inherit their max value from superterms:
-            var maxValue = terms[i][2];
             for (var j=1; j<terms[i][0].length; j++) {
                 var subTerm = terms[i][0][j];
                 if (typeof subTerm == 'number') continue;
                 var termStr = subTerm.toString();
                 if (termIsOld[termStr]) continue;
                 termIsOld[termStr] = true;
-                terms.push([subTerm, termStr, maxValue, null]);
+                terms.push([subTerm, termStr, null]);
             }
         }
     }
@@ -821,7 +881,7 @@ Model.prototype.initTermValues = function(literal) {
     for (var i=0; i<terms.length; i++) {
         var redTerm = this.reduceArguments(terms[i][0]).toString();
         if (!(redTerm in this.curInt)) {
-            terms[i][3] = 0;
+            terms[i][2] = 0;
             this.curInt[redTerm] = 0;
         }
     }
@@ -830,31 +890,56 @@ Model.prototype.initTermValues = function(literal) {
     log(this.termValues.toString());
 }
 
-Model.prototype.getMaxValue = function(term, atom) {
-    // We want to avoid redundant permutations. There's no point trying |a|=0,
-    // |b|=1 and later |a|=1, |b|=0. So we fix the first constant to always
-    // denote 0. The second either denotes 0 or (if available) 1, but never 2.
-    // And so on. (TODO: can we also do this for functional terms?)
-    if (!this.constants) {
-        // this includes constants introduced in skolemization:
-        this.constants = this.parser.getSymbols('individual constant');
-        this.worldConstants = this.parser.getSymbols('world constant');
+Model.prototype.isWorldTerm = function(term) {
+    /**
+     * return true iff <term> is a term that denotes a world
+     */
+    if (!this.parser.isModal) {
+        return false;
     }
-    var maxValue = this.domain.length - 1;
-    if (this.parser.isModal) {
-        if (term == atom.terms[atom.terms.length-1] || atom.predicate == this.parser.R) {
-            maxValue = this.worlds.length - 1;
+    if (term.isArray) {
+        return this.isWorldTerm(term[0]);
+    }
+    return (this.parser.expressionType[term].indexOf("world") > -1);
+}
+
+Model.prototype.getMaxValue = function(term, termStr) {
+    /**
+     * return the maximum value that can be assigned to <term>
+     * 
+     * We want to avoid redundant permutations. There's no point trying |a|=0,
+     * |b|=1 and later |a|=1, |b|=0. So we fix the first constant to always
+     * denote 0. The second either denotes 0 or (if available) 1, but never 2.
+     * And so on. The function term f(0) is allowed to denote 1, even if no term
+     * yet denotes 0.
+     */
+    var isWorldTerm = this.isWorldTerm(term);
+    var domain = isWorldTerm ? this.worlds : this.domain;
+    var termList = isWorldTerm ? this.worldTerms : this.indivTerms;
+    var maxValue = domain.length - 1; 
+    var index = termList.indexOf(termStr);
+    if (index > -1 && index < maxValue) {
+        // maxValue is index, unless term has larger elements as arguments
+        maxValue = index;
+        if (term.isArray) {
+            // termList only contains fully reduced terms, so we don't need to
+            // worry about nested function expressions.
+            for (var i=1; i<term.length; i++) {
+                if (term[i] >= maxValue) {
+                    maxValue = term[i] + 1;
+                }
+            }
         }
     }
-    var pos = this.constants.indexOf(term);
-    if (pos == -1) pos = this.worldConstants.indexOf(term);
-    if (pos > -1) return Math.min(pos, maxValue);
+    log("maxValue "+maxValue);
     return maxValue;
 }
 
 Model.prototype.reduceArguments = function(term) {
-    // replace arguments in <term> (or in subterms of <term>) by their numerical
-    // values, as per this.curInt.
+    /**
+     * replace arguments in <term> (or in subterms of <term>) by their numerical
+     * values, as per this.curInt.
+     */
     if (term.isArray) {
         var nterm = this.reduceTerms(term, 1);
         nterm.unshift(term[0]);
@@ -864,9 +949,11 @@ Model.prototype.reduceArguments = function(term) {
 }
 
 Model.prototype.reduceTerms = function(terms, startIndex) {
-    // replace each term and subterm in <terms> by its numerical value, if it has
-    // one in this.curInt. E.g., if curInt['a']=0, and '[f,a]' and 'b' are not in
-    // curInt, then a => 0, b => b, [f,a] => [f,0].
+    /**
+     * replace each term and subterm in <terms> by its numerical value, if it has
+     * one in this.curInt. E.g., if curInt['a']=0, and '[f,a]' and 'b' are not in
+     * curInt, then a => 0, b => b, [f,a] => [f,0].
+     */
     var res = [];
     for (var i=(startIndex || 0); i<terms.length; i++) {
         if (typeof terms[i] == 'number') {
@@ -900,14 +987,13 @@ Model.prototype.iterateTermValues = function() {
      * try to minimally change the interpretation of the terms in the currently
      * processed literal (stored in this.termValues)
      *
-     * Recall that this.termValues is a list of quadruples, one for each
+     * Recall that this.termValues is a list of triples, one for each
      * non-numerical term and subterm in the literal, in order of increasing
-     * complexity. The quadruple elements are:
+     * complexity. The triple elements are:
      *    
      * [0]: the term itself,
      * [1]: the term as string,
-     * [2]: the term's max value,
-     * [3]: the term's current tentative value, or null if the value is
+     * [2]: the term's current tentative value, or null if the value is
      *      determined by this.interpretation together with items earlier in the
      *      list.
      */
@@ -916,53 +1002,113 @@ Model.prototype.iterateTermValues = function() {
     // Go through terms RTL:
     for (var i=this.termValues.length-1; i>=0; i--) {
         var tv = this.termValues[i];
-        var redTerm = this.reduceArguments(tv[0]).toString();
-        // skip terms with null value or max value:
-        if (tv[3] === null) {
+        // skip uninterpreted terms:
+        if (tv[2] === null) {
             continue;
         }
-        if (tv[3] == tv[2]) {
-            // term has been given an interpretation that is maximal;
-            // with the change we make to an earlier term's interpretation
-            // this term's interpretation may become implied by the
-            // interpretation of earlier terms. We reset the interpretation
-            // and recompute it below.
-            tv[3] = null;
-            delete this.curInt[redTerm];
+        var redTerm = this.reduceArguments(tv[0]);
+        var redTermStr = redTerm.toString();
+        var maxValue = this.getMaxValue(redTerm, redTermStr);
+        if (tv[2] == maxValue) {
+            // We can't increase the value of this term. We don't simply set it
+            // to 0 because the change we make to an earlier term's
+            // interpretation might fix the interpretation of this term. So we
+            // set the interpretation to null for now and recompute it below.
+            tv[2] = null;
+            if (!this.interpretation[redTermStr]) {
+                delete this.curInt[redTermStr];
+            }
             continue;
         }
-        tv[3]++;
-        this.curInt[redTerm] = tv[3];
-        log('setting '+tv[1]+' = '+redTerm+' to '+tv[3]);
-        // Now we recompute/reset the values of terms to the right.
-        // To this end, we first have to fill back in the interpretation of
-        // reduced terms that is implied by terms to the left.
+        tv[2]++;
+        this.curInt[redTermStr] = tv[2];
+        log('setting '+tv[1]+' (= '+redTermStr+') to '+tv[2]);
+        
+        // Now we recompute/reset the values of terms to the right. To this end,
+        // we first have to fill back in the interpretation of reduced terms
+        // that is implied by terms to the left:
         for (var j=0; j<i; j++) {
-            if (this.termValues[j][3] !== null) {
-                var redT = this.reduceArguments(this.termValues[j][0]).toString();
-                this.curInt[redT] = this.termValues[j][3];
+            if (this.termValues[j][2] !== null) {
+                var rt = this.reduceArguments(this.termValues[j][0]).toString();
+                this.curInt[rt] = this.termValues[j][2];
             }
         }
         for (var j=i+1; j<this.termValues.length; j++) {
-            var rTerm = this.reduceArguments(this.termValues[j][0]).toString();
-            if (this.curInt[rTerm] === undefined) {
+            var rt = this.reduceArguments(this.termValues[j][0]).toString();
+            if (this.curInt[rt] === undefined) {
                 // interpretation not yet fixed
-                this.termValues[j][3] = 0;
-                this.curInt[rTerm] = 0;
+                this.termValues[j][2] = 0;
+                this.curInt[rt] = 0;
             }
             else {
-                this.termValues[j][3] = null;
+                this.termValues[j][2] = null;
             }
         }
         log(this.termValues.toString());
+        if (this.isRedundant()) {
+            // try another iteration; e.g. while a->0, b->0, c->2 is redundant
+            // on D = {0,1,2}, the next iteration a->0, b->1, c->0 is not
+            // redundant:
+            return this.iterateTermValues();
+        }
         return true;
     }
     return false;
 }
 
+Model.prototype.isRedundant = function(checkWorldTerms) {
+    /**
+     * check if the present interpretation of term values makes the model
+     * isomorphic to a model we've already tried.
+     *
+     * We mostly avoid redundant models by setting a term's maxValue. But
+     * sometimes a value less than maxValue can be skipped. For example, if we
+     * have terms a,b,c and a and b both denote 0 then we don't need to try
+     * |c|=1 and |c|=2.
+     * 
+     * The argument <checkWorldTerms> is for recursive calls only, because we
+     * need to check world terms and individual terms separately.
+     */
+
+    var terms = checkWorldTerms ? this.worldTerms : this.indivTerms;
+    var domain = checkWorldTerms ? this.worlds : this.domain;
+    var unusedEls = domain.copy();
+
+    for (var i=0; i<terms.length; i++) {
+        var term = terms[i];
+        // all argument terms count as used:
+        if (term.indexOf('[') == 0) {
+            var args = term.slice(1,-1).split(',');
+            for (var j=1; j<args.length; j++) {
+                unusedEls.remove(args[j]**1);
+            }
+            if (unusedEls.length == 0) break;
+        }
+        var val = this.curInt[term];
+        if (!val || val == unusedEls[0]) {
+            // If the term is uninterpreted, the interpretation may be
+            // legitimately extended by assigning to the term the first unused
+            // element in the domain.
+            unusedEls.shift();
+            if (unusedEls.length == 0) break;
+        }
+        if (val > unusedEls[0]) {
+            log("interpretation should assign "+unusedEls[0]+" instead of "+val+" to "+term);
+            return true;
+        }
+    }
+
+    if (this.isModal && !checkWorldTerms) {
+        return this.isRedundant(true);
+    }
+    return false;
+}
+
 Model.prototype.satisfy = function(literal) {
-    // try to extend this.interpretation to satisfy <literal>; used in
-    // sentree.js. (currently unused)
+    /**
+     * try to extend this.interpretation to satisfy <literal>; used in
+     * sentree.js. (currently unused)
+     */
     var atom = literal.sub || literal;
     this.curInt = this.interpretation;
     var nterms = this.reduceTerms(atom.terms);
@@ -976,26 +1122,28 @@ Model.prototype.satisfy = function(literal) {
 
 
 Model.prototype.simplifyRemainingClauses = function() {
-    // After a clause has been satisfied by extending the interpretion function,
-    // we simplify the remaining clauses.
-    //
-    // (a) If we've assigned a value to new terms, we substitute all occurrences
-    //     of these terms in later clauses by that value (e.g., turning Ac into
-    //     A0).
-    //
-    // (b) We then remove any literals that are known to be false. (All these
-    //     literals will be simple literals with numeral terms. If a literal
-    //     doesn't have only numeral terms, it doesn't as yet have a
-    //     truth-value.) We also remove entire clauses for which any literal is
-    //     known to be true.
-    //
-    //     (E.g., if we've extended the predicate interpretation so as to make
-    //     ~R00 true, then R00 is removed from any future clauses. Another
-    //     example: We may have a past clause [A0], a future clause [~Ac,~Bc],
-    //     and newly assign c -> 0. The future clause then turns into
-    //     [~A0,~B0]. We simplify this to [~B0].)
-    //
-    // (c) Finally, we re-order the future clauses by number of literals.
+    /**
+     * After a clause has been satisfied by extending the interpretion function,
+     * we simplify the remaining clauses.
+     *
+     * (a) If we've assigned a value to new terms, we substitute all occurrences
+     *     of these terms in later clauses by that value (e.g., turning Ac into
+     *     A0).
+     *
+     * (b) We then remove any literals that are known to be false. (All these
+     *     literals will be simple literals with numeral terms. If a literal
+     *     doesn't have only numeral terms, it doesn't as yet have a
+     *     truth-value.) We also remove entire clauses for which any literal is
+     *     known to be true.
+     *
+     *     (E.g., if we've extended the predicate interpretation so as to make
+     *     ~R00 true, then R00 is removed from any future clauses. Another
+     *     example: We may have a past clause [A0], a future clause [~Ac,~Bc],
+     *     and newly assign c -> 0. The future clause then turns into
+     *     [~A0,~B0]. We simplify this to [~B0].)
+     *
+     * (c) Finally, we re-order the future clauses by number of literals.
+     */
 
     log("simplifying remaining clauses:");
     log(this.clauses.toString());
@@ -1042,8 +1190,10 @@ Model.prototype.simplifyRemainingClauses = function() {
 }
 
 Model.prototype.unitResolve = function(literal) {
-    // <literal> is a tseitin formula in a unit clause; we can interpret it as true
-    // and simplify the remaining clauses accordingly.
+    /**
+     * <literal> is a tseitin formula in a unit clause; we can interpret it as true
+     * and simplify the remaining clauses accordingly.
+     */
     var negLiteralString = (literal.sub && literal.sub.string) || '¬'+literal.string;
     var nclauses = [];
     CLAUSELOOP:
@@ -1070,24 +1220,24 @@ Model.prototype.unitResolve = function(literal) {
 }
 
 Model.prototype.getCurInt = function(redAtom) {
-    // return this.curInt[<redAtom>], except if <redAtom> is an identity
-    // formula, in which case the interpretation is settled
+    /**
+     * return this.curInt[<redAtom>], except if <redAtom> is an identity
+     * formula, in which case the interpretation is settled
+     */
     if (redAtom[0] == '=') {
         // redAtom is a string like '=[0,1]'
         var terms = redAtom.slice(2,-1).split(',');
         if (!isNaN(terms[0]) && !isNaN(terms[1])) {
             return terms[0] == terms[1];
         }
-        else {
-            throw redAtom+' has non-numerical arguments!';
-            // xxx??
-        }
     }
     return this.curInt[redAtom];
 }
 
 Model.prototype.copy = function() {
-    // return a shallow copy of the model, for backtracking.
+    /**
+     * return a shallow copy of the model, for backtracking.
+     */
     var nmodel = new Model();
     nmodel.modelfinder = this.modelfinder;
     nmodel.parser = this.parser;
@@ -1097,11 +1247,16 @@ Model.prototype.copy = function() {
     nmodel.interpretation = this.interpretation;
     nmodel.termValues = this.termValues;
     nmodel.clauses = this.clauses.copyDeep();
+    nmodel.indivTerms = this.indivTerms;
+    nmodel.worldTerms = this.worldTerms;
     // curInt isn't copied (contains later predicate interpretations)
     return nmodel;
 }
 
 Model.prototype.toHTML = function() {
+    /**
+     * return HTML representation of the model to display as countermodel
+     */
     var str = "<table>";
     if (this.parser.isModal) {
         // change world names from '0', '1', .. to 'w0', 'w1', ..:
@@ -1196,10 +1351,12 @@ Model.prototype.toHTML = function() {
 }
 
 Model.prototype.getExtensions = function() {
-    // this.interpretation is a dict with entries like 'a' => 0, '[f,0]' => 0,
-    // '[p]' => true, '[R,0,1]' => false.  We return a new dict that assigns
-    // extensions to all non-logical expressions in initFormulas, with records
-    // like 'f' => [(0,0),(1,0)], 'R' => [(0,1)].
+    /**
+     * this.interpretation is a dict with entries like 'a' => 0, '[f,0]' => 0,
+     * '[p]' => true, '[R,0,1]' => false.  We return a new dict that assigns
+     * extensions to all non-logical expressions in initFormulas, with records
+     * like 'f' => [(0,0),(1,0)], 'R' => [(0,1)].
+     */
     var result = {};
     // constants:
     for (var i=0; i<this.modelfinder.constants.length; i++) {
@@ -1254,7 +1411,9 @@ Model.prototype.getExtensions = function() {
 }
 
 Model.prototype.makeFunctionExtensionTotal = function(f, extension) {
-    // map all arguments for <f> that aren't covered in <extension> to 0
+    /**
+     * map all arguments for <f> that aren't covered in <extension> to 0
+     */
     var arity = this.parser.arities[f];
     var args = Array.getArrayOfZeroes(arity);
     var maxValue = this.domain.length - 1;
@@ -1274,12 +1433,16 @@ Model.prototype.makeFunctionExtensionTotal = function(f, extension) {
 }
 
 Model.prototype.toString = function() {
-    // for debugging
+    /**
+     * return string representation of model, for debugging
+     */
     return this.toHTML().replace(/<.+?>/g, '');
 }
 
 function dictToString(dict) {
-    // for debugging
+    /**
+     * return string representation of associative array, for debugging
+     */
     var res = '';
     var keys = Object.keys(dict);
     for (var i=0; i<keys.length; i++) {

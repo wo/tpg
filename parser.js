@@ -44,7 +44,7 @@ Parser.prototype.registerExpression = function(ex, exType, arity) {
 }
 
 Parser.prototype.getSymbols = function(expressionType) {
-    // return all registered symbols of given type
+    // return all registered symbols whose type contains <expressionType>
     var res = [];
     for (var i=0; i<this.symbols.length; i++) {
         var s = this.symbols[i];
@@ -77,9 +77,10 @@ Parser.prototype.getNewVariable = function() {
     return this.getNewSymbol('xyzwvutsr', 'variable', 0);
 }
 
-Parser.prototype.getNewFunctionSymbol = function(arity) {
-    // for converting to clausal normal form (for modelfinder) 
-    return this.getNewSymbol('fghijklmn', arity+"-ary function symbol", arity);
+Parser.prototype.getNewFunctionSymbol = function(arity, isWorldFunction) {
+    // for converting to clausal normal form (for modelfinder)
+    var stype = arity+"-ary function symbol"+(isWorldFunction ? " for worlds" : "");
+    return this.getNewSymbol('fghijklmn', stype, arity);
 }
 
 Parser.prototype.getNewWorldVariable = function() {
