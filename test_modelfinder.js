@@ -105,7 +105,8 @@ tests = {
         var cnf = m.tseitinCNF(parser.parseFormula('p∨q'));
         assertEqual(cnf.toString(), '[[$],[$,¬p],[$,¬q],[p,q,¬$]]');
         var cnf = m.tseitinCNF(parser.parseFormula('p∧q'));
-        assertEqual(cnf.toString(), '[[$2],[p,¬$2],[q,¬$2],[$2,¬p,¬q]]');
+        assertEqual(cnf.toString(), '[[p],[q]]');
+        // assertEqual(cnf.toString(), '[[$2],[p,¬$2],[q,¬$2],[$2,¬p,¬q]]');
     },
     
     // transformations2: function() {
@@ -164,9 +165,11 @@ tests = {
         // skolem: Fx & Hxf(x)z
         // tseitin: p & (p<->(Fx & Hxf(x)z)
         // cnf: p & (~p v Fx) & (~p v Hxf(x)z)) & (p v ~Fx v ~Hxf(x)z) 
-        //    = p & (~p v Fx) & (~p v Hxf(x)z)) 
-        assertEqual(mf.clauses.toString(), '[[$xz],[Fx,¬$xz],[Hxf(x)z,¬$xz]]');
-        //assertEqual(mf.initFormulas.toString(), '[(Fx∧Hxf(x)z)]');
+        //    = p & (~p v Fx) & (~p v Hxf(x)z))
+        // assertEqual(mf.clauses.toString(), '[[$xz],[Fx,¬$xz],[Hxf(x)z,¬$xz]]');
+        // but since we don't tseitin expand conjunctions, we should simply get
+        // Fx & Hxf(x)z
+        assertEqual(mf.clauses.toString(), '[[Fx],[Hxf(x)z]]');
     },
 
     transformation2: function() {
@@ -174,7 +177,8 @@ tests = {
         var f = parser.parseFormula('¬∃y∀x(Fy→Fx)').normalize();
         var mf = new ModelFinder([f], parser);
         // skolem: Fy & ~Ff(y)
-        assertEqual(mf.clauses.toString(), '[[$y],[Fy,¬$y],[¬$y,¬Ff(y)]]');
+        // assertEqual(mf.clauses.toString(), '[[$y],[Fy,¬$y],[¬$y,¬Ff(y)]]');
+        assertEqual(mf.clauses.toString(), '[[Fy],[¬Ff(y)]]');
     },
 
     transformation3: function() {
@@ -183,7 +187,8 @@ tests = {
         f = parser.translateFromModal(f).normalize();
         var mf = new ModelFinder([f], parser);
         //assertEqual(mf.initFormulas.toString(), '[(Rwu∧pu)]');
-        assertEqual(mf.clauses.toString(), '[[$],[Rwu,¬$],[pu,¬$]]');
+        // assertEqual(mf.clauses.toString(), '[[$],[Rwu,¬$],[pu,¬$]]');
+        assertEqual(mf.clauses.toString(), '[[Rwu],[pu]]');
         assertEqual(parser.expressionType['u'], 'world constant');
     },
 
@@ -191,10 +196,12 @@ tests = {
         var parser = new Parser();
         var initflas = [parser.parseFormula('r∧p'), parser.parseFormula('q∧(r∧p)')];
         var m = new ModelFinder(initflas, parser);
-        assertEqual(m.clauses.toString(), '[[$],[$2],[r,¬$],[p,¬$],[q,¬$2]]');
+        // assertEqual(m.clauses.toString(), '[[$],[$2],[r,¬$],[p,¬$],[q,¬$2]]');
+        assertEqual(m.clauses.toString(), '[[r],[p],[q]]');
         initflas.push(parser.parseFormula('Fa'))
         m = new ModelFinder(initflas, parser);
-        assertEqual(m.clauses.toString(), '[[$3],[$4],[Fa],[r,¬$3],[p,¬$3],[q,¬$4]]');
+        // assertEqual(m.clauses.toString(), '[[$3],[$4],[Fa],[r,¬$3],[p,¬$3],[q,¬$4]]');
+        assertEqual(m.clauses.toString(), '[[r],[p],[q],[Fa]]');
     },
 
     modelclauses_quantified1: function() {
@@ -225,10 +232,12 @@ tests = {
         // skolemized: (Fx∧Hxf(x)z); tseitin-cnf: [$xz],[Fx,¬$xz],[Hxf(x)z,¬$xz],[$xz,¬Fx,¬Hxf(x)z]]');
         var mf = new ModelFinder(initflas, parser);
         var m = mf.model;
-        assertEqual(m.clauses.toString(), '[[$00],[F0,¬$00],[H0f(0)0,¬$00]]');
+        // assertEqual(m.clauses.toString(), '[[$00],[F0,¬$00],[H0f(0)0,¬$00]]');
+        assertEqual(m.clauses.toString(), '[[F0],[H0f(0)0]]');
         m = new Model(mf, 2, 0);
-        var correct = '[[$00],[$01],[$10],[$11],[F0,¬$00],[F0,¬$01],[F1,¬$10],[F1,¬$11],[H0f(0)0,¬$00],[H0f(0)1,¬$01],[H1f(1)0,¬$10],[H1f(1)1,¬$11]]'
+        // var correct = '[[$00],[$01],[$10],[$11],[F0,¬$00],[F0,¬$01],[F1,¬$10],[F1,¬$11],[H0f(0)0,¬$00],[H0f(0)1,¬$01],[H1f(1)0,¬$10],[H1f(1)1,¬$11]]'
         // reduces to [[F0],[F1],[H0f(0)0],[H0f(0)1],[H1f(1)0],[H1f(1)1]]
+        var correct = '[[F0],[F1],[H0f(0)0],[H0f(0)1],[H1f(1)0],[H1f(1)1]]';
         assertEqual(m.clauses.toString(), correct);
     },
 

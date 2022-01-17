@@ -195,9 +195,9 @@ ModelFinder.prototype.tseitinCNF = function(formula) {
      * convert <formula> into CNF.
      *
      * We use a kind of tseitin transform to keep the number of clauses under
-     * control. To construct the tseitin transform of a propositional formula F,
-     * we introduce a new sentence letter $ for each non-atomic subformula of F
-     * and list the equivalences between $ and the relevant subformula, with
+     * control. The tseitin transform of a propositional formula F is created by
+     * introducing a new sentence letter $ for each non-atomic subformula of F
+     * and listing the equivalences between $ and the relevant subformula, with
      * non-trivial subsubformulas replaced by their tseitin letters. E.g., for F
      * = p -> ~q, we would list
      * 
@@ -238,6 +238,14 @@ ModelFinder.prototype.tseitinCNF = function(formula) {
     }
 
     log('creating tseitin transform of '+formula);
+    if (formula.operator == '∧') {
+        // TCNF(A & B) = [TCNF(A), TCNF(B)]:
+        var res = this.tseitinCNF(formula.sub1).concatNoDuplicates(
+            this.tseitinCNF(formula.sub2))
+        res.sort(function(a,b){ return a.length - b.length; });
+        return res;
+    }
+    
     // collect all non-atomic subformulas:
     var subformulas = this.tseitinSubFormulas([formula]).removeDuplicates();
     // sort by increasing complexity:
@@ -931,7 +939,7 @@ Model.prototype.getMaxValue = function(term, termStr) {
             }
         }
     }
-    log("maxValue "+maxValue);
+    // log("maxValue "+maxValue);
     return maxValue;
 }
 
