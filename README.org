@@ -182,7 +182,7 @@ reflexivity are added to the formulas for which we want to find a model.
 
 * Copyright
 
-Copyright © 2001-2021 Wolfgang Schwarz (wo@umsu.de)
+Copyright © 2001-2022 Wolfgang Schwarz (wo@umsu.de)
 
 You may use, distribute and modify this code under the terms of the GPLv3
 license; see LICENSE.
