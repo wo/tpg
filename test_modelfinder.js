@@ -95,6 +95,14 @@ tests = {
         assertEqual(cnf.toString(), '[[Qxg(x),¬Px],[Pf(x,y),¬Px,¬Py],[¬Pg(x),¬Px,¬Rcg(x)]]');
     },
 
+    cnfbicond: function(){
+        var parser = new Parser();
+        var m = new ModelFinder([parser.parseFormula('p')], parser);
+        var f = parser.parseFormula('r ↔ (p↔q)');
+        var cnf = m.cnf(f);
+        assertEqual(cnf.toString(), '[[q,¬p,¬r],[p,¬q,¬r],[p,q,r],[r,¬p,¬q]]');
+    },
+
     tseitinCNF_basic: function() {
         var parser = new Parser();
         var m = new ModelFinder([parser.parseFormula('p')], parser);

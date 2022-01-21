@@ -361,9 +361,11 @@ ModelFinder.prototype.cnf = function(formula) {
         break;
     }
     case '↔' : {
-        con1 = this.cnf(new BinaryFormula('→', formula.sub1, formula.sub2));
-        con2 = this.cnf(new BinaryFormula('→', formula.sub2, formula.sub1));
+        var con1 = this.cnf(new BinaryFormula('→', formula.sub1, formula.sub2));
+        // log('con1: '+con1);
+        var con2 = this.cnf(new BinaryFormula('→', formula.sub2, formula.sub1));
         con = [con1, con2];
+        // log('con: '+con);
         break;
     }
     case '¬' : {
@@ -385,9 +387,11 @@ ModelFinder.prototype.cnf = function(formula) {
             // dis1 = this.cnf(new BinaryFormula('∧', sub.sub1, sub.sub2.negate()));
             // dis2 = this.cnf(new BinaryFormula('∧', sub.sub1.negate(), sub.sub2));
             // dis = [dis1, dis2];
-            con1 = this.cnf(new BinaryFormula('∨', sub.sub1, sub.sub2));
-            con2 = this.cnf(new BinaryFormula('∨', sub.sub1.negate(), sub.sub2.negate()));
+            var con1 = this.cnf(new BinaryFormula('∨', sub.sub1, sub.sub2));
+            // log('con1: '+con1);
+            var con2 = this.cnf(new BinaryFormula('∨', sub.sub1.negate(), sub.sub2.negate()));
             con = [con1, con2];
+            // log('con: '+con);
             break;
         }
         case '¬' : {
