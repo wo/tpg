@@ -8,7 +8,7 @@ function SenTree(fvTree, parser) {
     this.isClosed = (fvTree.openBranches.length == 0);
     this.initFormulas = fvTree.prover.initFormulas;
     this.initFormulasNonModal = fvTree.prover.initFormulasNonModal;
-    this.initFormulasNormalized = fvTree.prover.initFormulasNormalized;
+    this.initFormulasNNF = fvTree.prover.initFormulasNNF;
     this.fvTree = fvTree;
     this.parser = parser; // parser for entered formulas
     this.fvParser = fvTree.parser; // parser with added symbols used in fvtree
@@ -195,12 +195,12 @@ SenTree.prototype.transferNode = function(node, par) {
         // We know that <node> comes from the alpha formula <from>; <f1> and
         // <f2> are the two formulas that could legally be derived from <from>.
         // We need to find out which of these corresponds to <node>. [I used to
-        // do node.formula = (node.formula.equals(f1.normalize())) ? f1 : f2;
-        // but this breaks if f2.normalize() == f1.normalize() and f2 != f1,
+        // do node.formula = (node.formula.equals(f1.nnf())) ? f1 : f2;
+        // but this breaks if f2.nnf() == f1.nnf() and f2 != f1,
         // e.g. in ¬((A∧¬A)∧¬(¬A∨¬¬A).]
         
-        if (!nodeFormula.equals(f1.normalize())) node.formula = f2;
-        else if (!nodeFormula.equals(f2.normalize())) node.formula = f1;
+        if (!nodeFormula.equals(f1.nnf())) node.formula = f2;
+        else if (!nodeFormula.equals(f2.nnf())) node.formula = f1;
         else {
             // node formula matches both alpha1 and alpha2: if previous node
             // also originates from <from> by the alpha rule, this one must be
@@ -229,8 +229,8 @@ SenTree.prototype.transferNode = function(node, par) {
         var f1 = fromFormula.beta(1);
         var f2 = fromFormula.beta(2);
         log("beta1 "+f1+" beta2 "+f2);
-        if (!nodeFormula.equals(f1.normalize())) node.formula = f2;
-        else if (!nodeFormula.equals(f2.normalize())) node.formula = f1;
+        if (!nodeFormula.equals(f1.nnf())) node.formula = f2;
+        else if (!nodeFormula.equals(f2.nnf())) node.formula = f1;
         else {
             // node formula matches both beta1 and beta2: if parent node already
             // has a child, this one is the second:

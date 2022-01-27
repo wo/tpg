@@ -29,11 +29,11 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
             }
         }
     }
-    this.initFormulasNormalized = this.initFormulasNonModal.map(function(f){
-        return f.normalize();
+    this.initFormulasNNF = this.initFormulasNonModal.map(function(f){
+        return f.nnf();
     });
     // These are the formulas that we'll use on the internal tableaux.
-    log('normalized initFormulas: '+this.initFormulasNormalized);
+    log('initFormulas in NNF: '+this.initFormulasNNF);
     
     // init tableau prover:
     this.pauseLength = 5; // ms pause between calculations
@@ -44,7 +44,7 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
     this.depthLimit = 2; // how far to explore a tree before backtracking
     this.alternatives = [this.tree]; // alternative trees for backtracking
     this.curAlternativeIndex = 0;
-    this.tree.addInitNodes(this.initFormulasNormalized)
+    this.tree.addInitNodes(this.initFormulasNNF)
 
     // init modelfinder:
     log("initializing modelfinder")
@@ -59,18 +59,18 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
             "seriality": "∀v∃uRvu"
         };
         var accessibilityFormluas = accessibilityConstraints.map(function(s) {
-            return mfParser.parseAccessibilityFormula(name2fla[s]).normalize();
+            return mfParser.parseAccessibilityFormula(name2fla[s]).nnf();
         });
         // todo: strip redundant constraints
         this.modelfinder = new ModelFinder(
-            this.initFormulasNormalized,
+            this.initFormulasNNF,
             mfParser,
             accessibilityFormluas,
             this.s5
         );
     }
     else {
-        this.modelfinder = new ModelFinder(this.initFormulasNormalized, mfParser);
+        this.modelfinder = new ModelFinder(this.initFormulasNNF, mfParser);
     }
     this.counterModel = null;
 
@@ -969,10 +969,10 @@ function Tree(prover) {
     this.priority = 0;
 }
 
-Tree.prototype.addInitNodes = function(initFormulasNormalized) {
+Tree.prototype.addInitNodes = function(initFormulasNNF) {
     var initBranch = this.openBranches[0];
-    for (var i=0; i<initFormulasNormalized.length; i++) {
-        var node = new Node(initFormulasNormalized[i]);
+    for (var i=0; i<initFormulasNNF.length; i++) {
+        var node = new Node(initFormulasNNF[i]);
         initBranch.addNode(node);
         initBranch.tryClose(node);
     }

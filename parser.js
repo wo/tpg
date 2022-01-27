@@ -182,7 +182,8 @@ Parser.prototype.translateFromModal = function(formula, worldVariable) {
 
 Parser.prototype.stripAccessibilityClauses = function(formula) {
     // return new non-modal formula with all accessibility conditions stripped;
-    // e.g. ∃v(wRv∧Av) => ∃vAv; ∀v(¬wRv∨Av) => ∀vAv. <formula> is normalized.
+    // e.g. ∃v(wRv∧Av) => ∃vAv; ∀v(¬wRv∨Av) => ∀vAv. <formula> is normalized (in
+    // NNF).
     log(formula);
     if (formula.quantifier) {
         var nmatrix = this.stripAccessibilityClauses(formula.matrix);

@@ -194,12 +194,12 @@ ModelFinder.prototype.tseitinCNF = function(formula) {
     /**
      * convert <formula> into CNF.
      *
-     * We use a kind of tseitin transform to keep the number of clauses under
-     * control. The tseitin transform of a propositional formula F is created by
-     * introducing a new sentence letter $ for each non-atomic subformula of F
-     * and listing the equivalences between $ and the relevant subformula, with
-     * non-trivial subsubformulas replaced by their tseitin letters. E.g., for F
-     * = p -> ~q, we would list
+     * We sometimes use a kind of tseitin transformation to keep the number of
+     * clauses under control. The tseitin transform of a propositional formula F
+     * is created by introducing a new sentence letter $ for each non-atomic
+     * subformula of F and listing the equivalences between $ and the relevant
+     * subformula, with non-trivial subsubformulas replaced by their tseitin
+     * letters. E.g., for F = p -> ~q, we would list
      * 
      *    $ <-> ~q
      *    $' <-> (p -> $1).
@@ -402,15 +402,17 @@ ModelFinder.prototype.cnf = function(formula) {
     }
     var res = [];
     if (con) {
+        // log('con: '+con);
         // con1 is [C1, C2 ...], con2 is [D1, D2, ...], where the elements are
         // clauses; return [C1, C2, ..., D1, D2, ...]:
         res = con[0].concatNoDuplicates(con[1]);
     }
     else if (dis) {
+        // log('dis: '+dis);
         // dis1 is [C1, C2 ...], dis2 is [D1, D2, ...], where the elements are
-        // disjunctions of literals; (C1 & C2 & ...) v (D1 & D2 & ..) is
-        // equivalent to (C1 v D1) & (C1 v D2) & ... (C2 v D1) & (C2 V D2) &
-        // ...; so return [C1+D1, C1+D2, ..., C2+D1, C2+D2, ...]:
+        // clauses, i.e. disjunctions of literals; (C1 & C2 & ...) v (D1 & D2 &
+        // ..) is equivalent to (C1 v D1) & (C1 v D2) & ... (C2 v D1) & (C2 V
+        // D2) & ...; so return [C1+D1, C1+D2, ..., C2+D1, C2+D2, ...]:
         for (var i=0; i<dis[0].length; i++) {
             for (var j=0; j<dis[1].length; j++) {
                 // dis[0][i] and dis[1][j] are clauses, we want to combine them
@@ -1078,12 +1080,11 @@ Model.prototype.isRedundant = function(checkWorldTerms) {
      * have terms a,b,c and a and b both denote 0 then we don't need to try
      * |c|=1 and |c|=2.
      * 
-     * The argument <checkWorldTerms> is for recursive calls only, because we
-     * need to check world terms and individual terms separately.
      */
 
-    var terms = checkWorldTerms ? this.worldTerms : this.indivTerms;
-    var domain = checkWorldTerms ? this.worlds : this.domain;
+    // recursive call for checking world terms:
+    var terms = arguments[0] ? this.worldTerms : this.indivTerms;
+    var domain = arguments[0] ? this.worlds : this.domain;
     var unusedEls = domain.copy();
 
     for (var i=0; i<terms.length; i++) {
@@ -1110,9 +1111,10 @@ Model.prototype.isRedundant = function(checkWorldTerms) {
         }
     }
 
-    if (this.isModal && !checkWorldTerms) {
+    if (this.isModal && !arguments[0]) {
         return this.isRedundant(true);
     }
+
     return false;
 }
 
