@@ -75,7 +75,6 @@ else {
 
 <div id="intro">
     
-
   <noscript><p><b>You need to enable JavaScript to use this page.</b></p></noscript>
       
   <p>Enter a formula of standard propositional, predicate, or modal logic. The
