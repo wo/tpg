@@ -76,7 +76,7 @@ else {
 <div id="intro">
     
   <noscript><p><b>You need to enable JavaScript to use this page.</b></p></noscript>
-      
+
   <p>Enter a formula of standard propositional, predicate, or modal logic. The
     page will try to find either a countermodel or
     a <a href="https://en.wikipedia.org/wiki/Method_of_analytic_tableau">tree

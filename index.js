@@ -240,7 +240,7 @@ function hashChange() {
         document.getElementById("status").style.display = "none";
     }
     else {
-        var hash = location.hash.replace('/%7C/g', '|');
+        var hash = location.hash.replace(/%7C/g, '|');
         var hashparts = hash.split('||');
         document.forms[0].flaField.value = decodeHashToInput(hashparts[0].substring(1));
         var accessibilityConstraints = hashparts[1] ? hashparts[1].split('|') : [];
