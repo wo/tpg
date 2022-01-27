@@ -7,8 +7,28 @@
 <link rel="stylesheet" href="style.css" type="text/css">
 <?php
 $scripts = array("array", "formula", "parser", "prover", "equality", "modelfinder", "sentree", "painter");
-$allscripts = implode("-", $scripts);
-print "<script type='text/javascript' src='$allscripts.js'></script>\n";
+if (isset($_GET['debug'])) {
+    foreach ($scripts as $script) {
+        print "<script type='text/javascript' src='$script.debug.js?".time()."'></script>\n";
+    }
+    ?>
+    <script>
+    function log(str) {
+         if (!self.debugWin) debugPopup();
+         debugWin.document.write("<pre>"+str+"</pre>");
+    }
+    function debugPopup() {
+        self.debugWin = self.open("about:blank","debugWin");
+        if (!self.debugWin) alert("unblock popups!");
+    }
+    log("hello, this is the debugging window");
+    </script>
+    <?php
+}
+else {
+    $allscripts = implode("-", $scripts);
+    print "<script type='text/javascript' src='$allscripts.js'></script>\n";
+}
 ?>
 </head>
 

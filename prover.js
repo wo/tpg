@@ -29,11 +29,11 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
             }
         }
     }
-    this.initFormulasNormalized = this.initFormulasNonModal.map(function(f){
-        return f.normalize();
+    this.initFormulasNNF = this.initFormulasNonModal.map(function(f){
+        return f.nnf();
     });
     // These are the formulas that we'll use on the internal tableaux.
-    log('normalized initFormulas: '+this.initFormulasNormalized);
+    log('initFormulas in NNF: '+this.initFormulasNNF);
     
     // init tableau prover:
     this.pauseLength = 5; // ms pause between calculations
@@ -969,10 +969,10 @@ function Tree(prover) {
     this.priority = 0;
 }
 
-Tree.prototype.addInitNodes = function(initFormulasNormalized) {
+Tree.prototype.addInitNodes = function(initFormulasNNF) {
     var initBranch = this.openBranches[0];
-    for (var i=0; i<initFormulasNormalized.length; i++) {
-        var node = new Node(initFormulasNormalized[i]);
+    for (var i=0; i<initFormulasNNF.length; i++) {
+        var node = new Node(initFormulasNNF[i]);
         initBranch.addNode(node);
         initBranch.tryClose(node);
     }

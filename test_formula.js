@@ -37,9 +37,9 @@ tests = {
         assertEqual(f2.string, 'Habg(f(a,b,c),f(a,b,c))');
     },
 
-    normalize: function() {
+    nnf: function() {
         var parser = new Parser();
-        var f = parser.parseFormula('¬∀x(Fx → Fx)').normalize();
+        var f = parser.parseFormula('¬∀x(Fx → Fx)').nnf();
         assertEqual(f, '∃x(Fx ∧ ¬Fx)');
     },
 

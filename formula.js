@@ -99,38 +99,39 @@ Formula.unifyTerms = function(terms1, terms2) {
     return unifier;
 }
 
-Formula.prototype.normalize = function() {
-    // returns an equivalent formula in negation normal form
+Formula.prototype.nnf = function() {
+    // returns an equivalent formula in negation normal form, i.e. without ->
+    // and <-> and with negations driven in
     var op = this.operator || this.quantifier;
     if (!op) return this;
     switch (op) {
     case '∧' : case '∨' : {
         // |A&B| = |A|&|B|
         // |AvB| = |A|v|B|
-        var sub1 = this.sub1.normalize();
-        var sub2 = this.sub2.normalize();
+        var sub1 = this.sub1.nnf();
+        var sub2 = this.sub2.nnf();
         return new BinaryFormula(op, sub1, sub2);
     }
     case '→' : {
         // |A->B| = |~A|v|B|
-        var sub1 = this.sub1.negate().normalize();
-        var sub2 = this.sub2.normalize();
+        var sub1 = this.sub1.negate().nnf();
+        var sub2 = this.sub2.nnf();
         return new BinaryFormula('∨', sub1, sub2);
     }
     case '↔' : {
         // |A<->B| = |A&B|v|~A&~B|
-        var sub1 = new BinaryFormula('∧', this.sub1, this.sub2).normalize();
-        var sub2 = new BinaryFormula('∧', this.sub1.negate(), this.sub2.negate()).normalize();
+        var sub1 = new BinaryFormula('∧', this.sub1, this.sub2).nnf();
+        var sub2 = new BinaryFormula('∧', this.sub1.negate(), this.sub2.negate()).nnf();
         return new BinaryFormula('∨', sub1, sub2);
     }
     case '∀' : case '∃' : {
         // |(Ax)A| = Ax|A|
-        return new QuantifiedFormula(op, this.variable, this.matrix.normalize(),
+        return new QuantifiedFormula(op, this.variable, this.matrix.nnf(),
                                      this.overWorlds);
     }
     case '□' : case '◇' : {
         // |[]A| = []|A|
-        return new ModalFormula(op, this.sub.normalize());
+        return new ModalFormula(op, this.sub.nnf());
     }
     case '¬' : {
         var op2 = this.sub.operator || this.sub.quantifier;
@@ -139,37 +140,37 @@ Formula.prototype.normalize = function() {
         case '∧' : case '∨' : {
             // |~(A&B)| = |~A|v|~B|
             // |~(AvB)| = |~A|&|~B|
-            var sub1 = this.sub.sub1.negate().normalize();
-            var sub2 = this.sub.sub2.negate().normalize();
+            var sub1 = this.sub.sub1.negate().nnf();
+            var sub2 = this.sub.sub2.negate().nnf();
             var newOp = op2 == '∧' ? '∨' : '∧';
             return new BinaryFormula(newOp, sub1, sub2);
         }
         case '→' : {
             // |~(A->B)| = |A|&|~B|
-            var sub1 = this.sub.sub1.normalize();
-            var sub2 = this.sub.sub2.negate().normalize();
+            var sub1 = this.sub.sub1.nnf();
+            var sub2 = this.sub.sub2.negate().nnf();
             return new BinaryFormula('∧', sub1, sub2);
         }
         case '↔' : {
             // |~(A<->B)| = |A&~B|v|~A&B|
-            var sub1 = new BinaryFormula('∧', this.sub.sub1, this.sub.sub2.negate()).normalize();
-            var sub2 = new BinaryFormula('∧', this.sub.sub1.negate(), this.sub.sub2).normalize();
+            var sub1 = new BinaryFormula('∧', this.sub.sub1, this.sub.sub2.negate()).nnf();
+            var sub2 = new BinaryFormula('∧', this.sub.sub1.negate(), this.sub.sub2).nnf();
             return new BinaryFormula('∨', sub1, sub2);
         }
         case '∀' : case '∃' : {
             // |~(Ax)A| = Ex|~A|
-            var sub = this.sub.matrix.negate().normalize();
+            var sub = this.sub.matrix.negate().nnf();
             return new QuantifiedFormula(op2=='∀' ? '∃' : '∀', this.sub.variable, sub,
                                          this.sub.overWorlds);
         }
         case '□' : case '◇' : {
             // |~[]A| = []|~A|
-            var sub = this.sub.sub.negate().normalize();
+            var sub = this.sub.sub.negate().nnf();
             return new ModalFormula(op2=='□' ? '◇' : '□', sub);
         }
         case '¬' : {
             // |~~A| = |A|
-            return this.sub.sub.normalize();
+            return this.sub.sub.nnf();
         }
         }
     }

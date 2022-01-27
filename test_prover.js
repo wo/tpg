@@ -15,7 +15,7 @@ tests = {
 
     pruneBranch: function() {
         var parser = new Parser();
-        var f = parser.parseFormula('(¬R∧¬S∧((R∧¬S)∨(¬R∧S))∧(Q∨P))').normalize();
+        var f = parser.parseFormula('(¬R∧¬S∧((R∧¬S)∨(¬R∧S))∧(Q∨P))').nnf();
         var prover = new Prover([f], parser);
         prover.pauseLength = 0;
         prover.start();
