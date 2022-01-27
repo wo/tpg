@@ -40,14 +40,16 @@ SenTree.prototype.findComplementaryNodes = function() {
         var n2 = lastNode;
         N1LOOP:
         while (n1) {
+            // check for node pairs φ, ¬φ:
             while ((n2 = n2.parent)) {
-                if (!n2) throw 'wtf'
+                if (n1.formula.world != n2.formula.world) continue;
                 if ((n1.formula.operator == '¬' && n1.formula.sub.string == n2.formula.string)
                     || (n2.formula.operator == '¬' && n2.formula.sub.string == n1.formula.string)) {
                     lastNode.closedBy = [n1, n2];
                     break N1LOOP;
                 }
             };
+            // check for a node ¬(t=s):
             if (n1.formula.operator == '¬' && n1.formula.sub.predicate == '='
                 && n1.formula.sub.terms[0].toString() == n1.formula.sub.terms[1].toString()) {
                 lastNode.closedBy = [n1];
@@ -399,7 +401,8 @@ SenTree.prototype.replaceFreeVariablesAndSkolemTerms = function() {
         var skterms = getSkolemTerms(node.formula);
         var term;
         while ((term = skterms.shift())) {
-            var isWorldTerm = (term.toString()[0] == 'ω');
+            var termLetter = term.isArray ? term[0] : term;
+            var isWorldTerm = (termLetter[0] == 'ω');
             var repl = isWorldTerm ?
                 this.parser.getNewWorldName(true) : this.parser.getNewConstant();
             substitutions.push([term, repl]);

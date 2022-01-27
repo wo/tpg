@@ -154,15 +154,27 @@ tests = {
         assert(sentreeString.match(/cdefgh/) == null);
     },
 
-    removeUnusedBranches: function() {
+    // removeUnusedBranches: function() {
+    //     var parser = new Parser();
+    //     var f = parser.parseFormula('(∀x∀y∀z((Ixy→Iyz)→Ixz)∧((IaW(a)∧IbW(b))∧(∀x∀y∀z(Ixy→(IzW(x)→IzW(y)))∧¬Iba)))').negate();
+    //     var prover = new Prover([f], parser);
+    //     prover.pauseLength = 0;
+    //     prover.start();
+    //     var sentree = new SenTree(prover.tree, parser);
+    //     assert(sentree.nodes.length <= 15);
+    // },
+
+    github14qml: function() {
         var parser = new Parser();
-        var f = parser.parseFormula('(∀x∀y∀z((Ixy→Iyz)→Ixz)∧((IaW(a)∧IbW(b))∧(∀x∀y∀z(Ixy→(IzW(x)→IzW(y)))∧¬Iba)))').negate();
-        var prover = new Prover([f], parser);
+        var f = parser.parseFormula('((∀x((Ox∧Mx)→(◇(Ox∧Px)∧◇(Ox∧¬Px)))∧∃x(Ox∧Mx))∧(∀x((Ox∧Mx)→(◇(Ox∧Sx)∧◇(Ox∧¬Sx)))∧∃x(Ox∧Mx)))→(∃x(◇(Ox∧Sx)∧◇(Ox∧¬Px))∨¬∃x◇(Ox∧Sx))').negate();
+        var prover = new Prover([f], parser, ['universality']);
         prover.pauseLength = 0;
         prover.start();
         var sentree = new SenTree(prover.tree, parser);
-        assert(sentree.nodes.length, 15);
-    }
+        assert(sentree.nodes.length > 5);
+    },
+
+        
     
     // getcountermodel: function() {
     //     var parser = new Parser();
