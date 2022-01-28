@@ -38,15 +38,22 @@ SenTree.prototype.findComplementaryNodes = function() {
         while (lastNode.children[0]) lastNode = lastNode.children[0];
         var n1 = lastNode;
         var n2 = lastNode;
-        N1LOOP:
         while (n1) {
             // check for node pairs φ, ¬φ:
             while ((n2 = n2.parent)) {
-                if (n1.formula.world != n2.formula.world) continue;
                 if ((n1.formula.operator == '¬' && n1.formula.sub.string == n2.formula.string)
                     || (n2.formula.operator == '¬' && n2.formula.sub.string == n1.formula.string)) {
-                    lastNode.closedBy = [n1, n2];
-                    break N1LOOP;
+                    if (n1.formula.world == n2.formula.world) {
+                        lastNode.closedBy = [n1, n2];
+                        log("complementary nodes: "+n1+", "+n2);
+                        return;
+                    }
+                    else if (n1.formula.predicate == '=' || n1.formula.sub.predicate == '=') {
+                        lastNode.closedBy = null;
+                        log("complementary nodes (rigid identity): "+n1+", "+n2);
+                        this.insertRigidIdentity(n1, n2);
+                        return;
+                    }
                 }
             };
             // check for a node ¬(t=s):
@@ -57,11 +64,6 @@ SenTree.prototype.findComplementaryNodes = function() {
             }
             n1 = n1.parent;
             n2 = lastNode;
-        }
-        log("complementary nodes: "+n1+", "+n2);
-        if (lastNode.closedBy.length == 2 && n1.formula.world != n2.formula.world) {
-            lastNode.closedBy = null;
-            var addedNode = this.insertRigidIdentity(n1, n2);
         }
     }
 }

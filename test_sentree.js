@@ -154,15 +154,15 @@ tests = {
         assert(sentreeString.match(/cdefgh/) == null);
     },
 
-    // removeUnusedBranches: function() {
-    //     var parser = new Parser();
-    //     var f = parser.parseFormula('(∀x∀y∀z((Ixy→Iyz)→Ixz)∧((IaW(a)∧IbW(b))∧(∀x∀y∀z(Ixy→(IzW(x)→IzW(y)))∧¬Iba)))').negate();
-    //     var prover = new Prover([f], parser);
-    //     prover.pauseLength = 0;
-    //     prover.start();
-    //     var sentree = new SenTree(prover.tree, parser);
-    //     assert(sentree.nodes.length <= 15);
-    // },
+    removeUnusedBranches: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('(∀x∀y∀z((Ixy→Iyz)→Ixz)∧((IaW(a)∧IbW(b))∧(∀x∀y∀z(Ixy→(IzW(x)→IzW(y)))∧¬Iba)))');
+        var prover = new Prover([f], parser);
+        prover.pauseLength = 0;
+        prover.start();
+        var sentree = new SenTree(prover.tree, parser);
+        assert(sentree.nodes.length <= 15);
+    },
 
     github14qml: function() {
         var parser = new Parser();
@@ -174,6 +174,15 @@ tests = {
         assert(sentree.nodes.length > 5);
     },
 
+    rigididentity: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('a=b → □a=b').negate();
+        var prover = new Prover([f], parser);
+        prover.pauseLength = 0;
+        prover.start();
+        var sentree = new SenTree(prover.tree, parser);
+        assertEqual(sentree.nodes.length, 6);
+    },
         
     
     // getcountermodel: function() {
