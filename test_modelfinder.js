@@ -343,9 +343,8 @@ tests = {
         assert(i<500);
         assertEqual(mf.model.domain.length, 2);
         log(mf.model.toString());
-        assert(mf.model.toString().indexOf('F: { 0,1 }') > 0);
-        // assert(mf.model.toString().indexOf('F: { 1 }') > 0); would do as well
-        assert(mf.model.toString().indexOf('G: { 0 }') > 0);
+        assert(mf.model.toString().indexOf('F: { 0 }') > 0);
+        assert(mf.model.toString().indexOf('G: { 1 }') > 0);
     },
 
     countermodel9: function() {
@@ -475,8 +474,8 @@ tests = {
         for (var i=0; i<500; i++) {
             if (mf.nextStep()) break;
         }
-        assert(mf.model.toString().indexOf('f: { (0,0), (1,0) }') > 0);
-        assert(mf.model.toString().indexOf('g: { (0,0,1), (0,1,0), (1,0,0), (1,1,0) }') > 0);
+        assert(mf.model.toString().indexOf('f: { (0,1), (1,0) }') > 0);
+        assert(mf.model.toString().indexOf('g: { (0,0,0), (0,1,0), (1,0,0), (1,1,0) }') > 0);
     },
 
     github_issue_3_chrome: function() {
