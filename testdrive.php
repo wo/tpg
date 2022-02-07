@@ -69,6 +69,7 @@ $valid_tests = [
    ['dv98ex1.1', '∃x∃y∃u∃v((a = b → g(x, u, v) = g(y, f(c), f(d))) ∧ (c = d → g(u, x, y) = g(v, f(a), f(b))))'],
    ['franssen08fibo', '∀xp(x, z) = x ∧ ∀x∀yp(x,y) = p(y,x) ∧ f(z) = z ∧ f(s(z)) = s(z) ∧ ∀yf(s(s(y))) = p(f(y), f(s(y))) → f(s(s(z))) = s(z)'],
    ['multiinst', '(∀x(P(x)→P(f(x)))) ∧ P(d)→P(f(f(f(d))))'],
+   ['tseitin', '((∃x∀y(Px↔Py)↔(∃zQz↔∀wQw))↔(∃x2∀x3(Qx2↔Qx3)↔(∃x4Px4↔∀x5Px5)))'],
    ['pel1', '((p→q)↔(¬q→¬p))'],
    ['pel2', '(¬¬p↔p)'],
    ['pel3', '(¬(p→q)→(q→p))'],
@@ -168,6 +169,7 @@ $invalid_tests = [
     ['04vsG0_K4', '((A ∧ ¬□A)→□¬□A) ∧ ((¬A ∧ ◇A) →□◇A) → (◇□A→□◇A)||transitivity'],
     ['redinexD', '◇(p→□◇p)||seriality'],
     ['boxreds4', '◇□p↔□◇□p||reflexivity|transitivity'],
+    ['github16', '((∃x(◇(Ox∧Px)∧□(Ox→Mx)))∧(∀x(◇(Ox∧Mx)→□(Ox→Sx))∧◇∃x(Ox∧Mx)))→(∃x((Ox∧Sx)∧◇(Ox∧Px)))'],
     ['7ind', '¬∀z∀y∃x¬((Rxy → Ryx) ∨ Rzx)'],
     ['infinity', '¬(∀x∃yFxy ∧ ∀x∀y∀z(Fxy∧Fyz→Fxz) ∧ ∀x¬Fxx)'],
 ];

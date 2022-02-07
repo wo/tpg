@@ -98,9 +98,13 @@ ModelFinder.prototype.getClauses = function(formulas) {
         log('skolemized: '+skolemized);
         var quantifiersRemoved = skolemized.removeQuantifiers();
         log('qantifiers removed: '+quantifiersRemoved);
-        var clauses = this.tseitinCNF(quantifiersRemoved);
-        // var clauses = this.cnf(quantifiersRemoved);
+        var clauses = this.cnf(quantifiersRemoved);
         log('cnf: '+clauses);
+        var clausesTseitin = this.tseitinCNF(quantifiersRemoved);
+        if (clausesTseitin.length < clauses.length) {
+            clauses = clausesTseitin;
+            log('tseitin cnf shorter: '+clauses);
+        }
         res.extendNoDuplicates(clauses);
     }
     // order clauses by length (number of disjuncts):
@@ -362,10 +366,8 @@ ModelFinder.prototype.cnf = function(formula) {
     }
     case '↔' : {
         var con1 = this.cnf(new BinaryFormula('→', formula.sub1, formula.sub2));
-        // log('con1: '+con1);
         var con2 = this.cnf(new BinaryFormula('→', formula.sub2, formula.sub1));
         con = [con1, con2];
-        // log('con: '+con);
         break;
     }
     case '¬' : {
@@ -388,10 +390,8 @@ ModelFinder.prototype.cnf = function(formula) {
             // dis2 = this.cnf(new BinaryFormula('∧', sub.sub1.negate(), sub.sub2));
             // dis = [dis1, dis2];
             var con1 = this.cnf(new BinaryFormula('∨', sub.sub1, sub.sub2));
-            // log('con1: '+con1);
             var con2 = this.cnf(new BinaryFormula('∨', sub.sub1.negate(), sub.sub2.negate()));
             con = [con1, con2];
-            // log('con: '+con);
             break;
         }
         case '¬' : {
@@ -402,13 +402,11 @@ ModelFinder.prototype.cnf = function(formula) {
     }
     var res = [];
     if (con) {
-        // log('con: '+con);
         // con1 is [C1, C2 ...], con2 is [D1, D2, ...], where the elements are
         // clauses; return [C1, C2, ..., D1, D2, ...]:
         res = con[0].concatNoDuplicates(con[1]);
     }
     else if (dis) {
-        // log('dis: '+dis);
         // dis1 is [C1, C2 ...], dis2 is [D1, D2, ...], where the elements are
         // clauses, i.e. disjunctions of literals; (C1 & C2 & ...) v (D1 & D2 &
         // ..) is equivalent to (C1 v D1) & (C1 v D2) & ... (C2 v D1) & (C2 V
@@ -416,7 +414,6 @@ ModelFinder.prototype.cnf = function(formula) {
         for (var i=0; i<dis[0].length; i++) {
             for (var j=0; j<dis[1].length; j++) {
                 // dis[0][i] and dis[1][j] are clauses, we want to combine them
-                // log('adding '+dis[0][i].concat(dis[1][j]));
                 res.push(dis[0][i].concatNoDuplicates(dis[1][j]).sort());
                 // (sort each clause so that we can remove duplicate clauses)
             }
