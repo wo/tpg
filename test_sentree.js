@@ -183,6 +183,16 @@ tests = {
         var sentree = new SenTree(prover.tree, parser);
         assertEqual(sentree.nodes.length, 6);
     },
+
+    rigididentity2: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('(□(□p→p)→□p)∧(□(□□p→□p)→□□p)∧(□(□¬□p→¬□p)→□¬□p)→(□p→□□p)').negate();
+        var prover = new Prover([f], parser);
+        prover.pauseLength = 0;
+        prover.start();
+        var sentree = new SenTree(prover.tree, parser);
+        assert(sentree.nodes.length >= 30);
+    }
         
     
     // getcountermodel: function() {

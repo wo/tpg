@@ -48,7 +48,7 @@ SenTree.prototype.findComplementaryNodes = function() {
                         log("complementary nodes: "+n1+", "+n2);
                         return;
                     }
-                    else if (n1.formula.predicate == '=' || n1.formula.sub.predicate == '=') {
+                    else if (n1.formula.predicate == '=' || n2.formula.predicate == '=') {
                         lastNode.closedBy = null;
                         log("complementary nodes (rigid identity): "+n1+", "+n2);
                         this.insertRigidIdentity(n1, n2);
