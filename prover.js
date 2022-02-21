@@ -375,8 +375,11 @@ Prover.prototype.discardCurrentAlternative = function() {
  */
 
 Prover.alpha = function(branch, nodeList) {
-    // <nodeList> is a list because some rules apply to more than one node. Not
-    // this one, so here <nodeList> has just one member: a conjunction.
+    /**
+     * expand a conjunction-type node; <nodeList> is a list because some rules
+     * apply to more than one node. Not the alpha rule, so here <nodeList> has
+     * just one member.
+     */
     log('alpha '+nodeList[0]);
     var node = nodeList[0];
     var subnode1 = new Node(node.formula.sub1, Prover.alpha, nodeList);
@@ -390,11 +393,14 @@ Prover.alpha.priority = 1;
 Prover.alpha.toString = function() { return 'alpha' }
 
 Prover.beta = function(branch, nodeList) {
+    /**
+     * expand a disjunction-type node
+     */
     log('beta '+nodeList[0]);
     var node = nodeList[0];
     var newbranch = branch.copy();
     branch.tree.openBranches.unshift(newbranch);
-    // tackle simpler branch first:
+    // try to tackle simpler branch first:
     var re = /[∧∨↔→∀∃□◇]/g;
     var complexity1 = (node.formula.sub1.string.match(re) || []).length;
     var complexity2 = (node.formula.sub2.string.match(re) || []).length;
@@ -415,8 +421,10 @@ Prover.beta.priority = 9;
 Prover.beta.toString = function() { return 'beta' }
 
 Prover.gamma = function(branch, nodeList, matrix) {
-    // <matrix> is set when this is called from modalGamma for S5 trees, see
-    // modalGamma() below.
+    /**
+     * expand an ∀ type node; <matrix> is set when this is called from modalGamma
+     * for S5 trees, see modalGamma() below.
+     */
     log('gamma '+nodeList[0]);
     var fromModalGamma = (matrix != undefined);
     var node = nodeList[0];
@@ -445,9 +453,13 @@ Prover.gamma.priority = 7;
 Prover.gamma.toString = function() { return 'gamma' }
 
 Prover.modalGamma = function(branch, nodeList) {
-    // □A and ¬◇A nodes are translated into ∀x(¬wRxvAx) and ∀x(¬wRx∨¬Ax). By the
-    // standard gamma rule, these would be expanded to ¬wRξ7 ∨ Aξ7 or ¬wRξ7 ∨
-    // ¬Aξ7. We don't want the resulting branches on the tree. See readme.org
+    /**
+     * expand a (translated) node of type □A
+     *
+     * □A and ¬◇A nodes are translated into ∀x(¬wRxvAx) and ∀x(¬wRx∨¬Ax). By the
+     * standard gamma rule, these would be expanded to ¬wRξ7 ∨ Aξ7 or ¬wRξ7 ∨
+     * ¬Aξ7. We don't want the resulting branches on the tree. See readme.org
+     */
     log('modalGamma '+nodeList[0]);
     var node = nodeList[0];
     // add application back onto todoList:
@@ -498,8 +510,10 @@ Prover.modalGamma.priority = 8;
 Prover.modalGamma.toString = function() { return 'modalGamma' }
     
 Prover.delta = function(branch, nodeList, matrix) {
-    // <matrix> is set when this is called from modalDelta for S5 trees, see
-    // modalDelta() below. 
+    /**
+     * expand an ∃ type node; <matrix> is set when this is called from modalDelta
+     * for S5 trees, see modalDelta() below.
+     */
     log('delta '+nodeList[0]);
     var node = nodeList[0];
     var fla = node.formula;
@@ -536,6 +550,9 @@ Prover.delta.priority = 2;
 Prover.delta.toString = function() { return 'delta' }
 
 Prover.modalDelta = function(branch, nodeList) {
+    /**
+     * expand a (translated) node of type ◇A
+     */
     log('modalDelta '+nodeList[0]);
     var node = nodeList[0]; // a node of type ∃x(wRx∧Ax)
     if (branch.tree.prover.s5) {
@@ -798,11 +815,14 @@ Prover.equalityReasoner.priority = 0;
 Prover.equalityReasoner.toString = function() { return 'equality' }
 
 Prover.reflexivity = function(branch, nodeList) {
+    /**
+     * apply the modal reflexivity rule (add a wRw node); nodeList is either
+     * empty or contains a node of form wRv where v might have been newly
+     * introduced
+     */
     log('applying reflexivity rule');
-    // nodeList is either empty or contains a node of form wRv where v might
-    // have been newly introduced
     if (nodeList.length == 0) {
-        // applied to initial world w:
+        // rule applied to initial world w:
         var worldName = branch.tree.parser.w;
     }
     else {
@@ -821,8 +841,11 @@ Prover.reflexivity.premiseCanBeReflexive = false; // can be applied to wRw
 Prover.reflexivity.toString = function() { return 'reflexivity' }
     
 Prover.symmetry = function(branch, nodeList) {
+    /**
+     * apply the modal symmetry rule (add vRw if wRv is on branch);
+     * <nodeList> contains a node of form wRv
+     */
     log('applying symmetry rule');
-    // nodeList contains a node of form wRv.
     var nodeFormula = nodeList[0].formula;
     var R = branch.tree.parser.R;
     var formula = new AtomicFormula(R, [nodeFormula.terms[1], nodeFormula.terms[0]]);
@@ -836,8 +859,11 @@ Prover.symmetry.premiseCanBeReflexive = false; // can be applied to wRw
 Prover.symmetry.toString = function() { return 'symmetry' }
 
 Prover.euclidity = function(branch, nodeList) {
+    /**
+     * apply the modal euclidity rule (add vRu if wRv and wRu are on branch);
+     * <nodeList> contains a newly added node of form wRv
+     */
     log('applying euclidity rule');
-    // nodeList contains a newly added node of form wRv.
     var node = nodeList[0];
     var nodeFla = node.formula;
     // When a wRv node has been added, euclidity always allows us to add vRv. In
@@ -882,8 +908,11 @@ Prover.euclidity.premiseCanBeReflexive = false; // can be applied to wRw
 Prover.euclidity.toString = function() { return 'euclidity' }
 
 Prover.transitivity = function(branch, nodeList) {
+    /**
+     * apply the modal transitivity rule (add vRu if wRv and vRu are on branch);
+     * <nodeList> contains a newly added node of form wRv
+     */
     log('applying transitivity rule');
-    // nodeList contains a newly added node of form wRv.
     var R = branch.tree.parser.R;
     var node = nodeList[0];
     var nodeFla = node.formula;
@@ -917,11 +946,14 @@ Prover.transitivity.premiseCanBeReflexive = false; // can be applied to wRw
 Prover.transitivity.toString = function() { return 'transitivity' }
 
 Prover.seriality = function(branch, nodeList) {
+    /**
+     * apply the modal seriality rule (add wRv); <nodeList> is either empty or
+     * contains a newly added node of form wRv
+     */
     log('applying seriality rule');
-    // nodeList is either empty or contains a newly added node of form wRv.
     var R = branch.tree.parser.R;
     if (nodeList.length == 0) {
-        // applied to initial world w.
+        // rule applied to initial world w.
         var oldWorld = branch.tree.parser.w;
     }
     else {
