@@ -111,6 +111,15 @@ tests = {
         assertEqual(prover.tree.openBranches.length, 1);
     },    
 
+    modalEuclidean: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('□p→□□p').negate();
+        var prover = new Prover([f], parser, ['reflexivity', 'euclidity']);
+        prover.pauseLength = 0;
+        prover.start();
+        assertEqual(prover.tree.openBranches.length, 0);
+    },
+
     modalG1: function() {
         var parser = new Parser();
         var f = parser.parseFormula('◇□p→□◇p').negate();

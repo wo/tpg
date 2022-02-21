@@ -904,7 +904,7 @@ Prover.euclidity = function(branch, nodeList) {
 }
 Prover.euclidity.priority = 3;
 Prover.euclidity.needsPremise = true; // can only be applied if wRv is on the branch
-Prover.euclidity.premiseCanBeReflexive = false; // can be applied to wRw
+Prover.euclidity.premiseCanBeReflexive = true; // can be applied to wRw
 Prover.euclidity.toString = function() { return 'euclidity' }
 
 Prover.transitivity = function(branch, nodeList) {
