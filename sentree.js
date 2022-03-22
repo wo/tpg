@@ -65,12 +65,12 @@ SenTree.prototype.findComplementaryNodesOnBranch = function(branch) {
         if (n1.formula.operator == '¬' && n1.formula.sub.predicate == '='
             && n1.formula.sub.terms[0].toString() == n1.formula.sub.terms[1].toString()) {
             lastNode.closedBy = [n1];
-            break;
+            return;
         }
         n1 = n1.parent;
         n2 = lastNode;
     }
-    throw 'no complementary nodes!';
+    // throw 'no complementary nodes!';
 }
 
 SenTree.prototype.insertRigidIdentity = function(n1, n2) {
@@ -131,8 +131,8 @@ SenTree.prototype.transferNodes = function() {
                 continue;
             }
             // <node> not yet collected, <par> is its (already collected) parent
-            log(this.toString());
             par = this.transferNode(node, par);
+            log(this.toString());
         }
     }
     // insert double negation elimination steps (best done here, after all alpha
@@ -146,10 +146,14 @@ SenTree.prototype.transferNodes = function() {
             }
             this.expandDoubleNegation(node, par);
         }
+    }
+    for (var i=0; i<this.nodes.length; i++) {
+        var node = this.nodes[i];
         if (!node.dneNode) {
             for (var j=0; j<node.fromNodes.length; j++) {
                 var from = node.fromNodes[j];
                 while (from.dneTo) from = from.dneTo;
+                log("changing source "+j+" of "+node+" from "+node.fromNodes[j]+" to "+node.fromNodes[j])
                 node.fromNodes[j] = from;
             }
         }
@@ -311,7 +315,7 @@ SenTree.prototype.transferNode = function(node, par) {
         return node;
     }
 
-    case Prover.modalDelta: 
+    case Prover.modalDelta: {
         // <node> is the result of expanding a ◇ formula ∃v(wRv ∧ Av) or a ¬□
         // formula ¬∀v(wRv → Av); so <node> is either wRv or Av/¬Av.
         var from = node.fromNodes[0];
@@ -334,8 +338,50 @@ SenTree.prototype.transferNode = function(node, par) {
             this.appendChild(par, node);
         }
         return node;
+    }
+    
+    case Prover.equalityReasoner: {
+        // <node> results by LL from node.fromNodes[0] and node.fromNodes[1]; in
+        // modal contexts, 'Fb (v)' might be derived from 'a=b (w)' and 'Fa
+        // (v)', we then need to insert the missing application of Rigid
+        // Identity. 
+        var from1 = node.fromNodes[0]; // the equality node, possibly double-negated
+        var from2 = node.fromNodes[1];
+        log("transferring "+node+" (equality from "+from1+" and "+from2+")");
+        var identityFla = from1.formula;
+        while (identityFla.sub) identityFla = identityFla.sub.sub;
+        if (identityFla.terms.length == 3) {
+            var identityWorld = identityFla.terms[identityFla.terms.length-1];
+            var nodeAtom = node.formula.sub || node.formula;
+            var nodeTerms = nodeAtom.terms;
+            // The equalityReasoner also ignores world labels in identity formulas:
+            // it infers e.g. '~b=a' from 'a=c (w)' and '~b=c (w)'. We need to
+            // restore the missing world parameters.
+            if (nodeAtom.predicate == '=' && nodeTerms.length == 2) {
+                var from2Fla = from2.formula;
+                while (from2Fla.sub) from2Fla = from2Fla.sub;
+                nodeTerms.push(from2Fla.terms[from2Fla.terms.length-1]);
+            }
+            var nodeWorld = nodeTerms[nodeTerms.length-1];
+            if (nodeWorld != identityWorld) {
+                log("inserting rigid identity node "+identityFla+" "+identityWorld+" => "+nodeWorld);
+                var newTerms = identityFla.terms.copy();
+                newTerms[2] = nodeWorld;
+                var newFormula = new AtomicFormula('=', newTerms);
+                var newNode = new Node(newFormula, null, [from1]);
+                this.makeNode(newNode);
+                this.appendChild(par, newNode);
+                newNode.used = true;
+                par = newNode;
+                node.fromNodes = [from2, newNode]
+            }
+        }
+        this.appendChild(par, node);
+        return node;
+    }
         
     default: {
+        log(node.fromRule)
         this.appendChild(par, node);
         return node;
     }
@@ -401,7 +447,7 @@ SenTree.prototype.replaceFreeVariablesAndSkolemTerms = function() {
         // apply existing substitutions:
         for (var i=0; i<substitutions.length; i++) {
             var term = substitutions[i][0], repl = substitutions[i][1];
-            node.formula = node.formula.substitute(term, repl);
+            node.formula = node.formula.substitute(term, repl, false, true);
         }
         log("replaced known variables and skolem terms: "+node);
         // replace additional skolem terms by new constants:
@@ -413,8 +459,8 @@ SenTree.prototype.replaceFreeVariablesAndSkolemTerms = function() {
             var repl = isWorldTerm ?
                 this.parser.getNewWorldName(true) : this.parser.getNewConstant();
             substitutions.push([term, repl]);
-            log("replacing new skolem term "+term+" by "+repl);
-            node.formula = node.formula.substitute(term, repl);
+            node.formula = node.formula.substitute(term, repl, false, true);
+            log("replacing new skolem term "+term+" by "+repl+": "+node.formula);
             // skolem terms can be nested:
             skterms = Formula.substituteInTerms(skterms, term, repl);
         }

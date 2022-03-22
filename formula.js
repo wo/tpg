@@ -265,11 +265,14 @@ AtomicFormula.terms2string = function(list, separator) {
 
 AtomicFormula.prototype = Object.create(Formula.prototype);
 
-AtomicFormula.prototype.substitute = function(origTerm, newTerm, shallow) {
+AtomicFormula.prototype.substitute = function(origTerm, newTerm, shallow, inIdentity) {
     // return new formula with all occurrences of <origTerm> replaced by
     // <newTerm>. If <shallow>, don't replace terms in function arguments
     if (typeof(origTerm) == 'string' && this.string.indexOf(origTerm) == -1) {
-        return this;
+        if (!inIdentity || this.predicate != '=') {
+            // identity nodes have string 'a=b' even if there's a third world term
+            return this;
+        }
     }
     var newTerms = Formula.substituteInTerms(this.terms, origTerm, newTerm, shallow);
     if (!this.terms.equals(newTerms)) {

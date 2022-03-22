@@ -467,28 +467,6 @@ EqualityProblem.prototype.getSubstitution = function() {
     return res;
 }
 
-EqualityProblem.prototype.deskolemize = function(node) {
-    /**
-     * return a new Node in which each skolem terms \phi(x,y..) in
-     * <node>.formula is replaced by a new constant c; add a constraint to the
-     * problem that c > x, c > y, ..; store the mapping from new constants to
-     * original skolem terms in this.
-     */
-    var res = new Node();
-    res.id = node.id;
-    var atom = node.formula.sub || node.formula;
-    var newTerms = [];
-    for (var i=0; i<atom.terms.length; i++) {
-        // Skolem terms all look like 'φ1', 'φ1(ξ1,ξ2..)' (for individuals) or
-        // 'ω1' etc. (for worlds); after unification they can also be nested.
-        if (atom.terms[i].isArray &&
-            (atom.terms[i][0][0] == 'φ' || atom.terms[i][0][0] == 'ω') 
-           ){}
-    }
-    var fvs = node.formula.getFreeVariables();
-    var newFormula = new AtomicFormula
-}
-
 EqualityProblem.prototype.copy = function(constraint) {
     var res = new EqualityProblem(constraint || this.constraint);
     res.terms1 = this.terms1; // don't need to copy because the array is never changed, only replaced (see applyLL functions)

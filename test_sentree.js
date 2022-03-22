@@ -85,6 +85,23 @@ tests = {
         var sentree = new SenTree(prover.tree, parser);
         assertEqual(sentree.nodes.length, 27);
     },
+
+    dne7: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('◇a=b∧¬¬¬¬a=c→b=c').negate();
+        var prover = new Prover([f], parser);
+        prover.pauseLength = 0;
+        prover.start();
+        var sentree = new SenTree(prover.tree, parser);
+        assertEqual(sentree.nodes.length, 12);
+        for (var i=0; i<sentree.nodes.length; i++) {
+            if (sentree.nodes[i].fromRule == Prover.equalityReasoner) {
+                console.log(sentree.nodes[i].fromNodes);
+                assert(!sentree.nodes[i].fromNodes[0].formula.string.includes('¬¬'));
+                assert(!sentree.nodes[i].fromNodes[1].formula.string.includes('¬¬'));
+            }
+        }
+    },
     
     bicondAndDn: function() {
         var parser = new Parser();
@@ -192,7 +209,29 @@ tests = {
         prover.start();
         var sentree = new SenTree(prover.tree, parser);
         assert(sentree.nodes.length >= 30);
-    }
+    },
+
+    rigididentity3: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('□Fa∧a=b→□Fb').negate();
+        var prover = new Prover([f], parser);
+        prover.pauseLength = 0;
+        prover.start();
+        var sentree = new SenTree(prover.tree, parser);
+        assertEqual(sentree.nodes.length, 10);
+        assertEqual(sentree.nodes[8].formula.world, 'v');
+        assertEqual(sentree.nodes[9].fromNodes[1].formula.world, 'v');
+    },
+
+    rigididentity4: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('◇a=b∧a=c→b=c').negate();
+        var prover = new Prover([f], parser);
+        prover.pauseLength = 0;
+        prover.start();
+        var sentree = new SenTree(prover.tree, parser);
+        assertEqual(sentree.nodes.length, 10);
+    },
         
     
     // getcountermodel: function() {
