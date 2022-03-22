@@ -34,43 +34,48 @@ SenTree.prototype.markEndNodesClosed = function() {
 SenTree.prototype.findComplementaryNodes = function() {
     for (var i=0; i<this.fvTree.closedBranches.length; i++) {
         var branch = this.fvTree.closedBranches[i];
-        var lastNode = branch.nodes[branch.nodes.length-1];
-        while (lastNode.children[0]) lastNode = lastNode.children[0];
-        var n1 = lastNode;
-        var n2 = lastNode;
-        while (n1) {
-            // check for node pairs φ, ¬φ:
-            while ((n2 = n2.parent)) {
-                if ((n1.formula.operator == '¬' && n1.formula.sub.string == n2.formula.string)
-                    || (n2.formula.operator == '¬' && n2.formula.sub.string == n1.formula.string)) {
-                    if (n1.formula.world == n2.formula.world) {
-                        lastNode.closedBy = [n1, n2];
-                        log("complementary nodes: "+n1+", "+n2);
-                        return;
-                    }
-                    else if (n1.formula.predicate == '=' || n2.formula.predicate == '=') {
-                        lastNode.closedBy = null;
-                        log("complementary nodes (rigid identity): "+n1+", "+n2);
-                        this.insertRigidIdentity(n1, n2);
-                        return;
-                    }
-                }
-            };
-            // check for a node ¬(t=s):
-            if (n1.formula.operator == '¬' && n1.formula.sub.predicate == '='
-                && n1.formula.sub.terms[0].toString() == n1.formula.sub.terms[1].toString()) {
-                lastNode.closedBy = [n1];
-                break;
-            }
-            n1 = n1.parent;
-            n2 = lastNode;
-        }
+        this.findComplementaryNodesOnBranch(branch);
     }
+}
+
+SenTree.prototype.findComplementaryNodesOnBranch = function(branch) {
+    var lastNode = branch.nodes[branch.nodes.length-1];
+    while (lastNode.children[0]) lastNode = lastNode.children[0];
+    var n1 = lastNode;
+    var n2 = lastNode;
+    while (n1) {
+        // check for node pairs φ, ¬φ:
+        while ((n2 = n2.parent)) {
+            if ((n1.formula.operator == '¬' && n1.formula.sub.string == n2.formula.string)
+                || (n2.formula.operator == '¬' && n2.formula.sub.string == n1.formula.string)) {
+                if (n1.formula.world == n2.formula.world) {
+                    lastNode.closedBy = [n1, n2];
+                    log("complementary nodes: "+n1+", "+n2);
+                    return;
+                }
+                else if (n1.formula.predicate == '=' || n2.formula.predicate == '=') {
+                    lastNode.closedBy = null;
+                    log("complementary nodes (rigid identity): "+n1+", "+n2);
+                    this.insertRigidIdentity(n1, n2);
+                    return;
+                }
+            }
+        };
+        // check for a node ¬(t=s):
+        if (n1.formula.operator == '¬' && n1.formula.sub.predicate == '='
+            && n1.formula.sub.terms[0].toString() == n1.formula.sub.terms[1].toString()) {
+            lastNode.closedBy = [n1];
+            break;
+        }
+        n1 = n1.parent;
+        n2 = lastNode;
+    }
+    throw 'no complementary nodes!';
 }
 
 SenTree.prototype.insertRigidIdentity = function(n1, n2) {
     // In modal trees, a node 'a=b (w)' is regarded as complementary with
-    // '¬(a=b) (v)'. We need to insert the missing 'a=b (v)' application of
+    // '¬(a=b) (v)'; We need to insert the missing 'a=b (v)' application of
     // Rigid Identity.
     var identityNode = n1.formula.operator == '¬' ? n2 : n1;
     var negIdentityNode = n1.formula.operator == '¬' ? n1 : n2;
