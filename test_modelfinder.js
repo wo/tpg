@@ -159,6 +159,19 @@ tests = {
         assertEqual(res.toString(), cnf.toString());
     },
 
+    partialTseitin: function() {
+        // For input 'A↔(A↔B) |= A↔B' we need to make sure the unused tseitin
+        // variables $1 etc. from the premise aren't used to construct the
+        // tseitin transform of the conclusion.
+        var parser = new Parser();
+        var f1 = parser.parseFormula('A↔(A↔B)').nnf();
+        var f2 = parser.parseFormula('A↔B').negate().nnf();
+        var mf = new ModelFinder([f1,f2], parser);
+        // var tseitin = parser2.parseFormula('($↔¬s)∧($↔(p∨q))∧($2↔($∧r))∧($3↔($2→$3))∧$3');
+        // [[$3],[$,¬p],[$,¬q],[$,¬$2],[r,¬$2],[$2,$3],[$3,s],[p,q,¬$],[$2,¬$,¬r],[¬$2,¬$3,¬s]]
+        assertEqual(mf.clauses.toString(), '[[A,B],[B,¬A],[¬A,¬B]]');  // not: [[$],[B,¬A],[A,B]]
+    },
+
     // tseitin2_fails_because_in_cnf: function() {
     //     var parser = new Parser();
     //     var m = new ModelFinder([parser.parseFormula('p')], parser);

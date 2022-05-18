@@ -88,7 +88,8 @@ ModelFinder.prototype.getClauses = function(formulas) {
      * literals. Variables are understood as universal; existential quantifiers
      * are skolemized away.
      */
-    var res = [];
+    var res = []; // clauses computed by ordinary cnf transformation 
+    var resTseitin = []; // clauses computed with tseitin transformation
     for (var i=0; i<formulas.length; i++) {
         var formula = formulas[i]; 
         log('getting clauses from '+formula);
@@ -100,16 +101,19 @@ ModelFinder.prototype.getClauses = function(formulas) {
         log('qantifiers removed: '+quantifiersRemoved);
         var clauses = this.cnf(quantifiersRemoved);
         log('cnf: '+clauses);
-        var clausesTseitin = this.tseitinCNF(quantifiersRemoved);
-        if (clausesTseitin.length < clauses.length) {
-            clauses = clausesTseitin;
-            log('tseitin cnf shorter: '+clauses);
-        }
         res.extendNoDuplicates(clauses);
+        var clausesTseitin = this.tseitinCNF(quantifiersRemoved);
+        log('tseitin cnf: '+clausesTseitin);
+        resTseitin.extendNoDuplicates(clausesTseitin);
+    }
+    log('combined non-tseitin clauses: '+res);
+    log('combined tseitin clauses: '+resTseitin);
+    if (resTseitin.length < res.length) {
+        log('using combined tseitin cnf');
+        res = resTseitin;
     }
     // order clauses by length (number of disjuncts):
     res.sort(function(a,b){ return a.length - b.length; });
-    log('all clauses: '+res);
     res = this.simplifyClauses(res);
     log('simplified clauses: '+res);
     return res;
@@ -257,21 +261,21 @@ ModelFinder.prototype.tseitinCNF = function(formula) {
         return tseitinComplexity(a) - tseitinComplexity(b);
     });
     // Now introduce a new atomic formula for each non-literal subformula.
-    if (!this.tseitsinFormulas) {
-        this.tseitsinFormulas = {}; // subformula => formula, so that we use the
-                                    // same tseitsin formula for the same
-                                    // subformula in different <formula>s
+    if (!this.tseitinFormulas) {
+        this.tseitinFormulas = {}; // subformula => formula, so that we use the
+                                   // same tseitin formula for the same
+                                   // subformula in different <formula>s
     }
     var clauses = [];
     while (subformulas.length) {
         var subf = subformulas.shift();
         log('  subformula '+subf)
-        var p = this.tseitsinFormulas[subf.string];
+        var p = this.tseitinFormulas[subf.string];
         if (!p) {
             var vars = this.parser.getVariables(subf); // optimise!
             var pSym = this.parser.getNewSymbol('$', 'tseitin predicate', vars.length);
             p = new AtomicFormula(pSym, vars);
-            this.tseitsinFormulas[subf.string] = p;
+            this.tseitinFormulas[subf.string] = p;
             // add 'p <-> S':
             var bicond = new BinaryFormula('↔', p, subf);
             clauses.extendNoDuplicates(this.cnf(bicond));
