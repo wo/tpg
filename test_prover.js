@@ -22,6 +22,16 @@ tests = {
         assertEqual(prover.tree.closedBranches.length, 2);
     },
 
+    carefulWithDuplicateBranchesWhenPruningAlternatives: function() {
+        var input = '(¬∃x(Rx∧¬Fx)→∃x(Rx∧¬Fx))→∃x(Rx∧¬Fx)';
+        var parser = new Parser();
+        var f = parser.parseFormula(input).negate();
+        var prover = new Prover([f], parser);
+        prover.pauseLength = 0;
+        prover.start();
+        assertEqual(prover.tree.closedBranches.length, 4);
+    },
+
     refutepandnotp: function() {
         var parser = new Parser();
         var f = parser.parseFormula('p∧¬p');
