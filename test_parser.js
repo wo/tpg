@@ -60,6 +60,17 @@ tests = {
             assert(true);
         }
     },
+
+    complainAbout3TermIdentity: function() {
+        var parser = new Parser();
+        try {
+            parser.parseFormula('Ff(x,y)=f(x,y)');
+            assert(false);
+        }
+        catch {
+            assert(true);
+        }
+    },
     
     translateFromModal1: function() {
         var parser = new Parser();

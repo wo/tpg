@@ -362,6 +362,7 @@ Parser.prototype.parseFormula = function(str) {
     }
     
     // convert infix '=' to prefix:
+    var ostr = str;
     str = str.replace(/^(.+)=(.+)$/, '=$1$2');
     
     reTest = /^[^\d\(\),%]\d*/.exec(str);
@@ -379,12 +380,17 @@ Parser.prototype.parseFormula = function(str) {
             else {
                 var predicateType = "proposition letter (0-ary predicate)";
             }
-            if (predicate == '=') this.hasEquality = true;
+            if (predicate == '=') {
+                this.hasEquality = true;
+                if (terms.length != 2) {
+                    throw "The identity predicate requires two arguments.";
+                }
+            }
             this.registerExpression(predicate, predicateType, terms.length);
             return new AtomicFormula(predicate, terms);
         }
         catch (e) {
-            throw e+"\n(I'm assuming '"+str+"' is meant to be an atomic formula with predicate '"+predicate+"'.)";
+            throw e+"\n(I'm assuming '"+ostr+"' is meant to be an atomic formula with predicate '"+predicate+"'.)";
         }
     }
 
