@@ -119,14 +119,16 @@ else {
   <h3>Syntax of formulas</h3>
   
   <p>Any alphabetic character is allowed as a propositional constant, predicate,
-    individual constant, or variable. The character may be followed by digits as
-    indices. Predicates and function terms must be in prefix notation. Function
-    terms must have their arguments enclosed in brackets. So
+    individual constant, or variable. Numeral digits can be used either as
+    singular terms or as "subscripts" (but don't mix the two uses). '+', '*',
+    and '-' can be used as function expressions. Predicates (except identity)
+    and function terms must be in prefix notation. Function terms must have
+    their arguments enclosed in brackets. So
     <span class="formula">F2x17</span>, <span class="formula">Rab</span>,
     <span class="formula">R(a,b)</span>, <span class="formula">Raf(b)</span>,
-    <span class="formula">F(+(a,b))</span> are ok, but
+    <span class="formula">F(+(1,2))</span> are ok, but
     not <span class="formula">Animal(Fred)</span>, <span class="formula">aRb</span>,
-    or <span class="formula">F(a+b)</span>. (In fact, these are also ok, but
+    or <span class="formula">F(1+2)</span>. (In fact, these are also ok, but
     they won't be parsed as you might expect.) The order of precedence among
     connectives is <span class="formula">¬, ∧, ∨, →, ↔</span>. Association is to
     the right. Quantifier symbols in sequences of quantifiers must not be

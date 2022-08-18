@@ -1,7 +1,10 @@
 
 function Parser() {
-    // store signature info so that we can parse multiple formulas and check if
-    // they make sense together (e.g. matching arities for same predicate)
+    /**
+     * Parser objects store signature info so that we can parse multiple
+     * formulas and check if they make sense together (e.g. matching arities for
+     * same predicate).
+     */
     this.symbols = [];
     this.expressionType = {}; // symbol => string describing expression type
     this.arities = {}; // symbol => number
@@ -14,10 +17,14 @@ function Parser() {
 }
 
 Parser.prototype.copy = function() {
-    // returns a copy of the present parser. This allows e.g. introducing 'a' as
-    // a new constant when constructing clausal normal forms, but then
-    // introducing 'a' again when constructing the displayed tree: we don't have
-    // to manually check where 'a' is already used.
+    /**
+     * return a copy of the present parser.
+     *
+     * This allows e.g. introducing 'a' as a new constant when constructing
+     * clausal normal forms, but then introducing 'a' again when constructing
+     * the displayed tree: we don't have to manually check where 'a' is already
+     * used.
+     */
     var nparser = new Parser(true);
     nparser.symbols = this.symbols.copy();
     for (var i=0; i<this.symbols.length; i++) {
@@ -44,7 +51,9 @@ Parser.prototype.registerExpression = function(ex, exType, arity) {
 }
 
 Parser.prototype.getSymbols = function(expressionType) {
-    // return all registered symbols whose type contains <expressionType>
+    /**
+     * return all registered symbols whose type contains <expressionType>
+     */
     var res = [];
     for (var i=0; i<this.symbols.length; i++) {
         var s = this.symbols[i];
@@ -54,7 +63,9 @@ Parser.prototype.getSymbols = function(expressionType) {
 }
 
 Parser.prototype.getNewSymbol = function(candidates, expressionType, arity) {
-    // returns new symbol of given type and arity from <candidates> (string!)
+    /**
+     * return new symbol of given type and arity from <candidates> (string!)
+     */
     var candidates = candidates.split('');
     for (var i=0; i<candidates.length; i++) {
         var sym = candidates[i];
@@ -94,7 +105,9 @@ Parser.prototype.getNewWorldName = function() {
 }
 
 Parser.prototype.getVariables = function(formula) {
-    // return all variables in <formula>
+    /**
+     * return all variables in <formula>
+     */
     if (formula.sub) {
         return this.getVariables(formula.sub);
     }
@@ -123,8 +136,10 @@ Parser.prototype.isTseitinLiteral = function(formula) {
 }
 
 Parser.prototype.initModality = function() {
-    // convert signature to standard translation and initialize extra modal
-    // vocabulary
+    /**
+     * convert signature to standard translation and initialize extra modal
+     * vocabulary
+     */
     for (var i=0; i<this.symbols.length; i++) {
         var sym = this.symbols[i];
         if (this.expressionType[sym].indexOf('predicate') > -1) {
@@ -138,8 +153,10 @@ Parser.prototype.initModality = function() {
 }
 
 Parser.prototype.translateFromModal = function(formula, worldVariable) {
-    // return translation of modal formula into first-order formula with
-    // explicit world variables
+    /**
+     * return translation of modal formula into first-order formula with
+     * explicit world variables
+     */
     log("translating modal formula "+formula);
     if (!worldVariable) {
         if (!this.w) this.initModality();
@@ -181,9 +198,11 @@ Parser.prototype.translateFromModal = function(formula, worldVariable) {
 }
 
 Parser.prototype.stripAccessibilityClauses = function(formula) {
-    // return new non-modal formula with all accessibility conditions stripped;
-    // e.g. ∃v(wRv∧Av) => ∃vAv; ∀v(¬wRv∨Av) => ∀vAv. <formula> is normalized (in
-    // NNF).
+    /**
+     * return new non-modal formula with all accessibility conditions stripped;
+     * e.g. ∃v(wRv∧Av) => ∃vAv; ∀v(¬wRv∨Av) => ∀vAv. <formula> is normalized (in
+     * NNF).
+     */
     log(formula);
     if (formula.quantifier) {
         var nmatrix = this.stripAccessibilityClauses(formula.matrix);
@@ -210,9 +229,11 @@ Parser.prototype.stripAccessibilityClauses = function(formula) {
 }
 
 Parser.prototype.translateToModal = function(formula) {
-    // translate back from first-order formula into modal formula, with extra
-    // .world label: pv => p (v); ∀u(vRu→pu) => □p (v). Formulas of type 'wRv'
-    // remain untranslated.
+    /**
+     * translate back from first-order formula into modal formula, with extra
+     * .world label: pv => p (v); ∀u(vRu→pu) => □p (v). Formulas of type 'wRv'
+     * remain untranslated.
+     */
     log("translating "+formula+" into modal formula");
     if (formula.terms && formula.predicate == this.R) {
         return formula;
@@ -252,18 +273,21 @@ Parser.prototype.translateToModal = function(formula) {
 
 
 Parser.prototype.parseInput = function(str) {
-    // return [premises, conclusion] for entered string, where <premises> is
-    // a list of premise Formulas and <conclusion> is a Formula.
+    /**
+     * return [premises, conclusion] for entered string, where <premises> is
+     * a list of premise Formulas and <conclusion> is a Formula.
+     */
     log("*** parsing input");
+    this.input = str;
     var parts = str.split('|=');
     if (parts.length > 2) {
         throw "You can't use more than one turnstile.";
     }
     var premises = [];
     var conclusion = this.parseFormula(parts[parts.length-1]);
-    if (conclusion.isArray)
+    if (conclusion.isArray) {
         throw parts[parts.length-1]+" looks like a list; use either conjunction or disjunction instead of the comma.";
-
+    }
     log("=== conclusion "+conclusion);
     if (parts.length == 2 && parts[0] != '') {
         premises = this.parseFormula(parts[0]);
@@ -282,8 +306,10 @@ Parser.prototype.parseFormula = function(str) {
     var boundVars = arguments[1] ? arguments[1].slice() : [];
     log("parsing '"+str+"' (boundVars "+boundVars+")");
 
-    if (!arguments[1]) str = this.tidyFormula(str);
-
+    if (!arguments[1]) {
+        str = this.tidyFormula(str);
+    }
+    
     // replace every substring in parens by "%0", "%1", etc.:
     var temp = this.hideSubStringsInParens(str);
     var nstr = temp[0];
@@ -364,8 +390,9 @@ Parser.prototype.parseFormula = function(str) {
     // convert infix '=' to prefix:
     var ostr = str;
     str = str.replace(/^(.+)=(.+)$/, '=$1$2');
-    
-    reTest = /^[^\d\(\),%]\d*/.exec(str);
+
+    var predicateRE = this.readNumeralsAsSubscripts(str) ? /^=|^[\w$]\d*/ : /^[\w$=]/;
+    reTest = predicateRE.exec(str);
     if (reTest && reTest.index == 0) {
         // normal atomic
         log("   string is atomic (predicate = '"+reTest[0]+"'); ");
@@ -398,9 +425,11 @@ Parser.prototype.parseFormula = function(str) {
 }        
 
 Parser.prototype.hideSubStringsInParens = function(str) {
-    // return [nstr, hiddenSubStrings], where <nstr> is <str> with all
-    // substrings in parentheses replaced by %0, %1, etc., and
-    // <hiddenSubStrings> is a list of the corresponding substrings.
+    /**
+     * return [nstr, hiddenSubStrings], where <nstr> is <str> with all
+     * substrings in parentheses replaced by %0, %1, etc., and
+     * <hiddenSubStrings> is a list of the corresponding substrings.
+     */
     var subStringsInParens = []; 
     var parenDepth = 0;
     var storingAtIndex = -1; // index in subStringsInParens
@@ -441,7 +470,9 @@ Parser.prototype.tidyFormula = function(str) {
 }
 
 Parser.prototype.checkBalancedParentheses = function(str) {
-    // check if equally many parentheses open and close in <str>
+    /**
+     * check if equally many parentheses open and close in <str>
+     */
     var openings = str.split('(').length - 1;
     var closings = str.split(')').length - 1;
     if (openings != closings) {
@@ -449,13 +480,29 @@ Parser.prototype.checkBalancedParentheses = function(str) {
     }
 }  
 
-Parser.prototype.parseAccessibilityFormula = function(str) {
-    // return Formula for accessibility condition like ∀w∃v(Rwv)
+Parser.prototype.readNumeralsAsSubscripts = function(str) {
+    /**
+     * Determine whether numerals in the input are interpreted as complete terms
+     * or subscripts of non-numeral predicates or terms.
+     *
+     * Our heuristic is to read numerals as complete terms if the input contains
+     * a numeral that isn't immediately preceded by an alphabetic letter. Thus
+     * '1' is a complete term in 'f(1,2) -> F1', but not in 'F1 -> G1'.
+     **/
+    if (this.input) str = this.input;
+    if (str.search(/\d/) == -1) return true;
+    return str.search(/[\wξω$]\d/) > -1 ? true : false;
+}
 
-    // We need to work around clashes if e.g. 'v' is already used as proposition
-    // letter or 'R' as an ordinary predicate. Also need to make sure the
-    // parsing of accessibility formulas doesn't set this.propositional to
-    // false.
+Parser.prototype.parseAccessibilityFormula = function(str) {
+    /**
+     * return Formula for accessibility condition like ∀w∃v(Rwv)
+     *
+     * We need to work around clashes if e.g. 'v' is already used as proposition
+     * letter or 'R' as an ordinary predicate. Also need to make sure the
+     * parsing of accessibility formulas doesn't set this.propositional to
+     * false.
+     */
     str = str.replace(/R/g, this.R);
     var matches = str.match(/[∀∃]./g);
     for (var i=0; i<matches.length; i++) {
@@ -476,14 +523,17 @@ Parser.prototype.parseAccessibilityFormula = function(str) {
 }
 
 Parser.prototype.parseTerms = function(str, boundVars) {
-    // parses a sequence of terms and returns the sequence in internal format,
-    // as nested array
+    /**
+     * parse a sequence of terms and returns the sequence in internal format,
+     * as nested array
+     */
     log("parsing terms: "+str+" (boundVars "+boundVars+")");
     if (!str) return [];
     var result = [];
     str = str.replace(/^\((.+)\)$/, "$1"); // remove surrounding parens
     do {
-        var reTest = /[^\(\),%□◇∃∀¬∧↔∨→]\d*/.exec(str);
+        var termRE = this.readNumeralsAsSubscripts(str) ? /^[\wξω+*-]\d*/ : /^[\wξω+*-]/;
+        var reTest = termRE.exec(str);
         if (!reTest || reTest.index != 0) {
             throw "I expected a (sequence of) term(s) instead of '" + str + "'.";
         }

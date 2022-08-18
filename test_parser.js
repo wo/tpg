@@ -50,6 +50,14 @@ tests = {
         assertEqual(f.terms.length, 0);
     },
 
+    allowNumeralTerms: function() {
+        var parser = new Parser();
+        var res = parser.parseInput('0=1→f(0)=f(1)');
+        var f = res[1];
+        assert(f.sub1.predicate, '=');
+        assert(f.sub1.terms[0], '0');
+    },
+
     parseNonWff: function() {
         var parser = new Parser();
         try {
