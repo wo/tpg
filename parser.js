@@ -487,7 +487,7 @@ Parser.prototype.readNumeralsAsSubscripts = function(str) {
      *
      * Our heuristic is to read numerals as complete terms if the input contains
      * a numeral that isn't immediately preceded by an alphabetic letter. Thus
-     * '1' is a complete term in 'f(1,2) -> F1', but not in 'F1 -> G1'.
+     * '1' is a complete term in 'f(1,2)=1 -> F1', but not in 'F1 -> G1'.
      **/
     if (this.input) str = this.input;
     if (str.search(/\d/) == -1) return true;
