@@ -937,16 +937,21 @@ Prover.transitivity = function(branch, nodeList) {
     for (var i=0; i<branch.nodes.length; i++) {
         var earlierFla = branch.nodes[i].formula;
         if (earlierFla.predicate != R) continue;
-        var newFla = null;
         if (earlierFla.terms[1] == nodeFla.terms[0]) {
             // earlierFla uRw, nodeFla wRv
-            newFla = new AtomicFormula(R, [earlierFla.terms[0], nodeFla.terms[1]]);
+            var newFla = new AtomicFormula(R, [earlierFla.terms[0], nodeFla.terms[1]]);
+            log('matches '+earlierFla+': adding '+newFla);
+            var newNode = new Node(newFla, Prover.transitivity, [branch.nodes[i], node]);
+            if (branch.addNode(newNode)) {
+                branch.todoList.unshift(Prover.makeTodoItem(Prover.transitivity, nodeList, 0));
+                return;
+            }
         }
-        else if (earlierFla.terms[0] == nodeFla.terms[1]) {
+        // not 'else if': if earlierFla is vRw we need to add both wRw and vRv.
+        // Hence the duplication in what follows.
+        if (earlierFla.terms[0] == nodeFla.terms[1]) {
             // earlierFla vRu, nodeFla wRv
-            newFla = new AtomicFormula(R, [nodeFla.terms[0], earlierFla.terms[1]]);
-        }
-        if (newFla) {
+            var newFla = new AtomicFormula(R, [nodeFla.terms[0], earlierFla.terms[1]]);
             log('matches '+earlierFla+': adding '+newFla);
             var newNode = new Node(newFla, Prover.transitivity, [branch.nodes[i], node]);
             if (branch.addNode(newNode)) {

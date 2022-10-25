@@ -154,8 +154,17 @@ tests = {
     //     prover.pauseLength = 0;
     //     prover.start();
     //     assertEqual(prover.tree.openBranches.length, 0);
-    // },    
+    // },
 
+    transitivityTwice: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('◇□(P∨Q)→□(¬P→◇Q)').negate();
+        var prover = new Prover([f], parser, ['symmetry', 'transitivity']);
+        prover.pauseLength = 0;
+        prover.start();
+        assertEqual(prover.tree.openBranches.length, 0);
+    },
+    
     noSerialityLoop: function() {
         var parser = new Parser();
         var f = parser.parseFormula('◇(p∧□q)→◇(p∧◇q)').negate();
