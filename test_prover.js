@@ -13,6 +13,20 @@ tests = {
         assertEqual(prover.tree.closedBranches.length, 1);
     },
 
+    addDuplicateInitNodes: function() {
+        var input = '(a∨b),(¬a∨¬n1),(¬b∨¬n2),¬(a∧n2),¬(b∧n2),a↔¬n2|=a';
+        var parser = new Parser();
+        var parsedInput = parser.parseInput(input);
+        var premises = parsedInput[0];
+        var conclusion = parsedInput[1];
+        var initFormulas = premises.concat([conclusion.negate()]);
+        var prover = new Prover(initFormulas, parser);
+        prover.pauseLength = 0;
+        prover.start();
+        var sentree = new SenTree(prover.tree, parser);
+        assertEqual(sentree.nodes.length, 16);
+    },
+    
     pruneBranch: function() {
         var parser = new Parser();
         var f = parser.parseFormula('(¬R∧¬S∧((R∧¬S)∨(¬R∧S))∧(Q∨P))').nnf();

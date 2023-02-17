@@ -1027,7 +1027,7 @@ Tree.prototype.addInitNodes = function(initFormulasNNF) {
     var initBranch = this.openBranches[0];
     for (var i=0; i<initFormulasNNF.length; i++) {
         var node = new Node(initFormulasNNF[i]);
-        initBranch.addNode(node);
+        initBranch.addNode(node, 'evenIfDuplicate');
         initBranch.tryClose(node);
     }
 }
