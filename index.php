@@ -49,9 +49,6 @@
 <?php
 $scripts = array("array", "formula", "parser", "prover", "equality", "modelfinder", "sentree", "painter", "index");
 if (isset($_GET['debug'])) {
-    foreach ($scripts as $script) {
-        print "<script type='text/javascript' src='$script.debug.js'></script>\n";
-    }
     ?>
     <script>
     function log(str) {
@@ -65,6 +62,9 @@ if (isset($_GET['debug'])) {
     log("hello, this is the debugging window");
     </script>
     <?php
+    foreach ($scripts as $script) {
+        print "<script type='text/javascript' src='$script.debug.js'></script>\n";
+    }
 }
 else {
     $allscripts = implode("-", $scripts);

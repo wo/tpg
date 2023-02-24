@@ -52,41 +52,57 @@ function toggleAccessibilityRow() {
     }
 }
 
-// define method to insert character at caret position upon button click: 
-document.forms[0].flaField.insertAtCaret = function(str) {
-   if (document.selection) {
-      // Internet Explorer
-      this.focus();
-      sel = document.selection.createRange();
-      sel.text = str;
-      this.focus();
-   }
-   else if (this.selectionStart || this.selectionStart === 0) {
-      // Firefox and Webkit
-      var startPos = this.selectionStart;
-      var endPos = this.selectionEnd;
-      var scrollTop = this.scrollTop;
-      var val = this.value; 
-      this.value = val.substring(0, startPos)+str+val.substring(endPos,val.length);
-      this.focus();
-      this.selectionStart = startPos + str.length;
-      this.selectionEnd = startPos + str.length;
-      this.scrollTop = scrollTop;
-   } 
-   else {
-      this.value += str;
-      this.focus();
-   }
+function prepareUI() {
+    // define method to insert character at caret position upon button click:
+    document.forms[0].flaField.insertAtCaret = function(str) {
+    if (document.selection) {
+        // Internet Explorer
+        this.focus();
+        sel = document.selection.createRange();
+        sel.text = str;
+        this.focus();
+    }
+    else if (this.selectionStart || this.selectionStart === 0) {
+        // Firefox and Webkit
+        var startPos = this.selectionStart;
+        var endPos = this.selectionEnd;
+        var scrollTop = this.scrollTop;
+        var val = this.value; 
+        this.value = val.substring(0, startPos)+str+val.substring(endPos,val.length);
+        this.focus();
+        this.selectionStart = startPos + str.length;
+        this.selectionEnd = startPos + str.length;
+        this.scrollTop = scrollTop;
+    } 
+    else {
+        this.value += str;
+        this.focus();
+    }
+    }
+
+    document.querySelectorAll('.symbutton').forEach(function(el) {
+        el.onclick = function(e) {
+            var field = document.forms[0].flaField;
+            var command = this.innerHTML;
+            field.insertAtCaret(command);
+            toggleAccessibilityRow();
+        }
+    });
+
+    document.getElementById("statusbtn").onclick = function(e) {
+        // handle clicks on 'stop'/'continue' button
+        var btn = document.getElementById("statusbtn");
+        if (btn.innerText == 'stop') {
+            btn.innerText = 'continue';
+            prover.stop();
+        }
+        else {
+            btn.innerText = 'stop';
+            prover.start();
+        }
+    }
 }
 
-document.querySelectorAll('.symbutton').forEach(function(el) {
-    el.onclick = function(e) {
-        var field = document.forms[0].flaField;
-        var command = this.innerHTML;
-        field.insertAtCaret(command);
-        toggleAccessibilityRow();
-    }
-});
 
 var prover = null;
 function startProof() {
@@ -166,24 +182,12 @@ function startProof() {
     return false;
 }
 
-document.getElementById("statusbtn").onclick = function(e) {
-    // handle clicks on 'stop'/'continue' button
-    var btn = document.getElementById("statusbtn");
-    if (btn.innerText == 'stop') {
-        btn.innerText = 'continue';
-        prover.stop();
-    }
-    else {
-        btn.innerText = 'stop';
-        prover.start();
-    }
-}
-   
 onload = function(e) {
     // in case the browser has automatically filled in some value into the
     // field (e.g. on reload):
     updateInput();
     // register event handlers:
+    prepareUI();
     document.forms[0].flaField.onkeyup = updateInput;
     document.forms[0].onsubmit = function(e) {
         setTimeout(function() {
