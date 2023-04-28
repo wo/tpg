@@ -127,6 +127,13 @@ $valid_tests = [
    ['mod2', '◇(p ∨ q)↔(◇p ∨ ◇q)'],
    ['s5', 'p→◇p||universality'],
    ['narrow_D', '(p→□r)→((p∧q)→□r)||seriality'],
+   ['BFCBF', '∀x□Fx ↔ □∀xFx'],
+   ['BFCBF2', '∀x□□∀y□□Fxy ↔ □∀y□∀x□□Fxy'],
+   ['ex5.3', '□(N → (s → p)) ∧ N |= □(N → (s → (□(N → (s → p)) ∧ N))) ∧ N||universality'],
+   ['ex10.2d', '□◇∃xFx → □∃x◇(Fx ∨ Gx)'],
+   ['nni', '∀x∀y(¬x=y ↔ □¬x=y)||reflexivity'],
+   ['emil_S5', '◇□A→(◇□B→◇□(A∧B))||reflexivity|symmetry|transitivity'],
+   ['withee', '□∀x□∀y(□Fx∨□Gy)→(□∀x□Fx∨□∀x□Gx)||reflexivity|transitivity'],
    ['04vsG0_S4', '((A ∧ ¬□A)→□¬□A) ∧ ((¬A ∧ ◇A) →□◇A) → (◇□A→□◇A)||reflexivity|transitivity'],
    ['pel54', '∀y∃z∀x(Fxz ↔ x=y) |= ¬∃w∀x(Fxw ↔ ∀u(Fxu → ∃y(Fyu ∧ ¬∃z(Fzu ∧ Fzy))))'],
    ['beckert97bid','∀x(i(u,x)=x) ∧ ∀x∀y∀z(i(i(x,y),i(i(y,z),i(x,z)))=u) ∧ ∀x∀y(i(i(x,y),y) = i(i(y,x),x)) → ∀x∀y∀z∃w(i(x,w)=u ∧ w=i(y,i(z,y)))']
@@ -170,6 +177,7 @@ $invalid_tests = [
     ['redinexD', '◇(p→□◇p)||seriality'],
     ['boxreds4', '◇□p↔□◇□p||reflexivity|transitivity'],
     ['github16', '((∃x(◇(Ox∧Px)∧□(Ox→Mx)))∧(∀x(◇(Ox∧Mx)→□(Ox→Sx))∧◇∃x(Ox∧Mx)))→(∃x((Ox∧Sx)∧◇(Ox∧Px)))'],
+    ['withee_K4', '□∀x□∀y(□Fx∨□Gy)→(□∀x□Fx∨□∀x□Gx)||transitivity'],
     ['7ind', '¬∀z∀y∃x¬((Rxy → Ryx) ∨ Rzx)'],
     ['infinity', '¬(∀x∃yFxy ∧ ∀x∀y∀z(Fxy∧Fyz→Fxz) ∧ ∀x¬Fxx)'],
 ];
