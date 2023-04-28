@@ -463,7 +463,7 @@ Parser.prototype.tidyFormula = function(str) {
     // remove parentheses around quantifiers: (∀x)Fx => ∀xFx
     str = str.replace(/\(([∀∃]\w\d*)\)/g, '$1');
     // check for illegal symbols:
-    var m =str.match(/[^\w\d\(\)∀∃□◇∧↔∨¬→,=+\-*ξω$]/);
+    var m =str.match(/[^\w\d\(\)∀∃□◇♢∧↔∨¬→,=+\-*ξω$]/);
     if (m) throw("I don't understand the symbol '"+m[0]+"'.");
     log(str);
     return str;

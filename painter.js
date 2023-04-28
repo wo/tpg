@@ -146,10 +146,10 @@ TreePainter.prototype.makeNodeDiv = function(node) {
     fromSpan.className = 'fromnumbers';
     var annot = node.fromNodes.map(function(n) { return n.nodeNumber; });
     if (node.fromRule) {
-        var fromRule = node.fromRule.toString().substr(0,3);
-        if (!['alp', 'bet', 'gam', 'del', 'mod'].includes(fromRule)) {
+        var fromRule = node.fromRule.toString().substr(0,2);
+        if (!['al', 'be', 'ga', 'de', 'mo'].includes(fromRule)) {
             fromRule += '.';
-            if (fromRule == 'equ.') fromRule = 'LL';
+            if (fromRule == 'eq.') fromRule = 'LL';
             annot.push(fromRule);
         }
     }
