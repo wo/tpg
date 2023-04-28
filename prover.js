@@ -458,10 +458,11 @@ Prover.gamma = function(branch, nodeList, matrix) {
         var outer = node;
         while (outer.fromRule == Prover.gamma) outer = outer.fromNodes[0];
         var priority = 9;
+        // add to very end of todoList, so that we first expand all other nodes:
         branch.todoList.push(Prover.makeTodoItem(Prover.gamma, [outer], priority));
     }
 }
-Prover.gamma.priority = 7;
+Prover.gamma.priority = 8;
 Prover.gamma.toString = function() { return 'gamma' }
 
 Prover.modalGamma = function(branch, nodeList) {
@@ -474,8 +475,6 @@ Prover.modalGamma = function(branch, nodeList) {
      */
     log('modalGamma '+nodeList[0]);
     var node = nodeList[0];
-    // add application back onto todoList:
-    branch.todoList.push(Prover.makeTodoItem(Prover.modalGamma, nodeList));
     
     if (branch.tree.prover.s5) {
         // In S5, we still translate □A into ∀x(¬wRxvAx) rather than ∀xAx.
@@ -484,6 +483,7 @@ Prover.modalGamma = function(branch, nodeList) {
         // textbook tableaux. (Think about the tableau for ◇□A→□A.) But when we
         // expand the □A node, we ignore the accessibility clause. Instead, we
         // expand ∀x(¬wRx∨Ax) to Aξ1 and use the free-variable machinery.
+        branch.todoList.push(Prover.makeTodoItem(Prover.modalGamma, nodeList));
         return Prover.gamma(branch, nodeList, node.formula.matrix.sub2);
     }
 
@@ -513,10 +513,14 @@ Prover.modalGamma = function(branch, nodeList) {
             newNode.instanceTerm = v;
             if (branch.addNode(newNode)) {
                 branch.tryClose(newNode);
-                break;
+                // immediately expand with other eligible wR* nodes
+                branch.todoList.unshift(Prover.makeTodoItem(Prover.modalGamma, nodeList));
+                return;
             }
         }
     }
+    // No wR* node found. Add to end of todolist:
+    branch.todoList.push(Prover.makeTodoItem(Prover.modalGamma, nodeList));
 }
 Prover.modalGamma.priority = 8;
 Prover.modalGamma.toString = function() { return 'modalGamma' }
@@ -1072,7 +1076,9 @@ Tree.prototype.markUsedNodes = function(branch, complementary1, complementary2) 
 Tree.prototype.pruneBranch = function(branch, complementary1, complementary2) {
     /**
      * remove redundant branches from current tree after <branch> has been
-     * closed with the supplied complementary nodes
+     * closed with the supplied complementary nodes; also remove unused nodes
+     * on the closed branch.
+     *
      * 
      * When a branch is closed, we look for branching steps that weren't used to
      * derive the complementary pair; we undo these steps and remove the other
@@ -1101,7 +1107,8 @@ Tree.prototype.pruneBranch = function(branch, complementary1, complementary2) {
      * until we reach a used branching node from which another open branch
      * emerges; any unused branching up to that point is removed.
      */
-   
+
+    log("pruning tree after closing branch.");
     var obranches = this.openBranches.concat(this.closedBranches);
     obranches.remove(branch);
     for (var i=branch.nodes.length-1; i>0; i--) {
@@ -1116,7 +1123,7 @@ Tree.prototype.pruneBranch = function(branch, complementary1, complementary2) {
                     if (!obranches[j].closed) return;
                 }
                 else {
-                    log("pruning branch "+obranches[j]+": unused expansion of "+branch.nodes[i].fromNodes[0]);
+                    log("removing branch "+obranches[j].id+" ending in "+obranches[j].nodes[obranches[j].nodes.length-1]+": unused expansion of "+branch.nodes[i].fromNodes[0]);
                     if (obranches[j].closed) {
                         this.closedBranches.remove(obranches[j]);
                         // We need to remove 'used' marks from all remaining
@@ -1141,6 +1148,7 @@ Tree.prototype.pruneBranch = function(branch, complementary1, complementary2) {
                 }
             }
         }
+        log("checking "+branch.nodes[i]);
         if (!this.nodeIsUsed(branch.nodes[i])) {
             this.removeNode(branch, i);
         }

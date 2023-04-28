@@ -134,6 +134,7 @@ $valid_tests = [
    ['nni', '∀x∀y(¬x=y ↔ □¬x=y)||reflexivity'],
    ['emil_S5', '◇□A→(◇□B→◇□(A∧B))||reflexivity|symmetry|transitivity'],
    ['withee', '□∀x□∀y(□Fx∨□Gy)→(□∀x□Fx∨□∀x□Gx)||reflexivity|transitivity'],
+   ['witheeKon', '(□∀x□Fx∨□∀x□Gx) → □∀x□∀y(□Fx∨□Gy)||reflexivity|transitivity'],
    ['04vsG0_S4', '((A ∧ ¬□A)→□¬□A) ∧ ((¬A ∧ ◇A) →□◇A) → (◇□A→□◇A)||reflexivity|transitivity'],
    ['pel54', '∀y∃z∀x(Fxz ↔ x=y) |= ¬∃w∀x(Fxw ↔ ∀u(Fxu → ∃y(Fyu ∧ ¬∃z(Fzu ∧ Fzy))))'],
    ['beckert97bid','∀x(i(u,x)=x) ∧ ∀x∀y∀z(i(i(x,y),i(i(y,z),i(x,z)))=u) ∧ ∀x∀y(i(i(x,y),y) = i(i(y,x),x)) → ∀x∀y∀z∃w(i(x,w)=u ∧ w=i(y,i(z,y)))']
