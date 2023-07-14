@@ -126,6 +126,7 @@ Prover.prototype.nextStep = function() {
 
     var todo = this.tree.openBranches[0].todoList.shift();
     if (todo) {
+        log(this.step+'. Expanding '+todo.args+' on alternative '+this.curAlternativeIndex, 'for debug=trace');
         todo.nextRule(this.tree.openBranches[0], todo.args);
     }
     else if (this.alternatives.length) {

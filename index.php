@@ -51,9 +51,17 @@ $scripts = array("array", "formula", "parser", "prover", "equality", "modelfinde
 if (isset($_GET['debug'])) {
     ?>
     <script>
-    function log(str) {
+    function log(str, tracelog) {
          if (!self.debugWin) debugPopup();
-         debugWin.document.write("<pre>"+str+"</pre>");
+         <?php if ($_GET['debug'] == "trace") { ?>
+         if (tracelog) {
+             debugWin.document.write("<pre>"+str+"</pre>");
+         }
+         <?php } else { ?>
+         if (!tracelog) {
+             debugWin.document.write("<pre>"+str+"</pre>");
+         }
+         <?php } ?>
     }
     function debugPopup() {
         self.debugWin = self.open("about:blank","debugWin");
@@ -63,7 +71,12 @@ if (isset($_GET['debug'])) {
     </script>
     <?php
     foreach ($scripts as $script) {
-        print "<script type='text/javascript' src='$script.debug.js'></script>\n";
+        if (strpos($_GET['debug'], $script) !== false || in_array($_GET['debug'], array("1", "trace"))) {
+            print "<script type='text/javascript' src='$script.debug.js'></script>\n";
+        }
+        else {
+            print "<script type='text/javascript' src='$script.js'></script>\n";
+        }
     }
 }
 else {
