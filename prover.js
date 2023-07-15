@@ -1040,7 +1040,7 @@ Tree.prototype.addInitNodes = function(initFormulasNNF) {
 
 Tree.prototype.closeBranch = function(branch, complementary1, complementary2) {
     /**
-     * close branch <branch>; mark nodes as "used" for deriving the supplied
+     * close branch <branch>; mark nodes that were used to derive the supplied
      * complementary pair
      */
     log('closing branch '+branch)
@@ -1052,7 +1052,7 @@ Tree.prototype.closeBranch = function(branch, complementary1, complementary2) {
     log(this);
     this.pruneBranch(branch, complementary1, complementary2);
     this.string = this.openBranches.map(function(b) { return b.string }).join('|');
-    var priorityBoost = Math.min(1, (this.numNodes-this.priority)/40);
+    var priorityBoost = Math.min(1, (this.numNodes-this.priority)/30);
     this.priority += priorityBoost*Math.max(1, 4-this.openBranches.length);
     log(this);
 }
