@@ -224,9 +224,7 @@ Prover.prototype.pruneAlternatives = function(tree) {
      * has been added or altered; might remove <tree> itself if it is found redundant;
      * removed trees get attribute 'removed'
      */
-    log("pruning alternatives");
-    log("There are currently "+this.alternatives.length+' alternatives');
-    log(this.alternatives.map(function(t,i) { return "alternative "+i+":"+t }).join('<br>')); 
+    log("pruning alternatives after adding<br>"+tree);
     for (var i=0; i<this.alternatives.length; i++) {
         if (this.alternatives[i] == tree) continue;
         var keepWhich = this.keepWhichTree(tree, this.alternatives[i]);
@@ -249,11 +247,15 @@ Prover.prototype.keepWhichTree = function(tree, altTree) {
     /**
      * compare <tree> and <altTree> from this.alternatives for redundancy; return
      * [Boolean1, Boolean2], where Boolean1 indicates if <tree> should be kept and
-     * Boolean2 if <altTree> should be kept
+     * Boolean2 if <altTree> should be kept.
      */
-    if (altTree.string == tree.string) {
+
+    // We first check if the trees have the same open branches and the same todo
+    // items, in which case it is pointless to keep both.
+    if (altTree.string == tree.string) { // same open branches
         if (tree.openBranches[0].todoList[0].nextRule != altTree.openBranches[0].todoList[0].nextRule ||
             tree.openBranches[0].todoList[0].args != altTree.openBranches[0].todoList[0].args) {
+            // different todo items
             return [true, true];
         }
         else if (tree.numNodes < altTree.numNodes) {
@@ -265,90 +267,89 @@ Prover.prototype.keepWhichTree = function(tree, altTree) {
             return [false, true];
         }
     }
-    var treeDiff = this.treeDiff(tree, altTree);
-    var treeHasUnmatchedBranches = treeDiff[0];
-    var altTreeHasUnmatchedBranches = treeDiff[1];
-    if (treeHasUnmatchedBranches && altTreeHasUnmatchedBranches) {
-        return [true, true];
-    }
-    if (treeHasUnmatchedBranches) {
-        log('tree has extra open branches compared to alternative; removing');
-        return [false, true];
-    }
-    if (altTreeHasUnmatchedBranches) {
-        log('alternative has extra open branches; removing');
-        return [true, false];
-    }
-    // Each open branch on one tree is qualitatively identical to or an
-    // extension of an open branch on the other.
-    if (tree.openBranches.length > altTree.openBranches.length) {
-        log('tree has extra open branches; removing');
-        return [false, true];
-    }
-    if (altTree.openBranches.length > tree.openBranches.length) {
-        log('alternative has extra open branches; removing');
-        return [true, false];
-    }
-    // The trees have the same open branches. We check if one tree is more
-    // developed. Careful: We may want to store alternative ways of expanding an
-    // open branch, so the mere fact that a branch is longer on one tree doesn't
-    // mean it is a continuation of the other.
-    var treeNodes = tree.openBranches[0].nodes;
-    var altTreeNodes = altTree.openBranches[0].nodes;
-    if (altTreeNodes.length > treeNodes.length &&
-        tree.openBranches[0].todoList[0].nextRule != Prover.equalityReasoner) {
-        log('tree is less developed than alternative; removing it');
-        return [false, true];
-    }
-    else if (treeNodes.length > altTreeNodes.length &&
-             altTree.openBranches[0].todoList[0].nextRule != Prover.equalityReasoner) {
-        log('tree is more developed than alternative; removing alternative');
-        return [true, false];
-    }
-    else return [true, true];
-}
 
-Prover.prototype.treeDiff = function(tree1, tree2) {
-    /**
-     * compare open branches of <tree1> and <tree2>; return [Boolean1, Boolean2],
-     * where Boolean1 indicates if <tree1> has a branch that doesn't "match" a
-     * branch of <tree2> and conversely for Boolean2; two branches "match" if
-     * they have the same formulas or one is an initial segment of the other
-     */
-    var tree1hasUnmatchedBranches = false;
-    var tree2hasUnmatchedBranches = false;
-    var tree2matchedBranchIds = [];
-    TREE1BRANCHLOOP:
-    for (var i=0; i<tree1.openBranches.length; i++) {
-        var string1 = tree1.openBranches[i].string;
-        for (var j=0; j<tree2.openBranches.length; j++) {
-            var string2 = tree2.openBranches[j].string;
-            if (string1.startsWith(string2) || string2.startsWith(string1)) {
-                // branches i and j match
-                tree2matchedBranchIds.push(j);
-                continue TREE1BRANCHLOOP;
-            }
-        }
-        // branch i doesn't match any branch on tree2
-        tree1hasUnmatchedBranches = true;
-        break;
+    // Next, we check if one tree's open branches are a proper subset of the
+    // other's. This often happens if tree1 has managed to close a branch which
+    // tree2 tries to tackle in a different way. No point keeping tree2.
+    var tol = tree.openBranches.length;
+    var atol = altTree.openBranches.length;
+    if (tol == 0) {
+        log('tree has no open branches; removing alternative');
+        return [true, false];
     }
-    TREE2BRANCHLOOP:
-    for (var j=0; j<tree2.openBranches.length; j++) {
-        if (tree2matchedBranchIds.includes(j)) continue;
-        var string2 = tree2.openBranches[j].string;
-        for (var i=0; i<tree1.openBranches.length; i++) {
-            var string1 = tree1.openBranches[i].string;
-            if (string1.startsWith(string2) || string2.startsWith(string1)) {
-                // branches i and j match
-                continue TREE2BRANCHLOOP;
-            }
-        }
-        // branch j doesn't match any branch on tree1
-        tree2hasUnmatchedBranches = true;
-        break;
+    if (atol == 0) {
+        log('alternative has no open branches; removing tree');
+        return [false, true];
     }
-    return [tree1hasUnmatchedBranches, tree2hasUnmatchedBranches];
+    // We compare the open branches from the end.
+    var offset = 1;
+    while (tree.openBranches[tol-offset].string == altTree.openBranches[atol-offset].string) {
+        if (offset == tol) {
+            // We've exhausted the open branches on <tree> and found all of them on <altTree>.
+            log('alternative has further open branches; removing');
+            return [true, false];
+        }
+        else if (offset == atol) {
+            // We've exhausted the open branches on <altTree> and found all of them on <tree>.
+            log('tree has further open branches; removing');
+            return [false, true];
+        }
+        offset++;
+    }
+    
+    // If we're here, the open branches at index -<offset> don't match. We now
+    // check if one tree is a further developed extension of the other, in which
+    // case we only keep the one that's further developed.
+    tbranch = tree.openBranches[tol-offset];
+    atbranch = altTree.openBranches[atol-offset];
+    if ((offset == atol || offset == tol) &&
+        tbranch.string.startsWith(atbranch.string) &&
+        atbranch.todoList[0].nextRule != Prover.equalityReasoner) {
+        // Why these three checks? Start with the second. <tbranch> and
+        // <atbranch> are the first non-matching open branches, from the right.
+        // We check that <tbranch> extends <atbranch>, indicating that <tree>
+        // might be a further developed version of <altTree>. One complication
+        // is that we sometimes store alternative ways of expanding the same
+        // open branch, but this only happens if the stored alternative tries to
+        // close the tree by equalityReasoning. The third condition checks that
+        // we don't have this kind of case. The first condition replaces
+        // checking any further open branches. Note that any open branch to the
+        // left of <tbranch> on <tree> must also extend <atbranch>. For suppose
+        // there's some branch to left of <tbranch> on <tree>. Then <tbranch>
+        // ends with the result beta2 of a beta expansion. And then <atbranch>
+        // is at most the trunk of <tbranch> before that beta expansion, and so
+        // any branch to the left of <tbranch> also extends <atbranch>. But we
+        // can't yet infer that <tree> extends <altTree>, as there might be open
+        // branches to the left of <atbranch> on <altTree> that aren't extended
+        // by anything on <tree>. Suppose there is some open branch to the left
+        // of <atbranch>. Then <atbranch> ends with the result beta2 of a beta
+        // expansion. If <tree> extends <altTree> then it also contains that
+        // beta expansion, and it will only work on the beta2 branch after
+        // closing the beta1 branch. We know that <tree> extends the beta2
+        // branch. So if it extends <altTree> then there must be no open branch
+        // to the left of <tbranch>. Thus we check that *if* there is an open
+        // branch to the left of <atbranch> *then* there is none to the left of
+        // <tbranch>. Equivalently: either <atbranch> is the first open branch
+        // or <tbranch> is the first open branch. (Technically, while this is
+        // necessary for <tree> to extend <altTree>, it isn't sufficient. For
+        // example, suppose the relevant beta expansion on <altTree> expands
+        // pvq, and <tree> doesn't expand pvq but instead expands a conjunction
+        // p&q. Then <tbranch> ends in ...,p,q and <atbranch> in ...,q; if there
+        // are no other open branches on <tree>, we'll wrongly find that <tree>
+        // extends <altTree>. In practice, I don't think this situation can
+        // arise because alpha expansions are never alternatives to beta
+        // expansions.)
+        log('alternative is less developed than tree; removing');
+        return [true, false];
+    }
+    else if ((offset == tol || offset == atol) &&
+             atbranch.string.startsWith(tbranch.string) &&
+             tbranch.todoList[0].nextRule != Prover.equalityReasoner) {
+        log('tree is less developed than alternative; removing');
+        return [false, true];
+    }
+
+    return [true, true];
 }
 
 Prover.prototype.removeAlternative = function(index) {
@@ -683,9 +684,9 @@ Prover.literal = function(branch, nodeList) {
             altTree.openBranches[0].todoList = eqProbs.map(function(p) {
                 return Prover.makeTodoItem(Prover.equalityReasoner, p);
             });
-            // We erase the other todoList items: if the branch can't be closed
-            // using equality reasoning, we'll switch to the alternative introduced
-            // below
+            // We have erased the other todoList items: if the branch can't be
+            // closed using equality reasoning, we'll switch to the alternative
+            // introduced below
             altTrees.push(altTree);
         }
     }
@@ -698,11 +699,11 @@ Prover.literal = function(branch, nodeList) {
         // no alternatives found; simply continue with present tree
         return;
     }
-    else if (branch.todoList.length) {
+    if (branch.todoList.length) {
         log("unifier applied on new tree; saving original tree as alternative");
         altTrees.push(tree);
-        // Now altTrees contains trees with a unifier applied, and, after those,
-        // the original ununified tree.
+        // Now altTrees contains trees with a unifier applied and/or trees with
+        // new EqualityProblems and, after these, the original ununified tree.
     }
     // We continue with the first altTree and store the others for backtracking.
     var curTreeIndex = prover.curAlternativeIndex;
