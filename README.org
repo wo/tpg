@@ -19,7 +19,7 @@ features won't work this way. To use them, you need to install php. Then run
 php -S localhost:1234 router.php
 #+END_SRC
 
-an visit ~localhost:1234~.
+and visit ~localhost:1234~.
 
 ** Debugging information
 
