@@ -95,7 +95,6 @@ We're inside both a HTML and a PHP comment here. If PHP is supported,
 everything up to the closing C-style comment marker is ignored. If
 PHP is unsupported, the following HTML is rendered by the browser.
 -->
-$scripts = array("array", "formula", "parser", "prover", "equality", "modelfinder", "sentree", "painter", "index");
 <script src='array.js'></script>
 <script src='formula.js'></script>
 <script src='parser.js'></script>
