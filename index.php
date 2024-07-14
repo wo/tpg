@@ -133,10 +133,11 @@ else {
   
   <p>Any alphabetic character is allowed as a propositional constant, predicate,
     individual constant, or variable. Numeral digits can be used either as
-    singular terms or as "subscripts" (but don't mix the two uses). '+', '*',
-    and '-' can be used as function expressions. Predicates (except identity)
-    and function terms must be in prefix notation. Function terms must have
-    their arguments enclosed in brackets. So
+    singular terms or as indices (as in <span class="formula">Fx1</span>), but
+    don't mix the two uses. '+', '*', and '-' can be used as function
+    expressions. Predicates (except identity) and function terms must be in
+    prefix notation. Function terms must have their arguments enclosed in
+    brackets. So
     <span class="formula">F2x17</span>, <span class="formula">Rab</span>,
     <span class="formula">R(a,b)</span>, <span class="formula">Raf(b)</span>,
     <span class="formula">F(+(1,2))</span> are ok, but
