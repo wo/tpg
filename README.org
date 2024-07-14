@@ -10,27 +10,29 @@ browser.
 
 ** Run locally
 
-The index.php file that serves the prover contains a few lines of php for
-turning debugging features on/off. To run the page locally, use
+The ~index.php~ file that serves the prover contains a few lines of php for
+turning debugging features on/off. You can run the page locally by renaming
+~index.php~ to ~index.html~ and opening it with your browser. The debugging
+features won't work this way. To use them, you need to install php. Then run
 
 #+BEGIN_SRC bash
 php -S localhost:1234 router.php
 #+END_SRC
 
-then go to localhost:1234.
+an visit ~localhost:1234~.
 
 ** Debugging information
 
-Add ?debug=1 to the URL to get a detailed log of what the script is doing.
+Add ~?debug=1~ to the URL to get a detailed log of what the script is doing.
 
 ** Tests
 
-A few tests can be called in the browser at tests.html.
+A few tests can be called in the browser at ~tests.html~.
 
-There's also testdrive.php, which registers how fast the prover is at processing
+There's also ~testdrive.php~, which registers how fast the prover is at processing
 a sample of (valid and invalid) input formulas. This is useful for checking if a
 change leads to a significant speedup or slowdown or even to inaccurate
-classifications as valid or invalid.
+classifications as valid or invalid. (PHP required.)
 
 * Overview
 
@@ -182,7 +184,7 @@ reflexivity are added to the formulas for which we want to find a model.
 
 * Copyright
 
-Copyright © 2001-2022 Wolfgang Schwarz (wo@umsu.de)
+Copyright © 2001-2024 Wolfgang Schwarz (wo@umsu.de)
 
 You may use, distribute and modify this code under the terms of the GPLv3
 license; see LICENSE.

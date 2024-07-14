@@ -46,7 +46,12 @@
 <div id="model"> </div>
 <div id="rootAnchor"> </div>
 
+<!--
+I want this page to work even if PHP is not supported. To this end,
+we're inside a HTML comment here that hides the PHP code from the browser.
+The comment is closed immediately below if php is supported.
 <?php
+echo '--'.'>';
 $scripts = array("array", "formula", "parser", "prover", "equality", "modelfinder", "sentree", "painter", "index");
 if (isset($_GET['debug'])) {
     ?>
@@ -83,7 +88,31 @@ else {
     $allscripts = implode("-", $scripts);
     print "<script type='text/javascript' src='$allscripts.js'></script>\n";
 }
-?>
+// Need to re-open the HTML comment:
+echo '<!'.'--';
+/*
+We're inside both a HTML and a PHP comment here. If PHP is supported,
+everything up to the closing C-style comment marker is ignored. If
+PHP is unsupported, the following HTML is rendered by the browser.
+-->
+$scripts = array("array", "formula", "parser", "prover", "equality", "modelfinder", "sentree", "painter", "index");
+<script src='array.js'></script>
+<script src='formula.js'></script>
+<script src='parser.js'></script>
+<script src='prover.js'></script>
+<script src='equality.js'></script>
+<script src='modelfinder.js'></script>
+<script src='sentree.js'></script>
+<script src='painter.js'></script>
+<script src='index.js'></script>
+<script src='index.js'></script>
+<script>
+function log(args) {}
+</script>
+<!--
+Now we're back inside both a HTML and a PHP comment.
+*/ ?>
+-->
 
 <div id="intro">
     
