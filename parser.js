@@ -106,29 +106,36 @@ Parser.prototype.getNewWorldName = function() {
 
 Parser.prototype.getVariables = function(formula) {
     /**
-     * return all variables in <formula>
+     * return all (distinct) variables in <formula>
      */
-    if (formula.sub) {
-        return this.getVariables(formula.sub);
-    }
-    if (formula.sub1) {
-        return this.getVariables(formula.sub1).concatNoDuplicates(
-            this.getVariables(formula.sub2));
-    }
-    var res = [];
-    var dupe = {};
-    var terms = formula.isArray ? formula : formula.terms;
-    for (var i=0; i<terms.length; i++) {
-        if (terms[i].isArray) {
-            res.extendNoDuplicates(this.getVariables(terms[i]));
+    const vars = new Set();
+
+    const extractVariables = (formula) => {
+        if (formula.sub) {
+            extractVariables(formula.sub);
         }
-        else if (this.expressionType[terms[i]].indexOf('variable') > -1
-                 && !dupe[terms[i]]) {
-            dupe[terms[i]] = true;
-            res.push(terms[i]);
+        else if (formula.matrix) {
+            extractVariables(formula.matrix);
+        }
+        else if (formula.sub1) {
+            extractVariables(formula.sub1);
+            extractVariables(formula.sub2);
+        }
+        else {
+            var terms = formula.isArray ? formula : formula.terms;
+            for (var i=0; i<terms.length; i++) {
+                if (terms[i].isArray) {
+                    extractVariables(terms[i]);
+                }
+                else if (this.expressionType[terms[i]].indexOf('variable') > -1) {
+                    vars.add(terms[i]);
+                }
+            }
         }
     }
-    return res;
+
+    extractVariables(formula);
+    return Array.from(vars);
 }
 
 Parser.prototype.isTseitinLiteral = function(formula) {

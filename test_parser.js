@@ -1,6 +1,14 @@
 
 tests = {
 
+    getVariables: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('∃xRf(x)x');
+        var vars = parser.getVariables(f.matrix);
+        assertEqual(vars.length, 1);
+        assertEqual(vars[0], 'x');
+    },
+
     parseterms1: function() {
         var parser = new Parser();
         var t = parser.parseTerms('abc', []);

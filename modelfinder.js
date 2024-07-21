@@ -15,7 +15,7 @@
  *    elements until a model is found. For each domain, we do the following:
  * 
  * 3. We replace free (i.e. universal) variables in the list of clauses by
- *    numbers. So for domain { 0,1 }, [Fx] would be replaced by two clauses,
+ *    numerals. So for domain { 0,1 }, [Fx] would be replaced by two clauses,
  *    [F0] and [F1].
  * 
  * 4. We process the list of clauses from left to right, starting with an empty
@@ -200,7 +200,7 @@ ModelFinder.prototype.skolemize = function(formula) {
 
 ModelFinder.prototype.tseitinCNF = function(formula) {
     /**
-     * convert <formula> into CNF.
+     * convert <formula> into tseitin CNF.
      *
      * We sometimes use a kind of tseitin transformation to keep the number of
      * clauses under control. The tseitin transform of a propositional formula F
@@ -224,8 +224,8 @@ ModelFinder.prototype.tseitinCNF = function(formula) {
      *
      * ($ ↔ ¬Fx) ∧ ($ ∨ Ga).
      *
-     * If we create the instantiances of this universal requirement for all
-     * members of domain { 0,1 }, we get
+     * If we create the instances of this universal requirement for all members
+     * of domain { 0,1 }, we get
      *
      * ($ ↔ ¬F0) ∧ ($ ∨ Ga) and
      * ($ ↔ ¬F1) ∧ ($ ∨ Ga),
@@ -247,7 +247,7 @@ ModelFinder.prototype.tseitinCNF = function(formula) {
 
     log('creating tseitin transform of '+formula);
     if (formula.operator == '∧') {
-        // TCNF(A & B) = [TCNF(A), TCNF(B)]:
+        // easy: TCNF(A & B) = [TCNF(A), TCNF(B)]:
         var res = this.tseitinCNF(formula.sub1).concatNoDuplicates(
             this.tseitinCNF(formula.sub2))
         res.sort(function(a,b){ return a.length - b.length; });
