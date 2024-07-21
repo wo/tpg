@@ -172,6 +172,7 @@ $invalid_tests = [
     ['bn', '∃y∃z∀x((Fx→Gy)∧(Gz→Fx))→∀x∃y(Fy↔Gy)'],
     ['conpos1', '∀y(Iy→∀x(Px↔Cxy))→∀x(Px↔∀y(Iy→Cxy))'],
     ['conpos2', '∀x(Px↔∀y(Iy→Cxy))→∀y(Iy→∀x(Px↔Cxy))'],
+    ['github30', '∃x∀y((Rxx∨¬Rxy∨Ryx∨Ryy)∧(¬Rxx∨Rxy∨Ryx∨Ryy)∧(¬Rxx∨¬Rxy∨Ryx∨Ryy))'],
     ['pel48s', '(a=b ∨ c=d) ∧ (a=c ∨ b=d) → a=d'],
     ['T_in_K', 'p→◇p'],
     ['emil_in_K4', '◇□A → (◇□B → ◇□(A ∧ B))||transitivity'],

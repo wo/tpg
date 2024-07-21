@@ -87,6 +87,8 @@ ModelFinder.prototype.getClauses = function(formulas) {
      * "clauses", each of which is a list (interpreted as disjunction) of
      * literals. Variables are understood as universal; existential quantifiers
      * are skolemized away.
+     *
+     * A tseitin transformation is used if it reduces the number of clauses.
      */
     var res = []; // clauses computed by ordinary cnf transformation 
     var resTseitin = []; // clauses computed with tseitin transformation
@@ -106,16 +108,17 @@ ModelFinder.prototype.getClauses = function(formulas) {
         log('tseitin cnf: '+clausesTseitin);
         resTseitin.extendNoDuplicates(clausesTseitin);
     }
+    // order clauses by length (number of disjuncts):
+    res.sort(function(a,b){ return a.length - b.length; });
+    res = this.simplifyClauses(res);
+    resTseitin.sort(function(a,b){ return a.length - b.length; });
+    resTseitin = this.simplifyClauses(resTseitin);
     log('combined non-tseitin clauses: '+res);
     log('combined tseitin clauses: '+resTseitin);
     if (resTseitin.length < res.length) {
         log('using combined tseitin cnf');
         res = resTseitin;
     }
-    // order clauses by length (number of disjuncts):
-    res.sort(function(a,b){ return a.length - b.length; });
-    res = this.simplifyClauses(res);
-    log('simplified clauses: '+res);
     return res;
 }
 
