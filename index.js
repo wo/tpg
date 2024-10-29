@@ -40,6 +40,7 @@ function renderSymbols(str) {
     str = str.replace(/\\leftrightarrow[\{ ]?\}?/g, '↔');
     str = str.replace(/\\[Bb]ox[\{ ]?\}?/g, '□');
     str = str.replace(/\\[Dd]iamond[\{ ]?\}?/g, '◇');
+    str = str.replace(/\\models|\\vdash/g, '|=');
     return str;
 }
 
