@@ -49,7 +49,7 @@
  *
  */
 
-function EqualityProblem(equationNodes) {
+function EqualityProblem(parser, substitutionConstraint) {
     /**
      * An EqualityProblem represents a rigid E-unification problem with a
      * constraint on substitutions. The goal of a rigid E-unification problem is
@@ -70,6 +70,7 @@ function EqualityProblem(equationNodes) {
      * I here use the tilde for equality and '=' for syntactic identity.
      * 
      */
+    this.parser = parser;
     // the (goal) term lists we want to unify:
     this.terms1 = null;
     this.terms2 = null;
@@ -79,7 +80,7 @@ function EqualityProblem(equationNodes) {
     // the equations on the branch that we can use to apply LL (pairs of terms):
     this.equations = [];
     // the constraint on substitutions that we will construct:
-    this.constraint = arguments[0] || new SubstitutionConstraint();
+    this.constraint = substitutionConstraint || new SubstitutionConstraint();
     // new Nodes that were added by applications of LL:
     this.newNodes = [];
     // the scheduled next rrbs rule:
@@ -218,7 +219,7 @@ EqualityProblem.prototype.tryRrbs = function() {
 
             // collect all non-variable subterms of si as candidates for p
             // (variables are excluded by condition (3) on p.53 of D&V):
-            var siSubterms = subterms(s[i]);
+            var siSubterms = this.subterms(s[i]);
 
             // try each eligible equation, in both directions:
             for (var ei=0; ei<equations.length; ei++) {
@@ -337,7 +338,7 @@ EqualityProblem.prototype.tryLrbs = function() {
                     if (!sconstraint) continue;
 
                     // try all subterms of s as candidates for p:
-                    var sSubterms = subterms(s);
+                    var sSubterms = this.subterms(s);
                     for (var k=0; k<sSubterms.length; k++) {
                         var p = sSubterms[k];
                         log('  trying '+p+' as p');
@@ -468,7 +469,7 @@ EqualityProblem.prototype.getSubstitution = function() {
 }
 
 EqualityProblem.prototype.copy = function(constraint) {
-    var res = new EqualityProblem(constraint || this.constraint);
+    var res = new EqualityProblem(this.parser, constraint || this.constraint);
     res.terms1 = this.terms1; // don't need to copy because the array is never changed, only replaced (see applyLL functions)
     res.terms2 = this.terms2; // same
     res.equations = this.equations; // same
@@ -491,28 +492,38 @@ EqualityProblem.prototype.toString = function() {
         + ' (' + this.constraint + ') *' + nextStepStr + '&gt;';
 }
 
-function subterms(term) {
+EqualityProblem.prototype.subterms = function(term) {
     /**
-     * return all (distinct) subterms of <term>, except for variables and subterms
-     * within skolem terms
+     * return all (distinct) subterms of <term>, except for variables and
+     * subterms within skolem terms and terms for worlds
      *
      * We don't need to replace terms within skolem terms. However, we can't treat
      * skolem terms as completely atomic: if a skolem term contains variable x, we
      * can't susbstitute x for that term. This is automatically ensured by returning
      * the skolem term as a proper function term.
+     *
+     * We don't return world terms because we don't allow equality reasoning
+     * with worlds. (If we wanted to allow equality reasoning with arbitrary
+     * terms, we'd have to add both types of variables arguments to skolem
+     * terms in the delta rule, i.e. here:
+     *       var skolemTerm = branch.freeVariables.filter(function(v) {
+     *           return v[0] == (matrix ? 'ζ' : 'ξ');
+     *       });
+     * .)
      */
     if (term.isArray) {
-        if (term[0][0] == 'φ' || term[0][0] == 'ω') { // skolem term
+        if (term[0][0] == 'ω') return [];
+        if (term[0][0] == 'φ') { // skolem term
             return [term];
         }
         var res = [term];
         for (var i=1; i<term.length; i++) { // skip function symbol
-            res.extendNoDuplicates(subterms(term[i]));
+            res.extendNoDuplicates(this.subterms(term[i]));
         }
         return res;
     }
     if (term[0] == 'ξ' || term[0] == 'ζ') return [];
-    return [term];
+    return (this.parser.expressionType[term] == 'world variable') ? [] : [term];
 }
 
 function replaceSubterm(term, sub, repl) {
@@ -915,5 +926,5 @@ SolvedForm.prototype.equals = function(sf) {
 }
 
 SolvedForm.prototype.toString = function() {
-    return '{'+this.solvedDictStr.join(' ')+' '+this.inequalitiesStr.join(' ')+'}';
+    return '{'+this.solvedDictStr.join(' ')+';'+this.inequalitiesStr.join(' ')+'}';
 }

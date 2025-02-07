@@ -446,7 +446,7 @@ Prover.gamma = function(branch, nodeList, matrix) {
     var matrix = matrix || node.formula.matrix;
     var newFormula = matrix.substitute(node.formula.variable, newVariable);
     var newNode = new Node(newFormula, Prover.gamma, nodeList);
-    // NB: The last line sets fromRule to gamma even for s5 modalGamma nodes
+    // NB: The previous line sets fromRule to gamma even for s5 modalGamma nodes
     newNode.instanceTerm = newVariable; // used in sentree
     branch.addNode(newNode);
     branch.tryClose(newNode);
@@ -537,14 +537,15 @@ Prover.delta = function(branch, nodeList, matrix) {
     var fla = node.formula;
     // find skolem term:
     var funcSymbol = branch.tree.newFunctionSymbol(matrix);
-    // It suffices to skolemize on variables contained in this formula. This
-    // makes some proofs much faster by making some gamma applications
-    // redundant. However, translation into sentence tableau then becomes almost
-    // impossible, because here we need the missing gamma applications. Consider
-    // ∀x(Fx & ∃y¬Fy).
+    // In principle, it suffices to skolemize on variables contained in this
+    // formula. This makes some proofs much faster by making some gamma
+    // applications redundant. However, translation into sentence tableau then
+    // becomes almost impossible, because here we need the missing gamma
+    // applications. Consider ∀x(Fx & ∃y¬Fy).
     if (branch.freeVariables.length > 0) {
         if (branch.tree.prover.s5) {
-            // branch.freeVariables contains world and individual variables
+            // branch.freeVariables contains world and individual variables.
+            // We keep the two types separate.
             var skolemTerm = branch.freeVariables.filter(function(v) {
                 return v[0] == (matrix ? 'ζ' : 'ξ');
             });
@@ -1404,7 +1405,7 @@ Tree.prototype.toString = function() {
             }
         }
         // remove arguments from skolem terms:
-        var nodestr = node.toString().replace(/(φ\d+)(\(.+?\))(?!\)|,)/g, function(m,p1,p2) {
+        var nodestr = node.toString().replace(/([φω]\d+)(\(.*?\))(?!\)|,)/g, function(m,p1,p2) {
             var res = p1;
             var extraClosed = (m.match(/\)/g) || []).length - (m.match(/\(/g) || []).length;
             for (var i=0; i<extraClosed; i++) res += ')';
@@ -1734,7 +1735,7 @@ Branch.prototype.createEqualityProblems = function(nodes) {
 Branch.prototype.createEqualityProblem = function(node1, node2) {
     /**
      * create EqualityProblem whose target is to unify <node1> and <node2>
-     * based on the eqations on the current branch
+     * based on the equations on the current branch
      */
     var equations = this.literals.filter(function(n) {
         return n.formula.predicate == '='
@@ -1743,7 +1744,7 @@ Branch.prototype.createEqualityProblem = function(node1, node2) {
     if (!equations.length) return null;
     equations.reverse(); // prefer applying LL to late equations
     log('creating equality problem based on '+(node1==node2 ? node1 : node1+' and '+node2));
-    var prob = new EqualityProblem();
+    var prob = new EqualityProblem(this.tree.parser);
     prob.init(equations, node1, node2);
     return prob;
 }

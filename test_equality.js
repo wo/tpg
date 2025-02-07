@@ -1,4 +1,30 @@
 
+function solveEqualityProblem(terms1, terms2, equationFormulas) {
+    // return list of all substitutions (as strings) that are found to solve the
+    // given problem
+    var ep = new EqualityProblem(new Parser());
+    for (var i=0; i<equationFormulas.length; i++) {
+        ep.equations.push(new Node(equationFormulas[i]));
+    }
+    ep.terms1 = terms1;
+    ep.terms2 = terms2;
+    var eps = [ep];
+    var solutions = [];
+    while ((ep = eps.shift())) {
+        var res = ep.nextStep();
+        for (var i=0; i<res.length; i++) {
+            if (!res[i].nextStep) solutions.push(res[i]);
+            else eps.unshift(res[i]);
+        }
+    }
+    var solstrs = solutions.map(function(ep) { return ep.getSubstitution().toString() });
+    return solstrs.removeDuplicates();
+}
+
+function subterms(term) {
+    return new EqualityProblem(new Parser()).subterms(term);
+}
+
 tests = {
 
     subterms: function() {
@@ -60,28 +86,25 @@ tests = {
         ]);
         assertEqual(sols.length, 1);
         assertEqual(sols[0], '[ξ1,[g,[f,a]]]');
-    }
+    },
 
-}
-
-function solveEqualityProblem(terms1, terms2, equationFormulas) {
-    // return list of all substitutions (as strings) that are found to solve the
-    // given problem
-    var ep = new EqualityProblem();
-    for (var i=0; i<equationFormulas.length; i++) {
-        ep.equations.push(new Node(equationFormulas[i]));
-    }
-    ep.terms1 = terms1;
-    ep.terms2 = terms2;
-    var eps = [ep];
-    var solutions = [];
-    while ((ep = eps.shift())) {
-        var res = ep.nextStep();
-        for (var i=0; i<res.length; i++) {
-            if (!res[i].nextStep) solutions.push(res[i]);
-            else eps.unshift(res[i]);
+    dontEquateWorldsWithIndividuals: function() {
+        // github #31
+        var parser = new Parser();
+        var input = '□∃xEx,∀x∀y(□(Ex↔Ey)→x=y)|=∃x□Ex';
+        var parsedInput = parser.parseInput(input);
+        var premises = parsedInput[0];
+        var conclusion = parsedInput[1];
+        var initFormulas = premises.concat([conclusion.negate()]);
+        var prover = new Prover(initFormulas, parser);
+        prover.pauseLength = 0;
+        // deactivate modelfinder:
+        prover.modelfinder.nextStep = function() { return false; };
+        for (var i=0; i<600; i++) {
+            prover.stopTimeout = true; // only do one step
+            if (prover.nextStep()) break;
         }
+        assert(i==600);
     }
-    var solstrs = solutions.map(function(ep) { return ep.getSubstitution().toString() });
-    return solstrs.removeDuplicates();
+
 }
