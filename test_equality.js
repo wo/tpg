@@ -88,23 +88,4 @@ tests = {
         assertEqual(sols[0], '[ξ1,[g,[f,a]]]');
     },
 
-    dontEquateWorldsWithIndividuals: function() {
-        // github #31
-        var parser = new Parser();
-        var input = '□∃xEx,∀x∀y(□(Ex↔Ey)→x=y)|=∃x□Ex';
-        var parsedInput = parser.parseInput(input);
-        var premises = parsedInput[0];
-        var conclusion = parsedInput[1];
-        var initFormulas = premises.concat([conclusion.negate()]);
-        var prover = new Prover(initFormulas, parser);
-        prover.pauseLength = 0;
-        // deactivate modelfinder:
-        prover.modelfinder.nextStep = function() { return false; };
-        for (var i=0; i<600; i++) {
-            prover.stopTimeout = true; // only do one step
-            if (prover.nextStep()) break;
-        }
-        assert(i==600);
-    }
-
 }

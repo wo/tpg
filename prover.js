@@ -1345,6 +1345,7 @@ Tree.prototype.applySubstitution = function(sub) {
                 nodeProcessed[node.id] = true;                    
             }
             branches[b].freeVariables.remove(sub[i]);
+            branches[b].freeVariables.extendNoDuplicates(collectFreeVariables(sub[i+1]));
         }
     }
     for (var b=0; b<this.openBranches.length; b++) {
@@ -1355,6 +1356,13 @@ Tree.prototype.applySubstitution = function(sub) {
     this.string = this.openBranches.map(function(b) { return b.string }).join('|');
     // NB: substitution is also applied to EqualityProblems in branch.todoLists,
     // because these refer to nodes on the tree.
+
+    function collectFreeVariables(term) {
+        if (typeof term === 'string') {
+            return (term[0] === 'ξ' || term[0] === 'ζ') ? [term] : [];
+        }
+        return term.reduce((res, t) => res.concat(collectFreeVariables(t)), []);
+    }
 }
 
 Tree.prototype.newFunctionSymbol = function(isWorldTerm) {

@@ -197,6 +197,44 @@ tests = {
         assert(prover.tree.openBranches.length > 0);
     },
 
+    dontEquateWorldsWithIndividuals: function() {
+        // github #31
+        var parser = new Parser();
+        var input = '□∃xEx,∀x∀y(□(Ex↔Ey)→x=y)|=∃x□Ex';
+        var parsedInput = parser.parseInput(input);
+        var premises = parsedInput[0];
+        var conclusion = parsedInput[1];
+        var initFormulas = premises.concat([conclusion.negate()]);
+        var prover = new Prover(initFormulas, parser, ['universality']);
+        prover.pauseLength = 0;
+        // deactivate modelfinder:
+        prover.modelfinder.nextStep = function() { return false; };
+        for (var i=0; i<600; i++) {
+            prover.stopTimeout = true; // only do one step
+            if (prover.nextStep()) break;
+        }
+        assert(i==600);
+    },
+
+    keepTrackOfSubstitutedFreeVariables: function() {
+        // github #31
+        var parser = new Parser();
+        var input = '□∃xEx,∀x∀y◇(Ex↔Ey),∀x∀y(□(Ex↔Ey)→x=y)|=∃x□Ex';
+        var parsedInput = parser.parseInput(input);
+        var premises = parsedInput[0];
+        var conclusion = parsedInput[1];
+        var initFormulas = premises.concat([conclusion.negate()]);
+        var prover = new Prover(initFormulas, parser, ['universality']);
+        prover.pauseLength = 0;
+        // deactivate modelfinder:
+        prover.modelfinder.nextStep = function() { return false; };
+        for (var i=0; i<800; i++) {
+            prover.stopTimeout = true; // only do one step
+            if (prover.nextStep()) break;
+        }
+        assert(i==800);
+    },
+
     s5_Fails_should_be_able_to_detect_infinite_tree: function() {
         var parser = new Parser();
         var f = parser.parseFormula('◇p').negate();
