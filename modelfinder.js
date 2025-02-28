@@ -591,14 +591,27 @@ ModelFinder.prototype.backtrack = function() {
         log("no more models to backtrack; initializing larger model");
         var numWorlds = this.model.worlds.length;
         var numIndividuals = this.model.domain.length;
-        if (numWorlds && this.parser.isPropositional) {
-            numWorlds++;
-        }
-        else {
-            if (numWorlds && numWorlds < this.model.domain.length) {
+        if (numWorlds) {
+            if (this.parser.isPropositional) {
                 numWorlds++;
             }
-            else numIndividuals++; 
+            else {
+                // We try through all models with that total, starting with 1
+                // world and the rest individuals, then increasing the worlds
+                // and decreasing the individuals.
+                if (numIndividuals > 1) {
+                    numIndividuals -= 1;
+                    numWorlds += 1;
+                }
+                else {
+                    var total = numWorlds + numIndividuals + 1;
+                    numWorlds = 1;
+                    numIndividuals = total - 1;
+                }
+            }
+        }
+        else {
+            numIndividuals++;
         }
         this.model = new Model(this, numIndividuals, numWorlds);
     }

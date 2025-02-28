@@ -504,6 +504,19 @@ tests = {
         }
         assert(i<1000);
         assertEqual(mf.model.worlds.length, 2);
-    }
+    },
+
+    two_worlds_one_individual: function() {
+        var parser = new Parser();
+        var f = parser.parseFormula('∀x(x=a) ∧ Fa → □Fa');
+        fs = [parser.translateFromModal(f).negate().nnf()];
+        var mf = new ModelFinder(fs, parser);
+        for (var i=0; i<100; i++) {
+            if (mf.nextStep()) break;
+        }
+        assert(i<100);
+        assertEqual(mf.model.worlds.length, 2);
+    },
+
 
 }
