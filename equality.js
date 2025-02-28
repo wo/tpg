@@ -523,7 +523,8 @@ EqualityProblem.prototype.subterms = function(term) {
         return res;
     }
     if (term[0] == 'ξ' || term[0] == 'ζ') return [];
-    return (this.parser.expressionType[term] == 'world variable') ? [] : [term];
+    if (term[0] == 'ω' || this.parser.expressionType[term] == 'world variable') return [];
+    return [term];
 }
 
 function replaceSubterm(term, sub, repl) {
