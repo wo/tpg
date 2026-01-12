@@ -21,9 +21,9 @@ function updateInput() {
 function renderSymbols(str) {
     str = str.replace(/&|\^| and/ig, '∧');
     str = str.replace(/ v | or/ig, ' ∨ '); // 'v' letter => or symbol
-    str = str.replace(/~| not/ig, '¬');
-    str = str.replace(/<->|<=>| iff/ig, '↔');
-    str = str.replace(/->|=>| then/g, '→');
+    str = str.replace(/~|∼| not/ig, '¬');
+    str = str.replace(/<->|<=>|⇔|≡| iff/ig, '↔');
+    str = str.replace(/->|=>|⇒|⊃| then/g, '→');
     str = str.replace(/\[\]/g, '□');
     str = str.replace(/<>|◊|♢/g, '◇');
     str = str.replace(/!|Ɐ/g, '∀');
