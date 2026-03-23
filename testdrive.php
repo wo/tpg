@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>TGP testdrive</title>
+<title>TPG testdrive</title>
 <link href="https://fonts.googleapis.com/css?family=M+PLUS+1p:400,500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css" type="text/css">
 <?php
