@@ -518,5 +518,23 @@ tests = {
         assertEqual(mf.model.worlds.length, 2);
     },
 
+    numeric_constants_github26: function() {
+        // github #26: numeric user constants like '0','1' must not be confused
+        // with domain element numerals; the formula below is valid so no
+        // countermodel should be found
+        var parser = new Parser();
+        var parsedInput = parser.parseInput('∀xc(x,1)=1,∀x(x=1↔¬x=0),∀xc(0,x)=1|=c(a,c(b,b))=1');
+        var premises = parsedInput[0];
+        var conclusion = parsedInput[1];
+        var initFormulas = premises.concat([conclusion.negate()]).map(f => f.nnf());
+        var mf = new ModelFinder(initFormulas, parser);
+        for (var i=0; i<200; i++) {
+            if (mf.nextStep()) {
+                assert(false, 'should not find countermodel for valid formula');
+                return;
+            }
+        }
+        assert(true);
+    },
 
 }

@@ -65,6 +65,19 @@ function ModelFinder(initFormulas, parser, accessibilityConstraints, s5) {
         this.constants.unshift(parser.w);
     }
     
+    // Rename numeric constants (e.g. "0") to avoid collision with domain elements.
+    this.numericConstRestore = {};
+    for (var i=0; i<this.constants.length; i++) {
+        if (/^\d+$/.test(this.constants[i])) {
+            var orig = this.constants[i];
+            var renamed = 'ν'+orig;
+            this.numericConstRestore[renamed] = orig;
+            this.constants[i] = renamed;
+            parser.registerExpression(renamed, 'individual constant', 0);
+            initFormulas = initFormulas.map(f => f.substitute(orig, renamed));
+        }
+    }
+
     // break down initFormulas and accessibilityConstraints into clauses:
     initFormulas = initFormulas.concat(accessibilityConstraints || []);
     this.clauses = this.getClauses(initFormulas);
@@ -1144,7 +1157,7 @@ Model.prototype.satisfy = function(literal) {
     this.curInt = this.interpretation;
     var nterms = this.reduceTerms(atom.terms);
     var redAtom = atom.predicate+nterms.toString();
-    if (redAtom in this.curInt && thic.curInt[redAtom] != (atom==literal)) {
+    if (redAtom in this.curInt && this.curInt[redAtom] != (atom==literal)) {
         return false;
     }
     this.interpretation[redAtom] = (atom==literal);
@@ -1252,11 +1265,11 @@ Model.prototype.unitResolve = function(literal) {
 
 Model.prototype.getCurInt = function(redAtom) {
     /**
-     * return this.curInt[<redAtom>], except if <redAtom> is an identity
-     * formula, in which case the interpretation is settled
+     * return this.curInt[redAtom], except if redAtom is an identity statement
+     * between two domain elements, in which case the interpretation is settled
+     * by the identity of the elements.
      */
     if (redAtom[0] == '=') {
-        // redAtom is a string like '=[0,1]'
         var terms = redAtom.slice(2,-1).split(',');
         if (!isNaN(terms[0]) && !isNaN(terms[1])) {
             return terms[0] == terms[1];
@@ -1320,6 +1333,7 @@ Model.prototype.toHTML = function() {
         var ext = extensions[sym];
         var val = sym == this.parser.w ? w(ext) : ext;
         if (sym == this.parser.w) sym = '@';
+        else sym = this.modelfinder.numericConstRestore[sym] || sym;
         str += "<tr><td align='right' class='formula'>" + sym + ": </td><td align='left'>" + val + "</td></tr>\n";
     }
     
