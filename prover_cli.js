@@ -1,12 +1,15 @@
 // CLI entry point for running the prover under Node.js.
-// Usage: node prover_cli.js "<formula>" [--debug] [--trace]
-//   --debug  show debug log output (like ?debug=1 in browser)
-//   --trace  show trace log output (like ?debug=trace in browser)
+// Usage: node prover_cli.js "<formula>" [--debug[=<module>]] [--trace]
+//   --debug              show debug log output
+//   --debug=modelfinder  show only modelfinder debug output
+//   --trace              show trace log output
 
 const fs = require('fs');
 const path = require('path');
 
-const debugMode = process.argv.includes('--debug');
+const debugArg = process.argv.find(a => a === '--debug' || a.startsWith('--debug='));
+const debugMode = !!debugArg;
+const debugModule = debugArg && debugArg.includes('=') ? debugArg.split('=')[1] : null;
 const traceMode = process.argv.includes('--trace');
 global.log = (str, tracelog) => {
     if (traceMode ? tracelog : (debugMode && !tracelog)) console.log(('' + str).replace(/<br>/g, '\n').replace(/<[^>]*>/g, ''));
@@ -16,13 +19,18 @@ global.log = (str, tracelog) => {
 global.window = {};
 global.document = { getElementById: () => ({}), querySelector: () => null, querySelectorAll: () => [] };
 
-// Load core files:
+// Load core files, stripping log() calls from files not selected for debugging:
 const dir = __dirname;
+function stripDebugging(src) {
+    return src.split('\n').filter(line => !/^\s*log\(/.test(line)).join('\n');
+}
 for (const f of ['array', 'formula', 'parser', 'equality', 'modelfinder', 'sentree', 'prover', 'index']) {
-    eval(fs.readFileSync(path.join(dir, f + '.js'), 'utf8'));
+    let src = fs.readFileSync(path.join(dir, f + '.js'), 'utf8');
+    if (debugModule && f !== debugModule) src = stripDebugging(src);
+    eval(src);
 }
 
-// Override Tree.prototype.toString to show branches as plain text lines:
+// Override Tree.prototype.toString to show branches as plain text lines in debugging:
 Tree.prototype.toString = function() {
     const branches = this.closedBranches.concat(this.openBranches);
     const lines = branches.map((branch, i) => {
