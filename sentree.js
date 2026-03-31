@@ -447,7 +447,7 @@ SenTree.prototype.replaceFreeVariablesAndSkolemTerms = function() {
         // apply existing substitutions:
         for (var i=0; i<substitutions.length; i++) {
             var term = substitutions[i][0], repl = substitutions[i][1];
-            node.formula = node.formula.substitute(term, repl, false, true);
+            node.formula = node.formula.substitute(term, repl);
         }
         log("replaced known variables and skolem terms: "+node);
         // replace additional skolem terms by new constants:
@@ -459,7 +459,7 @@ SenTree.prototype.replaceFreeVariablesAndSkolemTerms = function() {
             var repl = isWorldTerm ?
                 this.parser.getNewWorldName(true) : this.parser.getNewConstant();
             substitutions.push([term, repl]);
-            node.formula = node.formula.substitute(term, repl, false, true);
+            node.formula = node.formula.substitute(term, repl);
             log("replacing new skolem term "+term+" by "+repl+": "+node.formula);
             // skolem terms can be nested:
             skterms = Formula.substituteInTerms(skterms, term, repl);
