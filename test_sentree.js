@@ -96,7 +96,6 @@ tests = {
         assertEqual(sentree.nodes.length, 12);
         for (var i=0; i<sentree.nodes.length; i++) {
             if (sentree.nodes[i].fromRule == Prover.equalityReasoner) {
-                console.log(sentree.nodes[i].fromNodes);
                 assert(!sentree.nodes[i].fromNodes[0].formula.string.includes('¬¬'));
                 assert(!sentree.nodes[i].fromNodes[1].formula.string.includes('¬¬'));
             }
@@ -206,7 +205,10 @@ tests = {
         var f = parser.parseFormula('(□(□p→p)→□p)∧(□(□□p→□p)→□□p)∧(□(□¬□p→¬□p)→□¬□p)→(□p→□□p)').negate();
         var prover = new Prover([f], parser);
         prover.pauseLength = 0;
-        prover.start();
+        for (var i=0; i<200; i++) {
+            prover.stopTimeout = true;
+            prover.nextTreeStep();
+        }
         var sentree = new SenTree(prover.tree, parser);
         assert(sentree.nodes.length >= 30);
     },

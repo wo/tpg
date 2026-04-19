@@ -265,11 +265,19 @@ AtomicFormula.terms2string = function(list, separator) {
 
 AtomicFormula.prototype = Object.create(Formula.prototype);
 
-AtomicFormula.prototype.substitute = function(origTerm, newTerm, shallow, inIdentity) {
+AtomicFormula.prototype.key = function() {
+    // Unambiguous identity string. Unlike this.string, which joins top-level
+    // terms without a separator (so R(1,11) and R(11,1) both become "R111"),
+    // this uses Array.toString()'s comma separator so multi-digit indices
+    // can't collide.
+    return this.predicate + this.terms.toString();
+}
+
+AtomicFormula.prototype.substitute = function(origTerm, newTerm, shallow) {
     // return new formula with all occurrences of <origTerm> replaced by
     // <newTerm>. If <shallow>, don't replace terms in function arguments
     if (typeof(origTerm) == 'string' && this.string.indexOf(origTerm) == -1) {
-        if (!inIdentity || this.predicate != '=') {
+        if (this.predicate != '=' || this.terms.length <= 2) {
             // identity nodes have string 'a=b' even if there's a third world term
             return this;
         }
@@ -392,6 +400,11 @@ NegatedFormula.computeType = function(sub) {
 }
 
 NegatedFormula.prototype = Object.create(Formula.prototype);
+
+NegatedFormula.prototype.key = function() {
+    // Only meaningful when sub is a literal (i.e. for negated literals).
+    return '¬' + this.sub.key();
+}
 
 NegatedFormula.prototype.substitute = function(origTerm, newTerm, shallow) {
     // return new formula with all free occurrences of <origTerm> replaced

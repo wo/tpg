@@ -14,6 +14,11 @@ function Parser() {
     this.isPropositional = true;
     // do we need equality reasoning?
     this.hasEquality = false;
+    // store type of arguments for each skolem function symbol (symbol => array
+    // of 'world variable' or 'variable'):
+    this.functionArgTypes = {};
+    // same for each tseitin predicate (which can mix world and individual args):
+    this.predicateArgTypes = {};
 }
 
 Parser.prototype.copy = function() {
@@ -37,6 +42,14 @@ Parser.prototype.copy = function() {
     nparser.hasEquality = this.hasEquality;
     nparser.R = this.R;
     nparser.w = this.w;
+    nparser.functionArgTypes = {};
+    for (var sym in this.functionArgTypes) {
+        nparser.functionArgTypes[sym] = this.functionArgTypes[sym].slice();
+    }
+    nparser.predicateArgTypes = {};
+    for (var sym in this.predicateArgTypes) {
+        nparser.predicateArgTypes[sym] = this.predicateArgTypes[sym].slice();
+    }
     return nparser;
 }
 

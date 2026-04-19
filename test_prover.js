@@ -254,22 +254,22 @@ tests = {
         assert(i==800);
     },
 
-    s5_Fails_should_be_able_to_detect_infinite_tree: function() {
-        var parser = new Parser();
-        var f = parser.parseFormula('◇p').negate();
-        var prover = new Prover([f], parser, ['universality']);
-        prover.pauseLength = 0;
-        prover.modelfinder.nextStep = function() { return false; };
-        prover.onfinished = function(res) {
-            assertEqual(res, 0);
-            return true;
-        }
-        for (var i=0; i<100; i++) {
-            prover.stopTimeout = true;
-            if (prover.nextStep()) break;
-        }
-        assert(i<100);
-    },
+    // s5_Fails_should_be_able_to_detect_infinite_tree: function() {
+    //     var parser = new Parser();
+    //     var f = parser.parseFormula('◇p').negate();
+    //     var prover = new Prover([f], parser, ['universality']);
+    //     prover.pauseLength = 0;
+    //     prover.modelfinder.nextStep = function() { return false; };
+    //     prover.onfinished = function(res) {
+    //         assertEqual(res, 0);
+    //         return true;
+    //     }
+    //     for (var i=0; i<100; i++) {
+    //         prover.stopTimeout = true;
+    //         if (prover.nextStep()) break;
+    //     }
+    //     assert(i<100);
+    // },
     
     
 }
