@@ -75,6 +75,8 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
     this.counterModel = null;
 
     this.start = function() {
+        this.proverDuration = 0;
+        this.modelfinderDuration = 0;
         this.lastBreakTime = performance.now();
         this.nextStep();
     };
@@ -90,56 +92,33 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
 
 Prover.prototype.nextStep = function() {
     /**
-     * expand the next node on the left-most open branch; initializes
-     * backtracking if limit is reached; also search for a countermodel. This
-     * function calls itself again until the proof is complete.
+     * Perform the next step in the proof or countermodel search.
+     * This function calls itself until either search succeeds.
      */
     this.step++;
     log('*** prover step '+this.step+' alternative '+this.curAlternativeIndex+' (max '+(this.alternatives.length-1)+')');
     log(this.tree);
 
-    if (this.tree.openBranches.length == 0) {
-        log('tree closed');
-        return this.onfinished(1);
-    }
-    
     this.status('step '+this.step+' alternative '+this.curAlternativeIndex+', '
                 +this.tree.numNodes+' nodes, model size '
                 +this.modelfinder.model.domain.length
                 +(this.tree.parser.isModal ? '/'+this.modelfinder.model.worlds.length : ''));
 
-    if (this.limitReached()) {
-        log(" * limit "+this.depthLimit+" reached");
-        if (this.curAlternativeIndex < this.alternatives.length-1) {
-            this.curAlternativeIndex++;
-            log(" * trying stored alternative");
+    var t0 = performance.now();
+    if (this.proverDuration <= this.modelfinderDuration) {
+        // We've spent more time on the modelfinder.
+        if (this.nextTreeStep()) { // tree closed
+            return this.onfinished(1);
         }
-        else {
-            // this.depthLimit += Math.ceil(this.alternatives.length/20);
-            this.depthLimit += 2 + Math.floor(this.step/500);
-            this.curAlternativeIndex = 0;
-            log(" * increasing to "+this.depthLimit);
+        this.proverDuration += performance.now() - t0;
+    }
+    else {
+        // We've spent more time on the prover.
+        if (this.modelfinder.nextStep()) { // countermodel found
+            this.counterModel = this.modelfinder.model;
+            return this.onfinished(0);
         }
-        this.tree = this.alternatives[this.curAlternativeIndex];
-        return this.nextStep(); // need to check if alternative is also at limit
-    }
-
-    var todo = this.tree.openBranches[0].todoList.shift();
-    if (todo) {
-        log(this.step+'. Expanding '+todo.args+' on alternative '+this.curAlternativeIndex, 'for debug=trace');
-        todo.nextRule(this.tree.openBranches[0], todo.args);
-    }
-    else if (this.alternatives.length) {
-        // If we reason with equality, todoList may be empty even though the tree isn't finished
-        // because we consider trees without equality reasoning.
-        log("nothing left to do");
-        this.discardCurrentAlternative();
-    }
-    
-    // search for a countermodel:
-    if (this.modelfinder.nextStep()) {
-        this.counterModel = this.modelfinder.model;
-        return this.onfinished(0);
+        this.modelfinderDuration += performance.now() - t0;
     }
     
     var timeSinceBreak = performance.now() - this.lastBreakTime;
@@ -158,6 +137,47 @@ Prover.prototype.nextStep = function() {
     else {
         this.nextStep();
     }
+}
+
+Prover.prototype.nextTreeStep = function() {
+    /**
+     * Expand the next node on the left-most open branch; initializes
+     * backtracking if limit is reached.
+     */
+    if (this.tree.openBranches.length == 0) {
+        log('tree closed');
+        return true;
+    }
+
+    if (this.limitReached()) {
+        log(" * limit "+this.depthLimit+" reached");
+        if (this.curAlternativeIndex < this.alternatives.length-1) {
+            this.curAlternativeIndex++;
+            log(" * trying stored alternative");
+        }
+        else {
+            // this.depthLimit += Math.ceil(this.alternatives.length/20);
+            this.depthLimit += 2 + Math.floor(this.step/500);
+            this.curAlternativeIndex = 0;
+            log(" * increasing to "+this.depthLimit);
+        }
+        this.tree = this.alternatives[this.curAlternativeIndex];
+        return this.nextTreeStep(); // needed to check if alternative is also at limit
+    }
+
+    var todo = this.tree.openBranches[0].todoList.shift();
+    if (todo) {
+        log(this.step+'. Expanding '+todo.args+' on alternative '+this.curAlternativeIndex, 'for debug=trace');
+        todo.nextRule(this.tree.openBranches[0], todo.args);
+    }
+    else if (this.alternatives.length) {
+        // If we reason with equality, todoList may be empty even though the tree isn't finished
+        // because we consider trees without equality reasoning.
+        log("nothing left to do");
+        this.discardCurrentAlternative();
+    }
+    
+    return false;
 }
 
 Prover.prototype.limitReached = function() {
