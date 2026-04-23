@@ -170,13 +170,19 @@ In outline, this works as follows.
    Fx would replaced by two constraints, F0 and F1. [Numerals in formulas are
    never interpreted as terms, so there can be no clash.]
 
-4. We process the list of constraints from left to right. At each step, we look
-   at one literal (disjunct) in one clause, with the aim of making it true. If
-   it can't be made true, we remove it from the list.  If it can be made true,
-   we simplify the remaining clauses by substituting all occurrences of newly
-   interpreted terms by their values (e.g. turning Ac into A0), removing
-   constraints for which any literal (disjunct) is known to be true, and
-   removing constraints that known to be false.
+4. We now iterate over all possible interpretations of the predicates and
+   function expressions. For each expression, we first record the clauses
+   that contain it. Then we enter this loop:
+
+   a. Take the first/next uninterpreted expression.
+   b. For each possible interpretation of that expression:
+      i. Substitute that interpretation into the clauses.
+      ii. Simplify the new clauses.
+      iii. If the new clauses contain an empty clause, the interpretation
+           is not a model; try the next.
+      iii. If the new clauses force the interpretation of any other
+           expression, update the interpretation and repeat from i.
+   c. If no interpretation of the expression worked, backtrack.
 
 Models for originally modal formulas have two domains, W and D. The elements of
 W are also natural numbers starting with 0. Accessibility conditions like
@@ -184,7 +190,7 @@ reflexivity are added to the formulas for which we want to find a model.
 
 * Copyright
 
-Copyright © 2001-2024 Wolfgang Schwarz (wo@umsu.de)
+Copyright © 2001-2026 Wolfgang Schwarz (wo@umsu.de)
 
 You may use, distribute and modify this code under the terms of the GPLv3
 license; see LICENSE.
