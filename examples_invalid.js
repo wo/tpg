@@ -427,6 +427,7 @@ var invalidExamples = [
     { label: 'log641', formula: '∀x(Px↔(◇∃xPx∧◇¬∃xPx))∧∀x(Nx↔(¬◇¬∃xNx))∧∃x(Px∧¬Nx)∧∀x(¬Nx↔∃y(□Exy))|=∀x(Px→□∃y□Exy)' },
     { label: 'log688', formula: '□(a→□a)∧◇a|=□□□□□a  [reflexivity, symmetry]' },
     { label: 'log998', formula: '∀x∀y(□(Fd→□(Fx→Txy))→◇Txy),□(Fh→Thc(m))|=◇Thc(m)' },
+    { label: 'McCuneGroup', formula: '(∀X(m(0,X)=X)∧∀X(m(i(X),X)=0)∧∀X∀Y∀Z(m(m(X,Y),Z)=m(X,m(Y,Z))))→(m(a,b)=m(b,a))' }, 
 ];
 
 if (typeof module !== "undefined") module.exports = invalidExamples;

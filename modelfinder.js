@@ -1902,6 +1902,45 @@ Model.prototype.forceLiteral = function(gc) {
     // Reduce terms:
     var occ = {clauseIdx: gc.index, litIdx: litIdx};
     var reducedTerms = this.reduceTermsFromCells(lit.terms);
+
+    // Equality atoms are pre-assigned (not cells we can assign to), but a
+    // positive unit equality where one side is a domain element and the other
+    // is a fully-reduced function cell CAN force that cell.
+    if (lit.predicate === '=') {
+        var a = reducedTerms[0], b = reducedTerms[1];
+        var aNum = typeof a === 'number', bNum = typeof b === 'number';
+        if (aNum && bNum) {
+            if (lit.positive === (a === b)) {
+                // Already satisfied — mark clause satisfied
+                this.trail.push({type: 'satisfy', clause: gc});
+                gc.satisfied = true;
+                return null;
+            }
+            return false; // contradiction
+        }
+        if (lit.positive && (aNum || bNum)) {
+            var cellSide = aNum ? b : a, val = aNum ? a : b;
+            var ground = cellSide.isArray;
+            for (var i=1; ground && i<cellSide.length; i++) {
+                if (typeof cellSide[i] !== 'number') ground = false;
+            }
+            var fcell = ground && this.cellIndex[cellSide.toString()];
+            if (fcell && fcell.isFunction) {
+                if (fcell.value === val) {
+                    this.trail.push({type: 'satisfy', clause: gc});
+                    gc.satisfied = true;
+                    return null;
+                }
+                if (fcell.value !== null) return false;  // assigned differently
+                if (fcell.possible.indexOf(val) === -1) return false;
+                return {cell: fcell, value: val};
+            }
+        }
+        this.registerNewDependencies(reducedTerms, occ);
+        return null;
+    }
+
+    // Non-equality predicate: all terms must reduce to numbers to evaluate.
     for (var i=0; i<reducedTerms.length; i++) {
         if (typeof reducedTerms[i] !== 'number') {
             // Some function subterm not yet assigned. Register on the
@@ -1909,18 +1948,6 @@ Model.prototype.forceLiteral = function(gc) {
             this.registerNewDependencies(reducedTerms, occ);
             return null;
         }
-    }
-
-    // Equality is pre-assigned, can't be forced:
-    if (lit.predicate === '=') {
-        var eqVal = (reducedTerms[0] === reducedTerms[1]);
-        if ((lit.positive && eqVal) || (!lit.positive && !eqVal)) {
-            // Already satisfied — mark clause satisfied
-            this.trail.push({type: 'satisfy', clause: gc});
-            gc.satisfied = true;
-            return null;
-        }
-        return false; // contradiction
     }
 
     var predCellId = lit.predicate + reducedTerms.toString();
