@@ -756,9 +756,11 @@ ModelFinder.prototype.nextStep = function() {
      * If all values for the top-level cell are exhausted, no model exists at
      * this domain size, so we increase the domain and start over.
      */
+    log('searching for model on domain '+this.model.domain+', worlds '+this.model.worlds);
 
     // Phase 1: Grounding. Done incrementally so as not to block the browser.
     if (!this.model.groundingDone) {
+        log("grounding");
         this.model.groundIncremental(50); // 50ms budget
         if (!this.model.groundingDone) return false; // more grounding to do
         if (!this.model.initOk) {
@@ -781,6 +783,7 @@ ModelFinder.prototype.nextStep = function() {
     }
 
     // Phase 2: Search loop.
+    log("trying out cell assignments");
     for (let step = 0; step < 100; step++) {
         if (this.searchStack.length === 0) {
             this.increaseDomain();
@@ -864,7 +867,7 @@ function Model(modelfinder, numIndividuals, numWorlds) {
     this.domain = Array.getArrayOfNumbers(numIndividuals);
     this.worlds = Array.getArrayOfNumbers(numWorlds);
     this.isModal = numWorlds > 0;
-    log('model domain '+this.domain+', worlds '+this.worlds);
+    log('initialised model domain '+this.domain+', worlds '+this.worlds);
 
     // list of all terms that we need to interpret:
     var terms = this.getTerms();
