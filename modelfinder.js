@@ -756,24 +756,26 @@ ModelFinder.prototype.nextStep = function() {
      * If all values for the top-level cell are exhausted, no model exists at
      * this domain size, so we increase the domain and start over.
      */
-    log('searching for model on domain '+this.model.domain+', worlds '+this.model.worlds);
+    log('=== searching for model: '+this.model.domain.length+' individuals'+(this.model.isModal ? ', '+this.model.worlds.length+' worlds' : '')+' ===');
 
     // Phase 1: Grounding. Done incrementally so as not to block the browser.
     if (!this.model.groundingDone) {
-        log("grounding");
+        log('grounding');
         this.model.groundIncremental(50); // 50ms budget
         if (!this.model.groundingDone) return false; // more grounding to do
         if (!this.model.initOk) {
-            log('initial grounding/propagation found contradiction');
+            log('initial grounding/propagation found contradiction; no model at this domain size');
             this.increaseDomain();
             return false;
         }
         // grounding finished; set up initial search state:
         var cell = this.model.selectCell();
         if (!cell) {
+            log('*** model found by initial propagation (no branching needed) ***');
             this.model.buildInterpretation();
             return true;
         }
+        log('grounding done: '+this.model.unassignedCount()+' cells to assign, '+this.model.activeClauseCount()+' active clauses; first branch on '+cell.id+' ('+cell.possible.length+' values)');
         // The searchStack is a stack of {cell, valueIdx, trailMark} objects,
         // where cell is the cell we are branching on at this level, valueIdx is
         // the index of the next value to try for that cell, and trailMark is
@@ -783,14 +785,15 @@ ModelFinder.prototype.nextStep = function() {
     }
 
     // Phase 2: Search loop.
-    log("trying out cell assignments");
     for (let step = 0; step < 100; step++) {
         if (this.searchStack.length === 0) {
+            log('search space exhausted at this domain size');
             this.increaseDomain();
             return false;
         }
 
         var searchPoint = this.searchStack[this.searchStack.length - 1];
+        var depth = this.searchStack.length;
 
         // Undo previous attempt at this level:
         this.model.undoToMark(searchPoint.trailMark);
@@ -800,20 +803,24 @@ ModelFinder.prototype.nextStep = function() {
         var values = this.model.getCellValues(searchPoint.cell);
         if (searchPoint.valueIdx >= values.length) {
             // All values exhausted — backtrack
+            log('[d'+depth+'] '+searchPoint.cell.id+': all '+values.length+' values exhausted, backtracking');
             this.searchStack.pop();
             continue;
         }
 
         var value = values[searchPoint.valueIdx];
         searchPoint.valueIdx++;
+        log('[d'+depth+'] try '+searchPoint.cell.id+' = '+value+' ('+searchPoint.valueIdx+'/'+values.length+')');
 
         var ok = this.model.assignCell(searchPoint.cell, value);
         if (ok) {
             var nextCell = this.model.selectCell();
             if (!nextCell) {
+                log('*** model found at depth '+depth+' ***');
                 this.model.buildInterpretation();
                 return true;
             }
+            log('[d'+(depth+1)+'] next branch: '+nextCell.id+' ('+nextCell.possible.length+' values, '+this.model.unassignedCount()+' cells remain)');
             this.searchStack.push({cell: nextCell, valueIdx: 0, trailMark: this.model.trail.length});
         }
         // If !ok, valueIdx is already incremented; loop tries the next value.
@@ -826,9 +833,9 @@ ModelFinder.prototype.increaseDomain = function() {
     /**
      * No model found at current domain size; increase and try again.
      */
-    log("increasing domain size");
     var numWorlds = this.model.worlds.length;
     var numIndividuals = this.model.domain.length;
+    log('no model with '+numIndividuals+' individuals'+(numWorlds ? ', '+numWorlds+' worlds' : '')+'; increasing domain');
     if (numWorlds) {
         if (this.parser.isPropositional) {
             numWorlds++;
@@ -851,6 +858,7 @@ ModelFinder.prototype.increaseDomain = function() {
     else {
         numIndividuals++;
     }
+    log('new domain size: '+numIndividuals+' individuals'+(numWorlds ? ', '+numWorlds+' worlds' : ''));
     this.model = new Model(this, numIndividuals, numWorlds);
     this.searchStack = [];
 }
@@ -1385,9 +1393,13 @@ Model.prototype.drainQueue = function(queue) {
     while (queue.length > 0) {
         var forced = queue.shift();
         if (forced.cell.value !== null) {
-            if (forced.cell.value !== forced.value) return false;
+            if (forced.cell.value !== forced.value) {
+                log('  conflict: '+forced.cell.id+' already '+forced.cell.value+', cannot force '+forced.value);
+                return false;
+            }
             continue;
         }
+        log('  forced '+forced.cell.id+' = '+forced.value);
         this.trail.push({type: 'assign', cell: forced.cell, oldPossible: forced.cell.possible});
         forced.cell.value = forced.value;
         forced.cell.possible = [];
@@ -1626,8 +1638,6 @@ Model.prototype.assignCell = function(cell, value) {
      * Returns true if the assignment is consistent, false if a contradiction
      * is found (an empty clause).
      */
-    log('assigning '+cell.id+' = '+value);
-
     // Record on trail:
     this.trail.push({type: 'assign', cell: cell, oldPossible: cell.possible});
     cell.value = value;
@@ -1685,6 +1695,7 @@ Model.prototype.processOccurrences = function(cell, queue) {
             lit.active = false;
             gc.numActive--;
             if (gc.numActive === 0) {
+                log('  empty clause #'+gc.index+' (last lit killed by '+cell.id+'='+cell.value+')');
                 return false; // contradiction: empty clause
             }
             if (gc.numActive === 1) {
@@ -1871,7 +1882,9 @@ Model.prototype.eliminateValue = function(funcCellId, value, queue) {
     if (idx < 0) return null; // already eliminated
     this.trail.push({type: 'eliminate', cell: funcCell, value: value});
     funcCell.possible.splice(idx, 1);
+    log('  eliminated '+value+' from '+funcCellId+' (now '+funcCell.possible.length+' value(s) left)');
     if (funcCell.possible.length === 0) {
+        log('  '+funcCellId+' has no possible values');
         return false; // contradiction: no values left
     }
     if (funcCell.possible.length === 1) {
@@ -2252,3 +2265,26 @@ Model.prototype.toString = function() {
      */
     return this.toHTML().replace(/<.+?>/g, '');
 }
+
+Model.prototype.unassignedCount = function() {
+    /**
+     * Count cells still up for branching, for debugging
+     */
+    var n = 0;
+    for (var i=0; i<this.cells.length; i++) {
+        var c = this.cells[i];
+        if (!c.fixed && c.value === null && c.occurrences.length > 0) n++;
+    }
+    return n;
+};
+
+Model.prototype.activeClauseCount = function() {
+    /**
+     * Count active clauses, for debugging
+     */
+    var n = 0;
+    for (var i=0; i<this.groundClauses.length; i++) {
+        if (!this.groundClauses[i].satisfied) n++;
+    }
+    return n;
+};

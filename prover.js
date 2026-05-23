@@ -110,7 +110,7 @@ Prover.prototype.nextStep = function() {
      * This function calls itself until either search succeeds.
      */
     this.step++;
-    log('*** prover step '+this.step+' alternative '+this.curAlternativeIndex+' (max '+(this.alternatives.length-1)+')');
+    log('=== prover step '+this.step+' alternative '+this.curAlternativeIndex+' (max '+(this.alternatives.length-1)+') ===');
     log(this.tree);
 
     this.status('step '+this.step+' alternative '+this.curAlternativeIndex+', '
