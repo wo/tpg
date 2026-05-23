@@ -324,17 +324,17 @@ function hashChange() {
     }
 }
 
+var hashSymbols = ' ∧∨¬↔→∀∃□◇|';  // encoded as ~X in the URL hash
+
 function encodeInputToHash(input) {
     /**
      * Convert the string in the input field into something that can safely be
      * put in the URL.
      */
-    var symbols = ' ∧∨¬↔→∀∃□◇';
-    inputNoSpaces = input.replace(/\s/g, '');
-    var hash = inputNoSpaces.replace(new RegExp('['+symbols+']', 'g'), function(match) {
-        return '~'+symbols.indexOf(match);
+    var inputNoSpaces = input.replace(/\s/g, '');
+    return inputNoSpaces.replace(new RegExp('['+hashSymbols+']', 'g'), function(m) {
+        return '~' + hashSymbols.indexOf(m).toString(36);
     });
-    return hash;
 }
 
 function decodeHashToInput(hash) {
@@ -345,9 +345,8 @@ function decodeHashToInput(hash) {
         // old way of specifing input in URL hash, and use of unusual symbols
         hash = decodeURIComponent(hash.replace(/\+/g, '%20'));
     }
-    var symbols = ' ∧∨¬↔→∀∃□◇';
-    return hash.replace(/~./g, function(match) {
-        return symbols[parseInt(match[1])];
+    return hash.replace(/~./g, function(m) {
+        return hashSymbols[parseInt(m[1], 36)];
     });
 }
 
