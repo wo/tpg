@@ -67,23 +67,21 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
             return !implied[c];
         });
         var mfS5 = u || (r && (s || e) && (t || e));
-        var name2fla = {
-            "universality": "∀v∀uRvu",
-            "reflexivity": "∀vRvv",
-            "symmetry": "∀v∀u(Rvu→Ruv)",
-            "transitivity": "∀v∀u∀t(Rvu→(Rut→Rvt))",
-            "euclidity": "∀v∀u∀t(Rvu→(Rvt→Rut))",
-            "seriality": "∀v∃uRvu"
-        };
-        var accessibilityFormluas = mfConstraints.map(function(c) {
-            return mfParser.parseAccessibilityFormula(name2fla[c]).nnf();
-        });
-        this.modelfinder = new ModelFinder(
-            this.initFormulasNNF,
-            mfParser,
-            accessibilityFormluas,
-            mfS5
-        );
+        var accFlas = [];
+        if (!mfS5) {
+            var name2fla = {
+                "universality": "∀v∀uRvu",
+                "reflexivity": "∀vRvv",
+                "symmetry": "∀v∀u(Rvu→Ruv)",
+                "transitivity": "∀v∀u∀t(Rvu→(Rut→Rvt))",
+                "euclidity": "∀v∀u∀t(Rvu→(Rvt→Rut))",
+                "seriality": "∀v∃uRvu"
+            };
+            accFlas = mfConstraints.map(function(c) {
+                return mfParser.parseAccessibilityFormula(name2fla[c]).nnf();
+            });
+        }
+        this.modelfinder = new ModelFinder(this.initFormulasNNF, mfParser, accFlas, mfS5);
     }
     else {
         this.modelfinder = new ModelFinder(this.initFormulasNNF, mfParser);

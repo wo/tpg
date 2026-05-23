@@ -1,3 +1,10 @@
+@font-face {
+  font-family: 'M Plus 1p';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: local('M PLUS 1p Medium'), local('MPLUS1p-Medium'), url('fonts/MPLUS1p-Medium.woff2') format('woff2');
+}
 body { background:#F6F2EF66; color:#293040; font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size:1.1em; margin:0; padding:0; }
 a { color:#007083; }
 #main { margin: auto; max-width:800px; }
