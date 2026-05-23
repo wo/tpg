@@ -896,6 +896,7 @@ function Model(modelfinder, numIndividuals, numWorlds) {
     this.clauseInfos = this.prepareClauseInfos();
     this.groundingClauseIdx = 0;
     this.groundingTuple = null;  // null = start of new clause
+    this.rootedWorldClausesAdded = false;
 
     // interpretation function (populated when model is found):
     this.interpretation = {};
@@ -1233,6 +1234,16 @@ Model.prototype.groundIncremental = function(timeLimit) {
         this.groundingTuple = null;
     }
 
+    // Require every non-root world to be reachable from w0:
+    if (!this.rootedWorldClausesAdded) {
+        this.rootedWorldClausesAdded = true;
+        if (!this.addRootedWorldClauses(queue)) {
+            this.initOk = false;
+            this.groundingDone = true;
+            return;
+        }
+    }
+
     log(this.groundClauses.length + ' ground clauses after simplification');
     this.groundingDone = true;
 };
@@ -1348,6 +1359,28 @@ Model.prototype.addSimplifiedClause = function(formulaClause, queue) {
         if (forced) queue.push(forced);
     }
 
+    return true;
+};
+
+Model.prototype.addRootedWorldClauses = function(queue) {
+    /**
+     * Add clauses requiring every non-root world to be reachable from
+     * a previous world (and ultimately from w0):
+     * 
+     *   R(0,w) ∨ R(1,w) ∨ ... ∨ R(w-1,w)   for each w > 0
+     */
+    if (!this.isModal) return true;
+    if (this.modelfinder.s5) return true;
+    var R = this.parser.R;
+    log('adding clauses to make the model connected');
+    for (var w = 1; w < this.worlds.length; w++) {
+        var clause = [];
+        for (var u = 0; u < w; u++) {
+            clause.push(new AtomicFormula(R, [u, w]));
+        }
+        if (!this.addSimplifiedClause(clause, queue)) return false;
+        if (!this.drainQueue(queue)) return false;
+    }
     return true;
 };
 
