@@ -1,9 +1,10 @@
 // CLI entry point for running the prover under Node.js.
-// Usage: node prover_cli.js "<formula>" [--debug[=<module>]] [--trace] [--prover9]
+// Usage: node prover_cli.js "<formula>" [--debug[=<module>]] [--trace] [--prover9] [--mace4]
 //   --debug              show debug log output
 //   --debug=modelfinder  show only modelfinder debug output
 //   --trace              show trace log output
-//   --prover9            use Prover9/Mace4 instead of the built-in prover (C-c to abort)
+//   --prover9            run Prover9 (C-c to abort)
+//   --mace4              run Mace4 (C-c to abort)
 
 const fs = require('fs');
 const path = require('path');
@@ -66,7 +67,7 @@ const cliParser = new Parser();
 const [premises, conclusion] = cliParser.parseInput(formulaStr);
 const initFormulas = premises.concat([conclusion.negate()]);
 
-if (process.argv.includes('--prover9')) {
+if (process.argv.includes('--prover9') || process.argv.includes('--mace4')) {
     // Use Prover9/Mace4 as external oracles
     const { spawnSync } = require('child_process');
     const PROVER9 = path.join(__dirname, 'Prover9/bin/prover9');
@@ -224,26 +225,34 @@ if (process.argv.includes('--prover9')) {
         return spawnSync(tool, [], { input: p9input, encoding: 'utf8', maxBuffer: 10*1024*1024, stdio: ['pipe', 'pipe', 'pipe'] });
     }
 
-    console.log('Running Prover9...');
-    var p9 = runTool(PROVER9);
-    if (/Exiting with \d+ proof/.test(p9.stdout || '')) {
-        console.log('VALID');
-        process.exit(0);
+    if (process.argv.includes('--prover9')) {
+        console.log('Running Prover9...');
+        var p9 = runTool(PROVER9);
+        if (/Exiting with \d+ proof/.test(p9.stdout || '')) {
+            console.log('VALID');
+            process.exit(0);
+        }
+        console.log('UNKNOWN (no proof found)');
+        if (debugMode) {
+            console.log('--- prover9 stdout tail ---');
+            console.log((p9.stdout || '').split('\n').slice(-20).join('\n'));
+        }
+        process.exit(1);
     }
-    console.log('Running Mace4...');
-    var m4 = runTool(MACE4);
-    if (/Exiting with \d+ model/.test(m4.stdout || '')) {
-        console.log('INVALID');
-        process.exit(0);
+    if (process.argv.includes('--mace4')) {
+        console.log('Running Mace4...');
+        var m4 = runTool(MACE4);
+        if (/Exiting with \d+ model/.test(m4.stdout || '')) {
+            console.log('INVALID');
+            process.exit(0);
+        }
+        console.log('UNKNOWN (no countermodel found)');
+        if (debugMode) {
+            console.log('--- mace4 stdout tail ---');
+            console.log((m4.stdout || '').split('\n').slice(-20).join('\n'));
+        }
+        process.exit(1);
     }
-    console.log('UNKNOWN (neither proof nor countermodel found)');
-    if (debugMode) {
-        console.log('--- prover9 stdout tail ---');
-        console.log((p9.stdout || '').split('\n').slice(-20).join('\n'));
-        console.log('--- mace4 stdout tail ---');
-        console.log((m4.stdout || '').split('\n').slice(-20).join('\n'));
-    }
-    process.exit(1);
 }
 
 if (process.argv.includes('--modelfinder-only')) {

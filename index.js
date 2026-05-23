@@ -3,8 +3,9 @@
 
 var flaFieldValue = '';
 function updateInput() {
-    // called on page load and keyup events to render symbols and toggle the
-    // accessibility row
+    /**
+     * Render symbols and toggle the accessibility row; called on page load and keyup events.
+     */
     var ostr = document.forms[0].flaField.value;
     if (ostr == flaFieldValue) {
         // no change; e.g. curser moved to highlight part of formula
@@ -19,6 +20,9 @@ function updateInput() {
 }
 
 function renderSymbols(str) {
+    /**
+     * Replace ASCII/LaTeX symbol keywords with their unicode equivalents.
+     */
     str = str.replace(/&|\^| and/ig, '∧');
     str = str.replace(/ v | or/ig, ' ∨ '); // 'v' letter => or symbol
     str = str.replace(/~|∼| not/ig, '¬');
@@ -45,6 +49,10 @@ function renderSymbols(str) {
 }
 
 function toggleAccessibilityRow() {
+    /**
+     * Show/hide the row with accessibility constraints, depending on whether
+     * the input contains modal operators.
+     */
     if (/[□◇]/.test(document.forms[0].flaField.value)) {
         document.getElementById('accessibilitySpan').style.display = 'inline-block';
     }
@@ -54,31 +62,34 @@ function toggleAccessibilityRow() {
 }
 
 function prepareUI() {
+    /**
+     * Register event handlers for symbol buttons and 'stop'/'continue' button.
+     */
     // define method to insert character at caret position upon button click:
     document.forms[0].flaField.insertAtCaret = function(str) {
-    if (document.selection) {
-        // Internet Explorer
-        this.focus();
-        sel = document.selection.createRange();
-        sel.text = str;
-        this.focus();
-    }
-    else if (this.selectionStart || this.selectionStart === 0) {
-        // Firefox and Webkit
-        var startPos = this.selectionStart;
-        var endPos = this.selectionEnd;
-        var scrollTop = this.scrollTop;
-        var val = this.value; 
-        this.value = val.substring(0, startPos)+str+val.substring(endPos,val.length);
-        this.focus();
-        this.selectionStart = startPos + str.length;
-        this.selectionEnd = startPos + str.length;
-        this.scrollTop = scrollTop;
-    } 
-    else {
-        this.value += str;
-        this.focus();
-    }
+        if (document.selection) {
+            // Internet Explorer
+            this.focus();
+            sel = document.selection.createRange();
+            sel.text = str;
+            this.focus();
+        }
+        else if (this.selectionStart || this.selectionStart === 0) {
+            // Firefox and Webkit
+            var startPos = this.selectionStart;
+            var endPos = this.selectionEnd;
+            var scrollTop = this.scrollTop;
+            var val = this.value; 
+            this.value = val.substring(0, startPos)+str+val.substring(endPos,val.length);
+            this.focus();
+            this.selectionStart = startPos + str.length;
+            this.selectionEnd = startPos + str.length;
+            this.scrollTop = scrollTop;
+        } 
+        else {
+            this.value += str;
+            this.focus();
+        }
     }
 
     document.querySelectorAll('.symbutton').forEach(function(el) {
@@ -107,6 +118,9 @@ function prepareUI() {
 
 var prover = null;
 function startProof() {
+    /**
+     * Start the proof/countermodel search; called on form submission.
+     */
     var input = document.forms[0].flaField.value;
     var parser = new Parser();
     try {
@@ -184,6 +198,9 @@ function startProof() {
 }
 
 onload = function(e) {
+    /**
+     * Register event handlers and start proof if input is submitted via URL.
+     */
     // in case the browser has automatically filled in some value into the
     // field (e.g. on reload):
     updateInput();
@@ -210,19 +227,17 @@ onload = function(e) {
 
 var hashSetByScript = false;
 function setHash() {
-    // store input in URL when submitting the form:
+    /**
+     * When the form is submitted, store the input in the URL hash.
+     */
     hashSetByScript = true; // prevent hashChange()
     var hash = encodeInputToHash(document.forms[0].flaField.value);
     if (document.getElementById('accessibilitySpan').style.display != 'none') {
-        var accessibilityConstraints = [];
+        var flags = '';
         document.querySelectorAll('.accCheckbox').forEach(function(el) {
-            if (el.checked) {
-                accessibilityConstraints.push(el.id);
-            }
+            if (el.checked) flags += el.value;
         });
-        if (accessibilityConstraints.length > 0) {
-            hash += '||'+accessibilityConstraints.join('|');
-        }
+        if (flags) hash += '.' + flags;
     }
     location.hash = hash;
 }
@@ -230,6 +245,9 @@ function setHash() {
 window.onhashchange = hashChange;
 
 function hashChange() {
+    /**
+     * When the URL hash changes, start a proof with the input specified in the hash.
+     */
     if (hashSetByScript) {
         hashSetByScript = false;
         return;
@@ -245,12 +263,28 @@ function hashChange() {
         document.getElementById("status").style.display = "none";
     }
     else {
-        var hash = location.hash.replace(/%7C/g, '|');
-        var hashparts = hash.split('||');
-        document.forms[0].flaField.value = decodeHashToInput(hashparts[0].substring(1));
-        var accessibilityConstraints = hashparts[1] ? hashparts[1].split('|') : [];
-        document.querySelectorAll('.accCheckbox').forEach(function(el) {
-            el.checked = accessibilityConstraints.includes(el.id); 
+        var hash = location.hash.substring(1);
+        var flagStr = '';
+        var checkboxes = document.querySelectorAll('.accCheckbox');
+        if (hash.indexOf('|') > -1 || hash.indexOf('%7C') > -1) {
+            // Old format: FORMULA||reflexivity|transitivity|...
+            hash = hash.replace(/%7C/g, '|');
+            var hashparts = hash.split('||');
+            document.forms[0].flaField.value = decodeHashToInput(hashparts[0]);
+            var names = hashparts[1] ? hashparts[1].split('|') : [];
+            checkboxes.forEach(function(el) {
+                if (names.includes(el.id)) flagStr += el.value;
+            });
+        }
+        else {
+            // New format: FORMULA.rtd  (one letter per constraint, see checkbox HTML)
+            var flagChars = Array.from(checkboxes).map(function(el) { return el.value; }).join('');
+            var m = hash.match(new RegExp('^(.*)\\.([' + flagChars + ']+)$'));
+            document.forms[0].flaField.value = decodeHashToInput(m ? m[1] : hash);
+            if (m) flagStr = m[2];
+        }
+        checkboxes.forEach(function(el) {
+            el.checked = flagStr.includes(el.value);
         });
         toggleAccessibilityRow();
         startProof();
@@ -259,8 +293,8 @@ function hashChange() {
 
 function encodeInputToHash(input) {
     /**
-     * convert the string in the input field into something that can safely be
-     * put in the URL
+     * Convert the string in the input field into something that can safely be
+     * put in the URL.
      */
     var symbols = ' ∧∨¬↔→∀∃□◇';
     inputNoSpaces = input.replace(/\s/g, '');
@@ -272,7 +306,7 @@ function encodeInputToHash(input) {
 
 function decodeHashToInput(hash) {
     /**
-     * invert encodeInputToHash
+     * Invert encodeInputToHash.
      */
     if (hash.indexOf('%') > -1) {
         // old way of specifing input in URL hash, and use of unusual symbols
@@ -284,9 +318,12 @@ function decodeHashToInput(hash) {
     });
 }
 
-// functions to export tree as png:
+// ===== Functions to export tree as png: =====
 
 function addExportButtons() {
+    /**
+     * Add button to export tree as png; called when tree painting is finished.
+     */
     var el = document.createElement('div');
     el.id = 'exportDiv';
     el.style.position = 'absolute';
@@ -300,7 +337,10 @@ function addExportButtons() {
 }
 
 function getTreeCoords() {
-    // dict 'left', 'right', 'top', 'bottom'
+    /**
+     * Get the coordinates of the rectangle bounding the whole tree.
+     * Returns a dict with keys 'left', 'right', 'top', 'bottom'.
+     */
     rootCoords = document.getElementById('rootAnchor').getBoundingClientRect();
     var treeCoords = {
         left: rootCoords.left,
@@ -319,10 +359,12 @@ function getTreeCoords() {
 }
 
 function getTreeHTML() {
-    // returns HTML of tree, in idiosyncratic browser format. E.g., in Firefox
-    // outerHTML does not include the dynamically set style properties for
-    // position of subelements, instead it includes non-standard 'inset'
-    // properties. To export cross-browser suitable HTML, we could add a
+    /**
+     * Get the HTML of the tree, including all dynamically set style properties.
+     */
+    // E.g., in Firefox outerHTML does not include the dynamically set style
+    // properties for position of subelements, instead it includes non-standard
+    // 'inset' properties. To export cross-browser suitable HTML, we could add a
     // 'data-style' attribute to all elements whose value we set to the computed
     // style; after collecting rootAnchor.outerHTML, we could then rename that
     // attribute to 'style'. But the present code is sufficient for generating
@@ -358,6 +400,9 @@ function getTreeHTML() {
 }
 
 function getDefaultStyle(tagName) {
+    /**
+     * Get the default style for a given tagName.
+     */
     var defaultStyle = {};
     var element = document.body.appendChild(document.createElement(tagName));
     var computedStyle = window.getComputedStyle(element);
@@ -369,6 +414,9 @@ function getDefaultStyle(tagName) {
 }
 
 function exportImage() {
+    /**
+     * Export the tree as png; called when the 'save as png' button is clicked.
+     */
     log('converting tree to image')
     // To create the image, we first need to move the external google fonts inline:
     if (!document.getElementById('localfontstyle')) {

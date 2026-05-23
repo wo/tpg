@@ -30,12 +30,12 @@
   <div id="accessibilityRow">
     <span id="accessibilitySpan">
     Accessibility is
-    <label><input type="checkbox" class="accCheckbox" id="universality" value="∀v∀uRvu"> universal (S5)</label>
-    <label><input type="checkbox" class="accCheckbox" id="reflexivity" value="∀vRvv"> reflexive</label>
-    <label><input type="checkbox" class="accCheckbox" id="symmetry" value="∀v∀u(Rvu→Ruv)"> symmetric</label>
-    <label><input type="checkbox" class="accCheckbox" id="transitivity" value="∀v∀u∀t(Rvu→(Rut→Rvt))"> transitive</label>
-    <label><input type="checkbox" class="accCheckbox" id="euclidity" value="∀v∀u∀t(Rvu→(Rvt→Rut))"> euclidean</label>
-    <label><input type="checkbox" class="accCheckbox" id="seriality" value="∀v∃uRvu"> serial</label>
+    <label><input type="checkbox" class="accCheckbox" id="universality" value="u"> universal (S5)</label>
+    <label><input type="checkbox" class="accCheckbox" id="reflexivity" value="r"> reflexive</label>
+    <label><input type="checkbox" class="accCheckbox" id="symmetry" value="s"> symmetric</label>
+    <label><input type="checkbox" class="accCheckbox" id="transitivity" value="t"> transitive</label>
+    <label><input type="checkbox" class="accCheckbox" id="euclidity" value="e"> euclidean</label>
+    <label><input type="checkbox" class="accCheckbox" id="seriality" value="d"> serial</label>
     </span>
   </div>
 </form>
