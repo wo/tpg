@@ -50,6 +50,23 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
     log("initializing modelfinder")
     var mfParser = parser.copy();
     if (accessibilityConstraints) {
+        // strip constraints entailed by the others:
+        var u = accessibilityConstraints.includes('universality'),
+            r = accessibilityConstraints.includes('reflexivity'),
+            s = accessibilityConstraints.includes('symmetry'),
+            t = accessibilityConstraints.includes('transitivity'),
+            e = accessibilityConstraints.includes('euclidity');
+        var implied = {
+            reflexivity:  u,
+            symmetry:     u || (r && e),
+            transitivity: u || (e && (s || r)),
+            euclidity:    u || (s && t),
+            seriality:    u || r
+        };
+        var mfConstraints = accessibilityConstraints.filter(function(c) {
+            return !implied[c];
+        });
+        var mfS5 = u || (r && (s || e) && (t || e));
         var name2fla = {
             "universality": "∀v∀uRvu",
             "reflexivity": "∀vRvv",
@@ -58,15 +75,14 @@ function Prover(initFormulas, parser, accessibilityConstraints) {
             "euclidity": "∀v∀u∀t(Rvu→(Rvt→Rut))",
             "seriality": "∀v∃uRvu"
         };
-        var accessibilityFormluas = accessibilityConstraints.map(function(s) {
-            return mfParser.parseAccessibilityFormula(name2fla[s]).nnf();
+        var accessibilityFormluas = mfConstraints.map(function(c) {
+            return mfParser.parseAccessibilityFormula(name2fla[c]).nnf();
         });
-        // todo: strip redundant constraints
         this.modelfinder = new ModelFinder(
             this.initFormulasNNF,
             mfParser,
             accessibilityFormluas,
-            this.s5
+            mfS5
         );
     }
     else {
