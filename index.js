@@ -61,6 +61,35 @@ function toggleAccessibilityRow() {
     }
 }
 
+function updateAccCheckboxes() {
+    /**
+     * Disable accessibility checkboxes that are logically implied by the
+     * user's other selections, and show them as checked. The user's actual
+     * intent is preserved in dataset.intent so the displayed state can be
+     * restored when an implication goes away.
+     */
+    var checkboxes = document.querySelectorAll('.accCheckbox');
+    var intent = {};
+    checkboxes.forEach(function(el) {
+        if (!el.disabled) el.dataset.intent = el.checked ? '1' : '';
+        intent[el.id] = el.dataset.intent === '1';
+    });
+    var u = intent.universality, r = intent.reflexivity, s = intent.symmetry,
+        t = intent.transitivity, e = intent.euclidity;
+    var implied = {
+        universality: false,
+        reflexivity:  u,
+        symmetry:     u || (r && e),
+        transitivity: u || (e && (s || r)),
+        euclidity:    u || (s && t),
+        seriality:    u || r
+    };
+    checkboxes.forEach(function(el) {
+        el.disabled = implied[el.id];
+        el.checked = implied[el.id] || intent[el.id];
+    });
+}
+
 function prepareUI() {
     /**
      * Register event handlers for symbol buttons and 'stop'/'continue' button.
@@ -113,6 +142,10 @@ function prepareUI() {
             prover.start();
         }
     }
+
+    document.querySelectorAll('.accCheckbox').forEach(function(el) {
+        el.onchange = updateAccCheckboxes;
+    });
 }
 
 
@@ -150,8 +183,7 @@ function startProof() {
     var accessibilityConstraints = [];
     if (parser.isModal) {
         document.querySelectorAll('.accCheckbox').forEach(function(el) {
-            if (el.checked) {
-                // accFla = parser.parseAccessibilityFormula(el.value);
+            if (el.dataset.intent === '1') {
                 accessibilityConstraints.push(el.id);
             }
         });
@@ -235,7 +267,7 @@ function setHash() {
     if (document.getElementById('accessibilitySpan').style.display != 'none') {
         var flags = '';
         document.querySelectorAll('.accCheckbox').forEach(function(el) {
-            if (el.checked) flags += el.value;
+            if (el.dataset.intent === '1' && !el.disabled) flags += el.value;
         });
         if (flags) hash += '.' + flags;
     }
@@ -286,6 +318,7 @@ function hashChange() {
         checkboxes.forEach(function(el) {
             el.checked = flagStr.includes(el.value);
         });
+        updateAccCheckboxes();
         toggleAccessibilityRow();
         startProof();
     }
