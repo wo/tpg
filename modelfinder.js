@@ -106,12 +106,13 @@ ModelFinder.prototype.getClauses = function(formulas) {
      * literals. Variables are understood as universal; existential quantifiers
      * are skolemized away.
      *
-     * A tseitin transformation is used if it reduces the number of clauses
-     * without introducing too many variables.
+     * A tseitin-type "definitional" transformation is used if it reduces the
+     * number of clauses without introducing too many variables.
      */
     var resNormal = []; // clauses computed by ordinary cnf transformation
-    var resTseitin = []; // clauses computed with tseitin transformation
-    const MAX_CLAUSES = 100000; // if cnf has more, use tseitin transformation
+    // var resTseitin = []; // clauses computed with tseitin transformation
+    var resDefinitional = []; // clauses computed with definitional transformation
+    const MAX_CLAUSES = 100000; // if cnf has more, use definitional transformation
     var usingTseitin = false;
     for (var i=0; i<formulas.length; i++) {
         var formula = formulas[i];
@@ -120,35 +121,32 @@ ModelFinder.prototype.getClauses = function(formulas) {
         log('distinctVars: '+distinctVars);
         var skolemized = this.skolemize(distinctVars);
         log('skolemized: '+skolemized);
+        var clausesDefinitional = this.definitionalCNF(skolemized);
+        log('definitional cnf: '+clausesDefinitional);
+        resDefinitional.extendNoDuplicates(clausesDefinitional);
         var quantifiersRemoved = skolemized.removeQuantifiers();
         log('qantifiers removed: '+quantifiersRemoved);
-
-        var clausesTseitin = this.tseitinCNF(quantifiersRemoved);
-        log('tseitin cnf: '+clausesTseitin);
-        resTseitin.extendNoDuplicates(clausesTseitin);
         try {
             var clauses = this.cnf(quantifiersRemoved, MAX_CLAUSES);
             resNormal.extendNoDuplicates(clauses);
             log('cnf: '+clauses);
         } catch(e) {
             if (e.message !== "CNF_TOO_BIG") throw e;
-            log('CNF too big, using tseitin transformation for this formula');
-            resNormal.extendNoDuplicates(clausesTseitin);
+            log('CNF too big, using definitional transformation for this formula');
+            resNormal.extendNoDuplicates(clausesDefinitional);
             usingTseitin = true;
         }
     }
-    // order clauses by length (number of disjuncts):
-    resNormal.sort(function(a,b){ return a.length - b.length; });
     resNormal = this.simplifyClauses(resNormal);
-    resTseitin.sort(function(a,b){ return a.length - b.length; });
-    resTseitin = this.simplifyClauses(resTseitin);
-    resTseitin = this.eliminateUniversalTseitinPredicates(resTseitin);
-    log('combined non-tseitin clauses: '+resNormal);
-    log('combined tseitin clauses: '+resTseitin);
-    
-    // Estimate grounding cost at domain size 2: sum of 2^(num_vars) per clause.
+    resDefinitional = this.simplifyClauses(resDefinitional);
+    resDefinitional = this.eliminateUniversalTseitinPredicates(resDefinitional);
+    log('combined standard clauses: '+resNormal);
+    log('combined definitional clauses: '+resDefinitional);
+
+    // Estimate which set of clauses is likely to be faster to ground and search:
     var parser = this.parser;
     function groundingCost(clauses) {
+        // estimate grounding cost at domain size 2: sum of 2^(num_vars) per clause.
         var cost = 0;
         for (var i=0; i<clauses.length; i++) {
             var vars = [];
@@ -160,26 +158,41 @@ ModelFinder.prototype.getClauses = function(formulas) {
         }
         return cost;
     }
+    function newCells(clauses) {
+        // count the cells the new predicates in <clauses> will need.
+        var predicates = new Set();
+        for (var i=0; i<clauses.length; i++) {
+            for (var j=0; j<clauses[i].length; j++) {
+                var lit = clauses[i][j];
+                var pred = (lit.sub || lit).predicate;
+                if (parser.expressionType[pred] === 'tseitin predicate') {
+                    predicates.add(pred);
+                }
+            }
+        }
+        var cells = 0;
+        predicates.forEach(function(pred) { cells += Math.pow(2, parser.arities[pred]) });
+        return cells;
+    }
     var costPlain = groundingCost(resNormal);
-    var costTseitin = groundingCost(resTseitin);
-    log('grounding cost (plain): '+costPlain+', (tseitin): '+costTseitin);
+    var costDefinitional = groundingCost(resDefinitional);
+    var extraCells = newCells(resDefinitional) - newCells(resNormal);
+    log('grounding cost (plain): '+costPlain+', (definitional): '+costDefinitional+' with '+extraCells+' extra cells');
     var chosen;
-    if (costTseitin < costPlain) {
-        log('using combined tseitin cnf');
-        chosen = resTseitin;
+    if (costDefinitional * (1 + Math.max(0, extraCells)) < costPlain) {
+        log('using combined definitional cnf');
+        chosen = resDefinitional;
     }
     else {
-        log('using combined non-tseitin cnf');
+        log('using combined standard cnf');
         chosen = resNormal;
         if (usingTseitin) {
             chosen = this.eliminateUniversalTseitinPredicates(chosen);
         }
     }
+    
     // Remove from the parser every tseitin predicate that no longer appears in
-    // any chosen clause (tseitinCNF runs for every input formula, so it always
-    // leaves predicates behind in the parser even when plain CNF is ultimately
-    // chosen); also clean up predicates dropped by
-    // eliminateUniversalTseitinPredicates:
+    // any chosen clause:
     var used = new Set();
     for (var i=0; i<chosen.length; i++) {
         for (var j=0; j<chosen[i].length; j++) {
@@ -196,7 +209,326 @@ ModelFinder.prototype.getClauses = function(formulas) {
         }
         return true;
     }.bind(this));
+
     return chosen;
+}
+
+ModelFinder.prototype.makeVariablesDistinct = function(formula) {
+    /**
+     * Return an equivalent variant of <formula> that doesn't reuse the same
+     * variable (for conversion to prenex normal form); <formula> must be in
+     * NNF.
+     */
+    var usedVariables = arguments[1] || [];
+    var parser = this.parser;
+    // log('making variables distinct in '+formula+' (used '+usedVariables+')');
+    if (formula.matrix) {
+        var nmatrix = formula.matrix;
+        var nvar = formula.variable;
+        if (usedVariables.includes(formula.variable)) {
+            // log('need new variable instead of '+formula.variable);
+            nvar = parser.expressionType[nvar] == 'world variable' ?
+                parser.getNewWorldVariable() : parser.getNewVariable();
+            nmatrix = nmatrix.substitute(formula.variable, nvar);
+        }
+        usedVariables.push(nvar);
+        nmatrix = this.makeVariablesDistinct(nmatrix, usedVariables);
+        // log('back at '+formula+': new matrix is '+nmatrix);
+        if (nmatrix == formula.matrix) return formula;
+        return new QuantifiedFormula(formula.quantifier, nvar, nmatrix, formula.overWorlds);
+    }
+    if (formula.sub1) {
+        var nsub1 = this.makeVariablesDistinct(formula.sub1, usedVariables);
+        var nsub2 = this.makeVariablesDistinct(formula.sub2, usedVariables);
+        if (formula.sub1 == nsub1 && formula.sub2 == nsub2) return formula;
+        return new BinaryFormula(formula.operator, nsub1, nsub2);
+    }
+    // literal:
+    return formula;
+}
+
+ModelFinder.prototype.skolemize = function(formula) {
+    /**
+     * Return <formula> with existential quantifiers skolemized away.
+     */
+    log('skolemizing '+formula);
+    var boundVars = arguments[1] ? arguments[1].copy() : [];
+    // log(formula.string+' bv: '+boundVars);
+    var parser = this.parser;
+    if (formula.quantifier == '∃') {
+        // skolemize on variables that are bound at this point and that occur in
+        // the matrix (ignoring formula.variable)
+        var skolemVars = [];
+        var matrixVars = parser.getVariables(formula.matrix);
+        boundVars.forEach(function(v) {
+            if (matrixVars.includes(v)) skolemVars.push(v);
+        });
+        var isWorldType = parser.expressionType[formula.variable] == 'world variable';
+        var skolemTerm;
+        if (skolemVars.length > 0) {
+            var funcSymbol = parser.getNewFunctionSymbol(skolemVars.length, isWorldType);
+            parser.functionArgTypes[funcSymbol] = skolemVars.map(function(v) {
+                return parser.expressionType[v];
+            });
+            var skolemTerm = skolemVars;
+            skolemTerm.unshift(funcSymbol);
+        }
+        else skolemTerm = isWorldType ? parser.getNewWorldName() : parser.getNewConstant();
+        var nmatrix = formula.matrix.substitute(formula.variable, skolemTerm);
+        // nmatrix.constants.push(skolemVars.length > 0 ? funcSymbol : skolemTerm);
+        nmatrix = this.skolemize(nmatrix, boundVars);
+        return nmatrix;
+    }
+    if (formula.quantifier) { // ∀
+        boundVars.push(formula.variable);
+        var nmatrix = this.skolemize(formula.matrix, boundVars);
+        if (nmatrix == formula.matrix) return formula;
+        return new QuantifiedFormula(formula.quantifier, formula.variable, nmatrix,
+                                     formula.overWorlds);
+    }
+    if (formula.sub1) {
+        var nsub1 = this.skolemize(formula.sub1, boundVars);
+        var nsub2 = this.skolemize(formula.sub2, boundVars);
+        if (formula.sub1 == nsub1 && formula.sub2 == nsub2) return formula;
+        return new BinaryFormula(formula.operator, nsub1, nsub2);
+    }
+    // literal:
+    return formula;
+}
+
+ModelFinder.prototype.cnf = function(formula, maxClauses = Infinity) {
+    /**
+     * Convert <formula> (in NNF) to CNF.
+     *
+     * This can easily blow up and crash the browser, e.g. for
+     * ∀y(m=y↔(∀x(Lxy↔Fx)∧(y=e∨∃zLzy))∨(y=e∧¬∃C∀x(LxC↔Fx)))↔∀y(m=y↔¬(∀x(Lxy↔Fx)∧∃zLzy)→((∀x(Lxy↔Fx)∧y=e)∨(y=e∧¬∃C∀x(LxC↔Fx))))
+     * We throw an error if the CNF would have more than <maxClauses> clauses.
+     */
+
+    const cnfClauseKey = this.cnfClauseKey;
+    const cnfNormalizeClause = this.cnfNormalizeClause;
+
+    function cnfOr(dis1, dis2) {
+        /**
+         * Disjoin <dis1> and <dis2> for CNF computation.
+         *
+         * dis1 is [C1, C2 ...], dis2 is [D1, D2, ...], where the elements are
+         * clauses, i.e. disjunctions of literals; (C1 & C2 & ...) v (D1 & D2 & ..)
+         * is equivalent to (C1 v D1) & (C1 v D2) & ... (C2 v D1) & (C2 V D2) & ...;
+         * so we should return [C1+D1, C1+D2, ..., C2+D1, C2+D2, ...], but we drop
+         * duplicate clauses and tautologies (e.g. [p,¬p]). This can blow up.
+         */
+        const res = [];
+        const seenClauses = new Set();
+
+        if (dis1.length === 0 || dis2.length === 0) return [];
+        if (dis1.length === 1 && dis1[0].length === 0) return dis2; // false v d2 = d2
+        if (dis2.length === 1 && dis2[0].length === 0) return dis1; // d1 v false = d1                                                                
+
+        if (dis1.length * dis2.length > maxClauses) {
+            throw new Error("CNF_TOO_BIG");
+        }
+
+        for (const cl1 of dis1) {
+            for (const cl2 of dis2) {
+                const merged = cnfNormalizeClause(cl1.concat(cl2));
+                if (merged === null) continue; // drop tautology clause
+                const key = cnfClauseKey(merged);
+                if (seenClauses.has(key)) continue; // duplicate clause
+                seenClauses.add(key);
+                res.push(merged);
+            }
+        }
+        return res;
+    }
+
+    function toCNF(formula) {
+        if (formula.type == 'literal') {
+            // CNF with 1 clause containing the literal:
+            return [[formula]];
+        }
+        if (formula.operator == '∨') {
+            return cnfOr(toCNF(formula.sub1), toCNF(formula.sub2));
+        }
+        if (formula.operator == '∧') {
+            // Conjoin the conjuncts of the (flattened) conjunction <formula>.
+            // If the first conjunct has CNF [C1, C2 ...] and the second [D1, D2,
+            // ...], where the elements are clauses, we collect [C1, C2, ..., D1,
+            // D2, ...], dropping duplicates.
+            const res = [];
+            const seen = new Set();
+            const todo = [formula.sub2, formula.sub1];
+            while (todo.length > 0) {
+                const conjunct = todo.pop();
+                if (conjunct.operator == '∧') {
+                    todo.push(conjunct.sub2, conjunct.sub1);
+                    continue;
+                }
+                for (const cl of toCNF(conjunct)) {
+                    const key = cnfClauseKey(cl);
+                    if (seen.has(key)) continue; // duplicate clause
+                    seen.add(key);
+                    res.push(cl);
+                }
+            }
+            return res;
+        }
+        throw new Error('internal error: cnf() requires a formula in NNF')
+    }
+
+    return toCNF(formula);
+}
+
+ModelFinder.prototype.cnfClauseKey = function(clause) {
+    /**
+     * Return a string key for <clause> for duplicate detection.
+     * Clause must already be normalized + sorted.
+     */
+    return clause.cnfKey || (clause.cnfKey = clause.map(l => l.key()).join("\t"));
+};
+
+ModelFinder.prototype.cnfNormalizeClause = function(clause) {
+    /**
+     * Normalize <clause> by removing duplicates and contradictions, and sorting
+     * literals in a canonical order. Return null if the clause is a tautology.
+     */
+    const seen = new Map(); // atom.key() -> +1 or -1
+    const res = [];
+
+    for (const lit of clause) {
+        const atomKey = (lit.sub || lit).key();
+        const pol = lit.sub ? -1 : 1;
+        const prev = seen.get(atomKey);
+        if (prev === -pol) return null; // tautology: p and ¬p both present
+        if (prev === pol) continue;     // duplicate literal
+        seen.set(atomKey, pol);
+        res.push(lit);
+    }
+
+    res.sort((x, y) => x.key() < y.key() ? -1 : x.key() > y.key() ? 1 : 0);
+    return res;
+};
+
+
+ModelFinder.prototype.definitionalCNF = function(formula) {
+    /**
+     * Convert <formula> (skolemized, NNF) into definitional CNF.
+     *
+     * An ordinary CNF is computed by multiplying out disjunctions: (A ∧ B) ∨ C
+     * turns into (A ∨ C) ∧ (B ∨ C). This duplication of C can blow up
+     * exponentially.
+     *
+     * A definitional CNF avoids the duplication by introducing new predicates
+     * as names for subformulas. E.g., if we introduce $ as a name for A ∧ B, we
+     * can turn (A ∧ B) ∨ C into $ ∨ C; we could then add $ ↔ (A ∧ B) to restore
+     * equivalence. In fact, since <formula> is in NNF, it suffices to add $ →
+     * (A ∧ B). For (A ∧ B) ∨ C, the resulting CNF is therefore
+     *
+     *    [$, C], [¬$, A], [¬$, B]
+     *
+     * instead of [A, C], [B, C]. C is no longer duplicated, at the price of a
+     * new predicate.
+     *
+     * Every model of the original formula can be turned into a model of these
+     * clauses by making $ true where A ∧ B is true, and every model of the
+     * clauses is a model of <formula> once we ignore $.
+     *
+     * We have to be careful with free variables. Consider ∃xFx → ∃xGx.
+     * Skolemized, this becomes ¬Fx ∨ Ga. The tseitin CNF of that is
+     *
+     * ($ ↔ ¬Fx) ∧ ($ ∨ Ga).
+     *
+     * If we create the instances of this universal requirement for all members
+     * of domain { 0,1 }, we get
+     *
+     * ($ ↔ ¬F0) ∧ ($ ∨ Ga) and
+     * ($ ↔ ¬F1) ∧ ($ ∨ Ga),
+     *
+     * which wrongly requires F0 ↔ F1. So we don't use new proposition letters
+     * $, but first-order formulas: with $x instead of $, the transform is
+     * 
+     * ($x ↔ ¬Fx) ∧ ($x ∨ Ga).
+     *
+     * The instances are
+     *
+     * ($0 ↔ ¬F0) ∧ ($0 ∨ Ga) and
+     * ($1 ↔ ¬F1) ∧ ($1 ∨ Ga).
+     * 
+     * In general, a tseitin predicate $ for a formula S has to take an argument
+     * for each free variable in S.
+     * 
+     * We don't name every non-literal subformula, but only those where a name
+     * saves something ("renaming", in the sense of Boy de la Tour, "An
+     * optimality result for clause form translation", 1992). 
+     */
+    var parser = this.parser;
+    var defClauses = [];
+    var MAX_DISTRIBUTE = 200;
+    if (!this.tseitinPredicates) this.tseitinPredicates = {};
+    var tseitinPredicates = this.tseitinPredicates;
+
+    function hasQuantifier(f) {
+        if (f.quantifier) return true;
+        if (f.sub) return hasQuantifier(f.sub);
+        if (f.sub1) return hasQuantifier(f.sub1) || hasQuantifier(f.sub2);
+        return false;
+    }
+
+    function nameOf(f, boundVars) {
+        // introduce P(x̄) for f and emit [¬P(x̄)] ∪ C for each clause C of f
+        var varsInF = parser.getVariables(f);
+        var vars = boundVars.filter(function(v) { return varsInF.includes(v) });
+        var key = f.string+'|'+vars;
+        if (tseitinPredicates[key]) return tseitinPredicates[key];
+        var pSym = parser.getNewSymbol('$', 'tseitin predicate', vars.length);
+        parser.predicateArgTypes[pSym] = vars.map(function(v) {
+            return parser.expressionType[v];
+        });
+        var p = new AtomicFormula(pSym, vars);
+        tseitinPredicates[key] = p;
+        var inner = cnfOf(f, boundVars);
+        if (inner === null) return null;
+        var negp = new NegatedFormula(p);
+        for (var i=0; i<inner.length; i++) defClauses.push([negp].concat(inner[i]));
+        return p;
+    }
+
+    function cnfOf(f, boundVars) {
+        if (f.type == 'literal') return [[f]];
+        if (f.quantifier == '∃') return null;
+        if (f.quantifier) { // ∀: drop it, the variable stays universal
+            return cnfOf(f.matrix, boundVars.concat([f.variable]));
+        }
+        if (f.operator == '∧') {
+            var a = cnfOf(f.sub1, boundVars), b = cnfOf(f.sub2, boundVars);
+            if (a === null || b === null) return null;
+            return a.concat(b);
+        }
+        if (f.operator != '∨') return null;
+        var sides = [f.sub1, f.sub2].map(function(sub) {
+            // a quantified disjunct gets a name; otherwise its variables would
+            // be merged into every clause the other side contributes
+            if (hasQuantifier(sub)) {
+                var p = nameOf(sub, boundVars);
+                return p === null ? null : [[p]];
+            }
+            return cnfOf(sub, boundVars);
+        });
+        if (sides.includes(null)) return null;
+        if (sides[0].length * sides[1].length > MAX_DISTRIBUTE) {
+            var p = nameOf(f.sub2, boundVars);
+            if (p === null) return null;
+            sides[1] = [[p]];
+        }
+        var res = [];
+        for (var i=0; i<sides[0].length; i++)
+            for (var j=0; j<sides[1].length; j++)
+                res.push(sides[0][i].concat(sides[1][j]));
+        return res;
+    }
+
+    var top = cnfOf(formula, []);
+    return defClauses.concat(top);
 }
 
 ModelFinder.prototype.eliminateUniversalTseitinPredicates = function(clauses) {
@@ -270,7 +602,7 @@ ModelFinder.prototype.eliminateUniversalTseitinPredicates = function(clauses) {
             }
             if (satisfied) continue;
             if (newClause.length === 0) return [[]];
-            var key = newClause.map(function(l) { return l.key(); }).join("\t");
+            var key = this.cnfClauseKey(newClause);
             if (seen.has(key)) continue;
             seen.add(key);
             nl2.push(newClause);
@@ -279,398 +611,6 @@ ModelFinder.prototype.eliminateUniversalTseitinPredicates = function(clauses) {
     }
     return nl;
 };
-
-ModelFinder.prototype.makeVariablesDistinct = function(formula) {
-    /**
-     * Return an equivalent variant of <formula> that doesn't reuse the same
-     * variable (for conversion to prenex normal form); <formula> must be in
-     * NNF.
-     */
-    var usedVariables = arguments[1] || [];
-    var parser = this.parser;
-    // log('making variables distinct in '+formula+' (used '+usedVariables+')');
-    if (formula.matrix) {
-        var nmatrix = formula.matrix;
-        var nvar = formula.variable;
-        if (usedVariables.includes(formula.variable)) {
-            // log('need new variable instead of '+formula.variable);
-            nvar = parser.expressionType[nvar] == 'world variable' ?
-                parser.getNewWorldVariable() : parser.getNewVariable();
-            nmatrix = nmatrix.substitute(formula.variable, nvar);
-        }
-        usedVariables.push(nvar);
-        nmatrix = this.makeVariablesDistinct(nmatrix, usedVariables);
-        // log('back at '+formula+': new matrix is '+nmatrix);
-        if (nmatrix == formula.matrix) return formula;
-        return new QuantifiedFormula(formula.quantifier, nvar, nmatrix, formula.overWorlds);
-    }
-    if (formula.sub1) {
-        var nsub1 = this.makeVariablesDistinct(formula.sub1, usedVariables);
-        var nsub2 = this.makeVariablesDistinct(formula.sub2, usedVariables);
-        if (formula.sub1 == nsub1 && formula.sub2 == nsub2) return formula;
-        return new BinaryFormula(formula.operator, nsub1, nsub2);
-    }
-    // literal:
-    return formula;
-}
-
-ModelFinder.prototype.skolemize = function(formula) {
-    /**
-     * Return <formula> with existential quantifiers skolemized away.
-     */
-    log('skolemizing '+formula);
-    var boundVars = arguments[1] ? arguments[1].copy() : [];
-    // log(formula.string+' bv: '+boundVars);
-    var parser = this.parser;
-    if (formula.quantifier == '∃') {
-        // skolemize on variables that are bound at this point and that occur in
-        // the matrix (ignoring formula.variable)
-        var skolemVars = [];
-        boundVars.forEach(function(v) {
-            if (formula.matrix.string.indexOf(v) > -1) skolemVars.push(v);
-        });
-        var isWorldType = parser.expressionType[formula.variable] == 'world variable';
-        var skolemTerm;
-        if (skolemVars.length > 0) {
-            var funcSymbol = parser.getNewFunctionSymbol(skolemVars.length, isWorldType);
-            parser.functionArgTypes[funcSymbol] = skolemVars.map(function(v) {
-                return parser.expressionType[v];
-            });
-            var skolemTerm = skolemVars;
-            skolemTerm.unshift(funcSymbol);
-        }
-        else skolemTerm = isWorldType ? parser.getNewWorldName() : parser.getNewConstant();
-        var nmatrix = formula.matrix.substitute(formula.variable, skolemTerm);
-        // nmatrix.constants.push(skolemVars.length > 0 ? funcSymbol : skolemTerm);
-        nmatrix = this.skolemize(nmatrix, boundVars);
-        return nmatrix;
-    }
-    if (formula.quantifier) { // ∀
-        boundVars.push(formula.variable);
-        var nmatrix = this.skolemize(formula.matrix, boundVars);
-        if (nmatrix == formula.matrix) return formula;
-        return new QuantifiedFormula(formula.quantifier, formula.variable, nmatrix,
-                                     formula.overWorlds);
-    }
-    if (formula.sub1) {
-        var nsub1 = this.skolemize(formula.sub1, boundVars);
-        var nsub2 = this.skolemize(formula.sub2, boundVars);
-        if (formula.sub1 == nsub1 && formula.sub2 == nsub2) return formula;
-        return new BinaryFormula(formula.operator, nsub1, nsub2);
-    }
-    // literal:
-    return formula;
-}
-
-ModelFinder.prototype.tseitinCNF = function(formula) {
-    /**
-     * Convert <formula> into tseitin CNF.
-     *
-     * We sometimes use a kind of tseitin transformation to keep the number of
-     * clauses under control. The tseitin transform of a propositional formula F
-     * is created by introducing a new sentence letter $ for each non-atomic
-     * subformula of F and listing the equivalences between $ and the relevant
-     * subformula, with non-trivial subsubformulas replaced by their tseitin
-     * letters. E.g., for F = p -> ~q, we would list
-     * 
-     *    $ <-> ~q
-     *    $' <-> (p -> $1).
-     * 
-     * The tseitin transform of F is the tseitin letter for the whole formula
-     * conjoined with the equivalences:
-     * 
-     *    $' & ($ <-> ~q) & ($' <-> (p -> $)).
-     *
-     * The tseitin CNF converts this into a conjunction of disjunctions.
-     *
-     * We have to be careful with free variables. Consider ∃xFx → ∃xGx.
-     * Skolemized, this becomes ¬Fx ∨ Ga. The tseitin CNF of that is
-     *
-     * ($ ↔ ¬Fx) ∧ ($ ∨ Ga).
-     *
-     * If we create the instances of this universal requirement for all members
-     * of domain { 0,1 }, we get
-     *
-     * ($ ↔ ¬F0) ∧ ($ ∨ Ga) and
-     * ($ ↔ ¬F1) ∧ ($ ∨ Ga),
-     *
-     * which wrongly requires F0 ↔ F1. So we don't use new proposition letters
-     * $, but first-order formulas: with $x instead of $, the transform is
-     * 
-     * ($x ↔ ¬Fx) ∧ ($x ∨ Ga).
-     *
-     * The instances are
-     *
-     * ($0 ↔ ¬F0) ∧ ($0 ∨ Ga) and
-     * ($1 ↔ ¬F1) ∧ ($1 ∨ Ga).
-     * 
-     */
-    if (formula.type == 'literal') {
-        return [[formula]];
-    }
-
-    log('creating tseitin transform of '+formula);
-    if (formula.operator == '∧') {
-        // easy: TCNF(A & B) = [TCNF(A), TCNF(B)]:
-        var res = this.tseitinCNF(formula.sub1).concatNoDuplicates(
-            this.tseitinCNF(formula.sub2))
-        res.sort(function(a,b){ return a.length - b.length; });
-        return res;
-    }
-    
-    // collect all non-atomic subformulas:
-    var subformulas = this.tseitinSubFormulas([formula]).removeDuplicates();
-    // sort by increasing complexity:
-    subformulas.sort(function(a,b) {
-        return tseitinComplexity(a) - tseitinComplexity(b);
-    });
-    // Now introduce a new atomic formula for each non-literal subformula.
-    if (!this.tseitinFormulas) {
-        this.tseitinFormulas = {}; // subformula => formula, so that we use the
-                                   // same tseitin formula for the same
-                                   // subformula in different <formula>s
-    }
-    var clauses = [];
-    while (subformulas.length) {
-        var subf = subformulas.shift();
-        log('  subformula '+subf)
-        var p = this.tseitinFormulas[subf.string];
-        if (!p) {
-            var vars = this.parser.getVariables(subf); // optimise!
-            var pSym = this.parser.getNewSymbol('$', 'tseitin predicate', vars.length);
-            this.parser.predicateArgTypes[pSym] = vars.map(function(v) {
-                return this.parser.expressionType[v];
-            }.bind(this));
-            p = new AtomicFormula(pSym, vars);
-            this.tseitinFormulas[subf.string] = p;
-            // add 'p <-> S':
-            var bicond = new BinaryFormula('↔', p, subf);
-            clauses.extendNoDuplicates(this.cnf(bicond));
-            log('  adding clause for '+bicond+': '+clauses);
-        }
-        // else log('subformula already known');
-        if (subformulas.length == 0) {
-            // add p itself:
-            clauses.extendNoDuplicates([[p]]);
-            log('  adding tseitin formula '+p);
-        }
-        // replace all occurrences of sentence in the list by p:
-        for (var i=0; i<subformulas.length; i++) {
-            subformulas[i] = this.tseitinReplace(subformulas[i], subf, p);
-        }
-    }
-    clauses.sort(function(a,b){ return a.length - b.length; });
-    return clauses;
-
-    function tseitinComplexity(formula) {
-        // return degree of complexity of <formula>, for sorting
-        if (formula.sub) {
-            return 1 + tseitinComplexity(formula.sub);
-        }
-        if (formula.sub1) {
-            return 1 + Math.max(tseitinComplexity(formula.sub1),
-                                tseitinComplexity(formula.sub2));
-        }
-        return 0;
-    }
-
-}
-
-ModelFinder.prototype.tseitinSubFormulas = function(formulas) {
-    /**
-     * Return non-literal subformulas of <formulas>.
-     */
-    var res = []
-    for (var i=0; i<formulas.length; i++) {
-        if (formulas[i].type != 'literal') {
-            var subformulas = formulas[i].sub ? [formulas[i].sub] :
-                formulas[i].sub1 ? [formulas[i].sub1, formulas[i].sub2] : null;
-            res.extend(this.tseitinSubFormulas(subformulas));
-            res.unshift(formulas[i]);
-        }
-    }
-    return res;
-}
-
-ModelFinder.prototype.tseitinReplace = function(formula, f1, f2) {
-    /**
-     * Replace all occurrences of <f1> in <formula> by <f2>.
-     */
-    if (formula.equals(f1)) return f2;
-    if (formula.sub) {
-        var nsub = this.tseitinReplace(formula.sub, f1, f2);
-        if (nsub == formula.sub) return formula;
-        return new NegatedFormula(nsub);
-    }
-    if (formula.sub1) {
-        var nsub1 = this.tseitinReplace(formula.sub1, f1, f2);
-        var nsub2 = this.tseitinReplace(formula.sub2, f1, f2);
-        if (formula.sub1 == nsub1 && formula.sub2 == nsub2) return formula;
-        return new BinaryFormula(formula.operator, nsub1, nsub2);
-    }
-    return formula;
-}
-
-ModelFinder.prototype.cnf = function(formula, maxClauses) {
-    /**
-     * Convert <formula> to CNF.
-     *
-     * The formula need not be in NNF (because of tseitin transformations).
-     *
-     * This can easily blow up and crash the browser, e.g. for
-     * ∀y(m=y↔(∀x(Lxy↔Fx)∧(y=e∨∃zLzy))∨(y=e∧¬∃C∀x(LxC↔Fx)))↔∀y(m=y↔¬(∀x(Lxy↔Fx)∧∃zLzy)→((∀x(Lxy↔Fx)∧y=e)∨(y=e∧¬∃C∀x(LxC↔Fx))))
-     * We throw an error if the CNF would have more than <maxClauses> clauses.
-     */
-    if (formula.type == 'literal') {
-        // return CNF with 1 clause containing the literal:
-        return [[formula]];
-    }
-    var con, dis;
-    switch (formula.operator) {
-        case '∧': {
-            con = [this.cnf(formula.sub1, maxClauses), this.cnf(formula.sub2, maxClauses)];
-            break;
-        }
-        case '∨': {
-            dis = [this.cnf(formula.sub1, maxClauses), this.cnf(formula.sub2, maxClauses)];
-            break;
-        }
-        case '→': {
-            dis = [this.cnf(formula.sub1.negate(), maxClauses), this.cnf(formula.sub2, maxClauses)];
-            break;
-        }
-        case '↔' : {
-            var con1 = this.cnf(new BinaryFormula('→', formula.sub1, formula.sub2), maxClauses);
-            var con2 = this.cnf(new BinaryFormula('→', formula.sub2, formula.sub1), maxClauses);
-            con = [con1, con2];
-            break;
-        }
-        case '¬' : {
-            var sub = formula.sub;
-            switch (sub.operator) {
-                case '∧': {
-                    dis = [this.cnf(sub.sub1.negate(), maxClauses), this.cnf(sub.sub2.negate(), maxClauses)];
-                    break;
-                }
-                case '∨': {
-                    con = [this.cnf(sub.sub1.negate(), maxClauses), this.cnf(sub.sub2.negate(), maxClauses)];
-                    break;
-                }
-                case '→': {
-                    con = [this.cnf(sub.sub1, maxClauses), this.cnf(sub.sub2.negate(), maxClauses)];
-                    break;
-                }
-                case '↔' : {
-                    var con1 = this.cnf(new BinaryFormula('∨', sub.sub1, sub.sub2), maxClauses);
-                    var con2 = this.cnf(new BinaryFormula('∨', sub.sub1.negate(), sub.sub2.negate()), maxClauses);
-                    con = [con1, con2];
-                    break;
-                }
-                case '¬' : {
-                    return this.cnf(sub.sub, maxClauses);
-                }
-            }
-        }
-    }
-
-    if (con) return this.cnfAnd(con[0], con[1]);
-    else if (dis) return this.cnfOr(dis[0], dis[1], maxClauses);
-    else return [];
-}
-
-ModelFinder.prototype.cnfAnd = function(con1, con2) {
-    /**
-     * Conjoin <con1> and <con2> for CNF computation.
-     *
-     * con1 is [C1, C2 ...], con2 is [D1, D2, ...], where the elements are
-     * clauses; we return [C1, C2, ..., D1, D2, ...], but dropping tautologies
-     * and duplicates.
-     */
-    if (con1.length === 0) return con2;
-    if (con2.length === 0) return con1;
-
-    const res = con1.slice(); // copy con1
-    const seen = new Set();
-    for (const cl of con1) seen.add(this.cnfClauseKey(cl));
-    for (const cl of con2) {
-        const key = this.cnfClauseKey(cl);
-        if (seen.has(key)) continue; // duplicate clause
-        seen.add(key);
-        res.push(cl);
-    }
-
-    return res;
-};
-
-ModelFinder.prototype.cnfOr = function(dis1, dis2, maxClauses) {
-    /**
-     * Disjoin <dis1> and <dis2> for CNF computation.
-     *
-     * dis1 is [C1, C2 ...], dis2 is [D1, D2, ...], where the elements are
-     * clauses, i.e. disjunctions of literals; (C1 & C2 & ...) v (D1 & D2 & ..)
-     * is equivalent to (C1 v D1) & (C1 v D2) & ... (C2 v D1) & (C2 V D2) & ...;
-     * so we should return [C1+D1, C1+D2, ..., C2+D1, C2+D2, ...], but we drop
-     * duplicate clauses and tautologies (e.g. [p,¬p]). This can blow up.
-     */
-    const res = [];
-    const seenClauses = new Set();
-
-    if (dis1.length === 0 || dis2.length === 0) return [];
-    if (dis1.length === 1 && dis1[0].length === 0) return dis2; // false v d2 = d2
-    if (dis2.length === 1 && dis2[0].length === 0) return dis1; // d1 v false = d1                                                                
-
-    if (dis1.length * dis2.length > maxClauses) {
-        const err = new Error("CNF_TOO_BIG");
-        throw err;
-    }
-
-    for (const cl1 of dis1) {
-        for (const cl2 of dis2) {
-            const merged = this.cnfNormalizeClause(cl1.concat(cl2));
-            if (merged === null) continue; // drop tautology clause
-            const key = this.cnfClauseKey(merged);
-            if (seenClauses.has(key)) continue; // duplicate clause
-            seenClauses.add(key);
-            res.push(merged);
-            if (res.length > maxClauses) {
-                const err = new Error("CNF_TOO_BIG");
-                throw err;
-            }
-        }
-    }
-    return res;
-};
-
-ModelFinder.prototype.cnfClauseKey = function(clause) {
-    /**
-     * Return a string key for <clause> for duplicate detection.
-     * Clause must already be normalized + sorted.
-     */
-    return clause.cnfKey || (clause.cnfKey = clause.map(l => l.key()).join("\t"));
-};
-
-ModelFinder.prototype.cnfNormalizeClause = function(clause) {
-    /**
-     * Normalize <clause> by removing duplicates and contradictions, and sorting
-     * literals in a canonical order. Return null if the clause is a tautology.
-     */
-    const seen = new Map(); // atom.key() -> +1 or -1
-    const res = [];
-
-    for (const lit of clause) {
-        const atomKey = (lit.sub || lit).key();
-        const pol = lit.sub ? -1 : 1;
-        const prev = seen.get(atomKey);
-        if (prev === -pol) return null; // tautology: p and ¬p both present
-        if (prev === pol) continue;     // duplicate literal
-        seen.set(atomKey, pol);
-        res.push(lit);
-    }
-
-    res.sort((x, y) => x.key() < y.key() ? -1 : x.key() > y.key() ? 1 : 0);
-    return res;
-};
-
 
 ModelFinder.prototype.simplifyClauses = function(clauseList) {
     /**
@@ -773,6 +713,7 @@ ModelFinder.prototype.nextStep = function() {
         if (!cell) {
             log('*** model found by initial propagation (no branching needed) ***');
             this.model.buildInterpretation();
+            this.model.checkModel();
             return true;
         }
         log('grounding done: '+this.model.unassignedCount()+' cells to assign, '+this.model.activeClauseCount()+' active clauses; first branch on '+cell.id+' ('+cell.possible.length+' values)');
@@ -818,6 +759,7 @@ ModelFinder.prototype.nextStep = function() {
             if (!nextCell) {
                 log('*** model found at depth '+depth+' ***');
                 this.model.buildInterpretation();
+                this.model.checkModel();
                 return true;
             }
             log('[d'+(depth+1)+'] next branch: '+nextCell.id+' ('+nextCell.possible.length+' values, '+this.model.unassignedCount()+' cells remain)');
@@ -1321,14 +1263,14 @@ Model.prototype.addSimplifiedClause = function(formulaClause, queue) {
         if (allGround) {
             var predCellId = lit.predicate + reducedTerms.toString();
             if (this.cellIndex[predCellId]) {
-                this.cellIndex[predCellId].occurrences.push(occ);
+                this.registerOccurrence(this.cellIndex[predCellId], occ);
             }
         }
 
         for (var ti = 0; ti < lit.termCellIds.length; ti++) {
             var tcid = lit.termCellIds[ti];
             if (this.cellIndex[tcid]) {
-                this.cellIndex[tcid].occurrences.push(occ);
+                this.registerOccurrence(this.cellIndex[tcid], occ);
             }
         }
 
@@ -1888,6 +1830,28 @@ Model.prototype.registerTermDependencies = function(term, occ) {
     }
 };
 
+Model.prototype.liveOccurrences = function(cell) {
+    /**
+     * Return the number of occurrences of <cell> that can still matter: those
+     * in a clause that isn't satisfied yet, on a literal that is still active.
+     *
+     * cell.occurrences is not a good measure by itself. Occurrences are added
+     * as term dependencies are discovered and are deliberately kept on
+     * backtracking (literals are re-evaluated, so keeping them is safe), which
+     * means the list also holds entries that no longer say anything about the
+     * current state.
+     */
+    var n = 0;
+    for (var i=0; i<cell.occurrences.length; i++) {
+        var occ = cell.occurrences[i];
+        var gc = this.groundClauses[occ.clauseIdx];
+        if (gc.satisfied) continue;
+        if (!gc.literals[occ.litIdx].active) continue;
+        n++;
+    }
+    return n;
+};
+
 Model.prototype.registerOccurrence = function(cell, occ) {
     /**
      * Add <occ> to cell's occurrence list if not already present.
@@ -2026,26 +1990,27 @@ Model.prototype.selectCell = function() {
      * Heuristic: function cells are tried before predicate cells, because
      * assigning a function cell (e.g. f(0) = 1) resolves function subterms in
      * many clauses, which often makes predicate literals evaluable and triggers
-     * cascading propagation. Within the same category, we prefer cells with
-     * fewer remaining possible values.
+     * cascading propagation. Indeed, while f(0) is unassigned, P(f(0)) doesn't
+     * refer to any one of P[0], P[1], .., so assigning predicate cells can't
+     * simplify it at all. Within the same category, we prefer cells with fewer
+     * remaining values.
      */
     var best = null;
     var bestIsFunc = false;
-    var bestPossible = Infinity;
+    var bestValues = Infinity;
     var bestMaxIndex = Infinity;
     for (var i=0; i<this.cells.length; i++) {
         var cell = this.cells[i];
         if (cell.fixed) continue;
         if (cell.value !== null) continue;
-        if (cell.occurrences.length === 0) continue; // skip irrelevant cell
-        var np = cell.possible.length;
+        if (this.liveOccurrences(cell) === 0) continue; // nothing left to decide
+        var nv = cell.possible.length;
         var isFunc = cell.isFunction;
         // Prefer function cells; within same category, prefer fewer values:
-        if ((isFunc && !bestIsFunc) ||
-            (isFunc === bestIsFunc && (np < bestPossible || (np === bestPossible && cell.maxIndex < bestMaxIndex)))) {
+        if ((isFunc && !bestIsFunc) || (isFunc === bestIsFunc && (nv < bestValues || (nv === bestValues && cell.maxIndex < bestMaxIndex)))) {
             best = cell;
             bestIsFunc = isFunc;
-            bestPossible = np;
+            bestValues = nv;
             bestMaxIndex = cell.maxIndex;
         }
     }
@@ -2091,11 +2056,34 @@ Model.prototype.buildInterpretation = function() {
     }
 };
 
+Model.prototype.checkModel = function() {
+    /**
+     * Throw if the model we are about to report doesn't satisfy the ground clauses.
+     */
+    if (!this.verifyModel()) {
+        throw new Error('internal error: the model found does not satisfy all ground clauses');
+    }
+};
+
 Model.prototype.verifyModel = function() {
     /**
      * Check that all ground clauses are satisfied by the current cell
      * assignments. Returns true if the model is valid, false otherwise.
      */
+    var mark = this.trail.length;
+    for (var i=0; i<this.cells.length; i++) {
+        var cell = this.cells[i];
+        if (cell.fixed || cell.value !== null) continue;
+        this.trail.push({type: 'assign', cell: cell, oldPossible: cell.possible});
+        cell.value = cell.possible.length > 0 ? cell.possible[0]
+            : (cell.isFunction ? 0 : false);
+    }
+    var res = this.allClausesSatisfied();
+    this.undoToMark(mark);
+    return res;
+};
+
+Model.prototype.allClausesSatisfied = function() {
     for (var ci=0; ci<this.groundClauses.length; ci++) {
         var gc = this.groundClauses[ci];
         var satisfied = false;

@@ -157,7 +157,7 @@ var invalidExamples = [
     { label: 'log50', formula: '∀x∀yTi(n(i(x,x)),y),∀x∀y(Cx→Ti(x,i(y,x))),(C(0)∧∀y(C(y)→C(s(y)))),∀x∀yC(i(x,y)),∀x∀y∀zTi(i(x,i(y,z)),i(i(x,y),i(x,z))),∀x∀y∀zTi(i(i(x,y),z),i(n(z),n(y))),∀x∀yTi(i(n(i(x,y)),y),i(x,y)),∀x∀y(Tx→(Ti(x,y)→Ty))|=(Ta→Tb)→Ti(a,b)' },
     { label: 'log51', formula: '∃wWw,∀x(Wx→¬Px),∀x(Wx→Pf(x)),∀w∀u((Ww∧Wu)→(Vf(w)w∧(Vf(w)u→u=w))),∀w(Ww→VTw),∀x∀y(Vxy→(Px∧Wy)),∀X(X=T↔(∃w(Ww∧VZw)∧∃w(Ww∧(VZw↔¬VXw))∧∀w(Ww→(VZw→VXw))))|=∀w(Ww→VZw)' },
     { label: 'log52', formula: '∀x∀y((Lo(x,y)R→Lo(y,x)R))↔(∃x(x=o(a,a)∧∃m∃n(x=o(m,n)∧Lo(m,n)R))↔∃x(x=o(a,a)∧∃m∃n(x=o(m,n)∧Lo(n,m)R)))' },
-    { label: 'log53', formula: '∀n∃P∀x(x=A∨x=n→LxP),∀X∀x(Lxt(X)↔LxA∧LxX),∀n∃u∀x(LxA∨Lxn→Lxu)|=∀X(LXC→∃u(Lt(X)u∧∀z(LzX→Lzu)))' },
+    { label: 'log53b', formula: '∀n∃P∀x(x=A∨x=n→LxP),∀X∀x(Lxt(X)↔LxA∧LxX),∀n∃u∀x(LxA∨Lxn→Lxu)|=∀X(LXC→∃u(Lt(X)u∧∀z(LzX→Lzu)))' },
     { label: 'log54', formula: '∃y∀x(Axy↔∀z(Azx↔Pz)∨∀z(Azx↔Qz)),∃y∀x(Axy↔Px),∃y∀x(Axy↔Qx)|=∃y∀x(Axy↔Px∨Qx)' },
     { label: 'log55', formula: '¬∃x¬∃y(Tx∧Wy∧Eyx)∧¬∀y∃x(Tx∧Wy∧¬Eyx)∧∀x∃y(Tx∧Wy∧Eyx)→∃y∀x(Tx∧Wy∧Eyx)' },
     { label: 'log56', formula: '∀x(Ix↔∃z∃y(Bzy∧¬Sxz))↔∀x∃z∃y(Ix↔Bzy∧¬Sxz)' },
@@ -409,7 +409,7 @@ var invalidExamples = [
     { label: 'log995', formula: '∀y(Fy↔∃xLxy∨y=e)↔(∀x∀y(Lxy→Fx)∧∀y(Fy∧¬y=e→∃xLxy)∧Fe)' },
     { label: 'log613', formula: '∀xAI(x,x),∀x∀yAI(*(x,y),x),∀x∀yAI(*(x,y),y),∀x∀y∀zAI(*(I(x,y),I(x,z)),I(x,*(y,z))),∀x∀yAI(x,+(x,y)),∀x∀yAI(y,+(x,y)),∀x∀y∀zAI(*(I(x,z),I(y,z)),I(+(x,y),z)),∀x∀y∀zAI(*(x,+(y,z)),+(*(x,y),*(x,z))),∀xAI(N(N(x)),x),∀x∀y((Ax∧AI(x,y))→Ay),∀x∀y((Ax∧Ay)→A*(x,y)),∀x∀y∀z((AI(x,y))→AI(I(z,x),I(z,y))),∀x∀y∀z((AI(x,y))→AI(I(y,z),I(x,z))),∀x∀y((AI(x,N(y)))→AI(y,N(x)))|=(AI(p,I(p,a)))→Aa' },
     { label: 'log14', formula: '∀x(Pxy)∨(y=e∧¬∃z∀x(Pxz))↔t=y,¬∃z(¬z=e∧∀x(Pxz))|=t=e' },
-    { label: 'log30', formula: '□(A→B)|=¬◇□B→¬◇□A  [reflexivity, symmetry, seriality]' },
+    { label: 'log30b', formula: '□(A→B)|=¬◇□B→¬◇□A  [reflexivity, symmetry, seriality]' },
     { label: 'log189', formula: '◇◇□(a∧b),◇◇◇(a∧b),◇□a|=□((□(a∧b)∧◇(a∧b))→□a)∧◇◇((□(a∧b)∧◇(a∧b))∧□a)' },
     { label: 'log246', formula: 'A,◇□A,◇□◇□A,◇□◇□◇□A,◇□◇□◇□◇□A|=□A  [reflexivity, symmetry]' },
     { label: 'log251', formula: '∃y∀x(Axy↔(Axa∧¬Axb)),∃y∀x(Axy↔(¬Axa∧Axb)),∀x(Axz↔∀u(Aux↔Aua∧¬Aub)∨∀u(Aux↔¬Aua∧Aub))|=∃d∀x(Axd↔(Axa∧¬Axb)∨(¬Axa∧Axb))' },
@@ -428,6 +428,7 @@ var invalidExamples = [
     { label: 'log688', formula: '□(a→□a)∧◇a|=□□□□□a  [reflexivity, symmetry]' },
     { label: 'log998', formula: '∀x∀y(□(Fd→□(Fx→Txy))→◇Txy),□(Fh→Thc(m))|=◇Thc(m)' },
     { label: 'McCuneGroup', formula: '(∀X(m(0,X)=X)∧∀X(m(i(X),X)=0)∧∀X∀Y∀Z(m(m(X,Y),Z)=m(X,m(Y,Z))))→(m(a,b)=m(b,a))' }, 
+    { label: 'Gratz25', formula: '□(□(□A → □(□B ∨ □C)) ↔ □(□(□A → □B) ∨ □(□A → □C)))' },
 ];
 
 if (typeof module !== "undefined") module.exports = invalidExamples;

@@ -402,7 +402,7 @@ Parser.prototype.parseFormula = function(str) {
     }
 
     // formula should be atomic
-    m = str.match(/[□◇∃∀¬]/);
+    var m = str.match(/[□◇∃∀¬]/);
     if (m) {
         throw "I don't understand '"+m[0]+"' in '"+str+"'. Missing operator?";
     }

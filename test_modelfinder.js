@@ -5,7 +5,8 @@
 function getModel(formulas, domainSize) {
     var parser = new Parser();
     if (typeof formulas === 'string') formulas = [formulas];
-    var parsed = formulas.map(function(f) { return parser.parseFormula(f); });
+    // the modelfinder is always given NNF formulas (see prover.js):
+    var parsed = formulas.map(function(f) { return parser.parseFormula(f).nnf(); });
     var mf = new ModelFinder(parsed, parser);
     var m;
     if (domainSize && domainSize > 1) {
@@ -15,6 +16,16 @@ function getModel(formulas, domainSize) {
     }
     m.groundIncremental(Infinity);
     return m;
+}
+
+// Helper: run definitionalCNF the way getClauses does, on the skolemized NNF
+// of <str>; returns [clauses, parser].
+function definitionalCNFOf(str) {
+    var parser = new Parser();
+    var mf = new ModelFinder([parser.parseFormula('p')], parser);
+    var f = parser.parseFormula(str).nnf();
+    var clauses = mf.definitionalCNF(mf.skolemize(mf.makeVariablesDistinct(f)));
+    return [clauses, parser];
 }
 
 tests = {
@@ -678,20 +689,22 @@ tests = {
         assertEqual(cnf.toString(), '[[p,q]]');
         var cnf = m.cnf(parser.parseFormula('p∧q'));
         assertEqual(cnf.toString(), '[[p],[q]]');
-        var cnf = m.cnf(parser.parseFormula('p→q'));
+        // cnf() takes NNF formulas, so the connectives that NNF removes are
+        // tested through their NNF equivalents:
+        var cnf = m.cnf(parser.parseFormula('p→q').nnf());
         assertEqual(cnf.toString(), '[[q,¬p]]');
-        var cnf = m.cnf(parser.parseFormula('p↔q'));
-        assertEqual(cnf.toString(), '[[q,¬p],[p,¬q]]');
-        var cnf = m.cnf(parser.parseFormula('¬(p∨q)'));
+        var cnf = m.cnf(parser.parseFormula('p↔q').nnf());
+        assertEqual(cnf.toString(), '[[p,¬q],[q,¬p]]');
+        var cnf = m.cnf(parser.parseFormula('¬(p∨q)').nnf());
         assertEqual(cnf.toString(), '[[¬p],[¬q]]');
-        var cnf = m.cnf(parser.parseFormula('¬(p∧q)'));
+        var cnf = m.cnf(parser.parseFormula('¬(p∧q)').nnf());
         assertEqual(cnf.toString(), '[[¬p,¬q]]');
-        var cnf = m.cnf(parser.parseFormula('¬(p→q)'));
+        var cnf = m.cnf(parser.parseFormula('¬(p→q)').nnf());
         assertEqual(cnf.toString(), '[[p],[¬q]]');
-        var cnf = m.cnf(parser.parseFormula('¬(p↔q)'));
+        var cnf = m.cnf(parser.parseFormula('¬(p↔q)').nnf());
         assertEqual(cnf.toString(), '[[p,q],[¬p,¬q]]');
 
-        var cnf = m.cnf(parser.parseFormula('¬¬p'));
+        var cnf = m.cnf(parser.parseFormula('¬¬p').nnf());
         assertEqual(cnf.toString(), '[[p]]');
     },
 
@@ -737,23 +750,71 @@ tests = {
     cnfbicond: function(){
         var parser = new Parser();
         var m = new ModelFinder([parser.parseFormula('p')], parser);
-        var f = parser.parseFormula('r ↔ (p↔q)');
+        var f = parser.parseFormula('r ↔ (p↔q)').nnf();
         var cnf = m.cnf(f);
-        assertEqual(cnf.toString(), '[[q,¬p,¬r],[p,¬q,¬r],[p,q,r],[r,¬p,¬q]]');
+        assertEqual(cnf.toString(), '[[p,q,r],[r,¬p,¬q],[p,¬q,¬r],[q,¬p,¬r]]');
     },
 
-    tseitinCNF_basic: function() {
+    definitionalCNF_noNames: function() {
+        // Without quantifiers there is nothing to gain by naming: conjunctions
+        // are concatenated and disjunctions multiplied out as usual.
+        var res = definitionalCNFOf('(p∧q)∨r');
+        assertEqual(res[0].toString(), '[[p,r],[q,r]]');
+        assertEqual(res[1].getSymbols('tseitin predicate').length, 0);
+    },
+
+    definitionalCNF_dropsQuantifier: function() {
+        // ∀x is dropped: a variable free in a clause is universal anyway.
+        var res = definitionalCNFOf('∀x(Fx∨Gx)');
+        assertEqual(res[0].toString(), '[[Fx,Gx]]');
+        assertEqual(res[1].getSymbols('tseitin predicate').length, 0);
+    },
+
+    definitionalCNF_namesQuantifiedDisjunct: function() {
+        // Here the right disjunct has its own variable y, which multiplying
+        // out would copy into every clause from the left disjunct, so it gets
+        // a name. The name takes x, which is bound outside it, but not y.
+        var res = definitionalCNFOf('∀x(¬Fx ∨ ∀y(¬Rxy ∨ Gy))');
+        assertEqual(res[0].toString(), '[[¬$x,¬Rxy,Gy],[¬Fx,$x]]');
+        var names = res[1].getSymbols('tseitin predicate');
+        assertEqual(names.length, 1);
+        assertEqual(res[1].arities[names[0]], 1);
+    },
+
+    definitionalCNF_onlyImplication: function() {
+        // We state that the name implies the subformula, not the converse: $
+        // occurs negatively in the definition and positively where the named
+        // subformula stood. There is no clause making $ true.
+        var res = definitionalCNFOf('∀x(∀yFxy ∨ ∀zGxz)');
+        assertEqual(res[0].toString(), '[[¬$x,Fxy],[¬$2x,Gxz],[$x,$2x]]');
+    },
+
+    definitionalCNF_nestedNames: function() {
+        // The translation of □(□A ∨ □B). Each named subformula is of arity 1
+        // (the world it is evaluated at); the variables bound inside it -- u
+        // and t -- are not arguments.
+        var res = definitionalCNFOf('∀v(¬Rwv ∨ (∀u(¬Rvu ∨ Au) ∨ ∀t(¬Rvt ∨ Bt)))');
+        assertEqual(res[0].toString(),
+                    '[[¬$2v,¬Rvu,Au],[¬$3v,¬Rvt,Bt],[¬$v,$2v,$3v],[¬Rwv,$v]]');
+        var names = res[1].getSymbols('tseitin predicate');
+        assertEqual(names.length, 3);
+        for (var i=0; i<names.length; i++) assertEqual(res[1].arities[names[i]], 1);
+    },
+
+    definitionalCNF_findsModel: function() {
+        // End to end: the clauses must still have exactly the right models.
+        // ∀x(Fx ∨ ∀y(¬Rxy ∨ Gy)) with ¬Fa and Rab has to make Gb true.
         var parser = new Parser();
-        var m = new ModelFinder([parser.parseFormula('p')], parser);
-        var cnf = m.tseitinCNF(parser.parseFormula('p'));
-        assertEqual(cnf.toString(), '[[p]]');
-        var cnf = m.tseitinCNF(parser.parseFormula('¬p'));
-        assertEqual(cnf.toString(), '[[¬p]]');
-        var cnf = m.tseitinCNF(parser.parseFormula('p∨q'));
-        assertEqual(cnf.toString(), '[[$],[$,¬p],[$,¬q],[p,q,¬$]]');
-        var cnf = m.tseitinCNF(parser.parseFormula('p∧q'));
-        assertEqual(cnf.toString(), '[[p],[q]]');
-        // assertEqual(cnf.toString(), '[[$2],[p,¬$2],[q,¬$2],[$2,¬p,¬q]]');
+        var fs = ['∀x(Fx ∨ ∀y(¬Rxy ∨ Gy))', '¬Fa', 'Rab'].map(function(s) {
+            return parser.parseFormula(s).nnf();
+        });
+        var mf = new ModelFinder(fs, parser);
+        var found = false;
+        for (var i=0; i<1000 && !found; i++) found = mf.nextStep();
+        assert(found, 'should find a model');
+        assert(mf.model.verifyModel());
+        var gCell = mf.model.cellIndex['G['+mf.model.interpretation['b']+']'];
+        assertEqual(gCell.value, true);
     },
     
     // transformations2: function() {
@@ -782,24 +843,6 @@ tests = {
         var f = parser.parseFormula('((p∧(Fa∧Fb))∨(p∧(Fc∧Fd)))∧((q∧(Fe∧Ff))∨(q∧(Fg∧Fh)))');
         var cnf = m.simplifyClauses(m.cnf(f));
         assertEqual(cnf, '[[p],[q],[Fa,Fc],[Fa,Fd],[Fb,Fc],[Fb,Fd],[Fe,Fg],[Fe,Fh],[Ff,Fg],[Ff,Fh]]');
-    },
-
-    tseitin1: function() {
-        var parser1 = new Parser();
-        var parser2 = new Parser();
-        var m1 = new ModelFinder([parser1.parseFormula('p')], parser1);
-        var m2 = new ModelFinder([parser2.parseFormula('p')], parser2);
-        var f = parser1.parseFormula('((p∨q)∧r)→¬s');
-        // var tseitin = parser2.parseFormula('($↔¬s)∧($↔(p∨q))∧($2↔($∧r))∧($3↔($2→$3))∧$3');
-        // [[$3],[$,¬p],[$,¬q],[$,¬$2],[r,¬$2],[$2,$3],[$3,s],[p,q,¬$],[$2,¬$,¬r],[¬$2,¬$3,¬s]]
-        var res = m1.tseitinCNF(f);
-        var tseitin = parser2.parseFormula('($↔(p∨q))∧($2↔($∧r))∧($3↔($2→¬s))∧$3');
-        var cnf = m2.cnf(tseitin);
-        // Compare as sets of clauses (clause order may differ between
-        // tseitinCNF and cnf even though the clause contents match).
-        var resSorted = res.map(function(c){return c.toString();}).sort().join('|');
-        var cnfSorted = cnf.map(function(c){return c.toString();}).sort().join('|');
-        assertEqual(resSorted, cnfSorted);
     },
 
     partialTseitin: function() {
